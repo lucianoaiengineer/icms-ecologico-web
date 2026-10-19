@@ -23,7 +23,15 @@ PARAMETROS = (
     ("8.3", "Aspecto - Capacitação"),
     ("9", "Infraestrutura e equipamentos"),
 )
+# Preserva as chaves da versão anterior para não deslocar valores já salvos.
+# Estas chaves são identificadores de armazenamento, não rótulos da ficha.
 MUNICIPAIS = ("10", "11.1", "11.2", "11.3")
+ROTULOS_MUNICIPAIS = {
+    "10": "10",
+    "11.1": "11",
+    "11.2": "11.1",
+    "11.3": "11.2",
+}
 
 
 def agora() -> datetime:
@@ -116,7 +124,7 @@ def validar(ficha: dict[str, Any], concluir: bool = False) -> list[str]:
                 type(valor) is not int or not 0 <= valor <= 9
             ):
                 erros.append(
-                    f"Município {posicao}, parâmetro {codigo}: use 0 a 9."
+                    f"Município {posicao}, parâmetro {ROTULOS_MUNICIPAIS[codigo]}: use 0 a 9."
                 )
             if not nome or nome == "-":
                 if valor not in (None, 0):
@@ -124,7 +132,9 @@ def validar(ficha: dict[str, Any], concluir: bool = False) -> list[str]:
                         f"Município {posicao}: há pontos sem nome de município."
                     )
             elif concluir and valor is None:
-                erros.append(f"{nome}: preencha o parâmetro {codigo}.")
+                erros.append(
+                    f"{nome}: preencha o parâmetro {ROTULOS_MUNICIPAIS[codigo]}."
+                )
     if concluir and not nomes:
         erros.append("Informe pelo menos um município para concluir.")
     return erros
