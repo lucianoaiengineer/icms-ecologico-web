@@ -36,6 +36,35 @@ class TesteInterface(unittest.TestCase):
             ["Consulta/Edição", "Cadastro", "Resultados"],
         )
 
+    def test_blocos_municipais(self) -> None:
+        """Confere nomes compartilhados e pontuações independentes ao salvar."""
+        self.preparar_ficha()
+        blocos = [b for b in self.app.expander if b.label.startswith("Parâmetro (")]
+        self.assertEqual(
+            [b.label for b in blocos],
+            [f"Parâmetro ({c}) por Municípios" for c in ("10", "11", "11.1", "11.2")],
+        )
+        for bloco in blocos:
+            self.assertEqual(len(bloco.text_input), 13)
+            self.assertEqual(len(bloco.number_input), 13)
+        self.app.text_input(key="99_municipio_1").set_value("Município de teste")
+        chaves = ("10", "11.1", "11.2", "11.3")
+        for chave, valor in zip(chaves, (1, 2, 3, 4)):
+            self.app.number_input(key=f"99_municipio_1_{chave}").set_value(valor)
+        self.acionar("Salvar rascunho")
+        self.assertFalse(self.app.exception)
+        for bloco in [b for b in self.app.expander if b.label.startswith("Parâmetro (")]:
+            self.assertEqual(bloco.text_input[0].value, "Município de teste")
+        next(c for c in self.app.text_input if c.label == "Número do processo SEI").set_value(
+            "0000.00.0000001/2026-00"
+        )
+        next(c for c in self.app.checkbox if c.label.startswith("Confirmo")).check()
+        self.acionar("Consultar processo")
+        self.assertFalse(self.app.exception)
+        municipio = self.app.session_state.ficha["municipios"][0]
+        self.assertEqual(municipio["nome"], "Município de teste")
+        self.assertEqual([municipio[c] for c in chaves], [1, 2, 3, 4])
+
     def test_rascunho(self) -> None:
         self.preparar_ficha()
         self.acionar("Salvar rascunho")
