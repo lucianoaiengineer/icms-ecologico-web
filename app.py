@@ -11,6 +11,7 @@ import streamlit as st
 from icms.regras import (
     MUNICIPAIS,
     PARAMETROS,
+    ROTULOS_MUNICIPAIS,
     calcular,
     normalizar_processo,
     nova_ficha,
@@ -295,30 +296,51 @@ with cadastro:
                     value=pontos["justificativa"],
                     key=f"{prefixo}_{codigo}_justificativa",
                 )
-        st.markdown("#### Municípios")
+        st.markdown("#### Parâmetros por municípios")
         st.caption(
-            "Informe cada nome uma única vez e seus quatro valores. Preencha somente as posições utilizadas."
+            "Preencha os nomes no bloco 10. Os outros três blocos utilizam "
+            "os mesmos municípios, na mesma ordem. Cada bloco tem seus próprios "
+            "valores de 0 a 9. Use Revisar preenchimento para atualizar os "
+            "nomes exibidos e os totais após editar."
         )
-        for posicao, municipio in enumerate(ficha["municipios"], 1):
-            with st.expander(f"Município {posicao}", expanded=posicao == 1):
-                municipio["nome"] = st.text_input(
-                    "Nome do município",
-                    value=municipio["nome"],
-                    key=f"{prefixo}_municipio_{posicao}",
-                )
-                for inicio in (0, 2):
-                    for codigo, coluna in zip(
-                        MUNICIPAIS[inicio : inicio + 2], st.columns(2)
-                    ):
-                        with coluna:
-                            municipio[codigo] = st.number_input(
-                                f"Parâmetro {codigo}",
-                                min_value=0,
-                                max_value=9,
-                                value=municipio[codigo],
-                                step=1,
-                                key=f"{prefixo}_municipio_{posicao}_{codigo}",
+        for codigo in MUNICIPAIS:
+            rotulo = ROTULOS_MUNICIPAIS[codigo]
+            with st.expander(
+                f"Parâmetro ({rotulo}) por Municípios", expanded=True
+            ):
+                for posicao, municipio in enumerate(ficha["municipios"], 1):
+                    coluna_nome, coluna_valor = st.columns([2, 1])
+                    with coluna_nome:
+                        if codigo == "10":
+                            municipio["nome"] = st.text_input(
+                                f"Município {posicao}",
+                                value=municipio["nome"],
+                                placeholder="Digite o nome do município",
+                                key=f"{prefixo}_municipio_{posicao}",
                             )
+                        else:
+                            # A identificação vem do primeiro bloco e não se duplica.
+                            st.text_input(
+                                f"Município {posicao}",
+                                value=municipio["nome"],
+                                key=(f"{prefixo}_nome_{codigo}_{posicao}_"
+                                     f"{municipio['nome']}"),
+                                disabled=True,
+                            )
+                    with coluna_valor:
+                        municipio[codigo] = st.number_input(
+                            f"Valor — Município {posicao} — Parâmetro ({rotulo})",
+                            min_value=0,
+                            max_value=9,
+                            value=municipio[codigo],
+                            step=1,
+                            key=f"{prefixo}_municipio_{posicao}_{codigo}",
+                        )
+                # Soma o bloco; entradas vazias continuam ausentes na ficha.
+                total_bloco = sum(
+                    municipio[codigo] or 0 for municipio in ficha["municipios"]
+                )
+                st.caption(f"TOTAL — Parâmetro ({rotulo}): {total_bloco}")
         revisar = st.form_submit_button(
             "Revisar preenchimento", disabled=not pode_editar
         )
@@ -343,7 +365,10 @@ with cadastro:
                 ],
                 hide_index=True,
             )
-            st.write("Totais para consolidação:", calculo["totais"])
+            st.write(
+                "Totais dos parâmetros da ficha:",
+                {ROTULOS_MUNICIPAIS[c]: v for c, v in calculo["totais"].items()},
+            )
             anterior = repositorio.consultar(
                 normalizar_processo(ficha["processo"])
             )
