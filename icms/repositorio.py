@@ -39,6 +39,36 @@ class Repositorio:
         self.registros: list[dict[str, Any]] = []
         self.historico: list[dict[str, Any]] = []
 
+    @staticmethod
+    def _diferencas(
+        antes: Any, depois: Any, caminho: str = ""
+    ) -> dict[str, dict[str, Any]]:
+        """Descreve apenas os valores alterados, com caminho até o campo."""
+        if isinstance(antes, dict) and isinstance(depois, dict):
+            diferencas: dict[str, dict[str, Any]] = {}
+            for chave in sorted(set(antes) | set(depois)):
+                proximo = f"{caminho}.{chave}" if caminho else str(chave)
+                diferencas.update(
+                    Repositorio._diferencas(
+                        antes.get(chave), depois.get(chave), proximo
+                    )
+                )
+            return diferencas
+        if isinstance(antes, list) and isinstance(depois, list):
+            diferencas = {}
+            for indice in range(max(len(antes), len(depois))):
+                valor_antes = antes[indice] if indice < len(antes) else None
+                valor_depois = depois[indice] if indice < len(depois) else None
+                diferencas.update(
+                    Repositorio._diferencas(
+                        valor_antes, valor_depois, f"{caminho}[{indice + 1}]"
+                    )
+                )
+            return diferencas
+        if antes != depois:
+            return {caminho: {"antes": antes, "depois": depois}}
+        return {}
+
     def listar(self) -> list[dict[str, Any]]:
         """Lê uma cópia dos registros atuais."""
         with self.trava:
@@ -95,11 +125,7 @@ class Repositorio:
                 "atualizado_em": agora().isoformat(),
             }
             anterior = atual["ficha"] if atual else {}
-            alteracoes = {
-                chave: {"antes": anterior.get(chave), "depois": valor}
-                for chave, valor in ficha.items()
-                if anterior.get(chave) != valor
-            }
+            alteracoes = self._diferencas(anterior, ficha)
             evento = {
                 "processo": ficha["processo"],
                 "versao": novo["versao"],
