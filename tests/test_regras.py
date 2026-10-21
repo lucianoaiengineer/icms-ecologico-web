@@ -137,6 +137,29 @@ class TesteRegras(unittest.TestCase):
         with self.assertRaises(ValueError):
             repositorio.consultar(ficha["processo"])
 
+    def test_exclusao_remove_ficha_e_preserva_auditoria(self) -> None:
+        repositorio = Repositorio()
+        ficha = ficha_valida()
+        salvo = repositorio.gravar(ficha, 0, "Rascunho", "usuario")
+
+        evento = repositorio.excluir(
+            ficha["processo"], salvo["versao"], "usuario"
+        )
+
+        self.assertIsNone(repositorio.consultar(ficha["processo"]))
+        self.assertEqual(evento["status"], "Excluída")
+        self.assertEqual(repositorio.historico[-1]["status"], "Excluída")
+
+    def test_exclusao_com_versao_antiga_e_bloqueada(self) -> None:
+        repositorio = Repositorio()
+        ficha = ficha_valida()
+        repositorio.gravar(ficha, 0, "Rascunho", "usuario")
+        ficha["unidade"] = "Unidade atualizada"
+        repositorio.gravar(ficha, 1, "Rascunho", "usuario")
+
+        with self.assertRaises(Conflito):
+            repositorio.excluir(ficha["processo"], 1, "outro usuario")
+
 
 if __name__ == "__main__":
     unittest.main()
