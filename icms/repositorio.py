@@ -6,7 +6,7 @@ from copy import deepcopy
 from threading import RLock
 from typing import Any
 
-from icms.regras import agora, calcular, preparar, validar
+from icms.regras import agora, calcular, normalizar_processo, preparar, validar
 
 CABECALHO = [
     "processo",
@@ -120,6 +120,48 @@ class Repositorio:
                     "Gravação sem confirmação. Consulte o processo antes de repetir."
                 )
             return confirmado
+
+    def excluir(self, processo: str, versao: int, autor: str) -> dict[str, Any]:
+        """Remove uma ficha após conferir sua versão e registra a exclusão."""
+        processo = normalizar_processo(processo)
+        with self.trava:
+            atual = self.consultar(processo)
+            if atual is None:
+                raise ValueError("Não há ficha cadastrada para excluir.")
+            if atual["versao"] != versao:
+                raise Conflito(
+                    "A ficha foi alterada por outra pessoa. Consulte novamente antes de excluir."
+                )
+            texto = json.dumps(
+                atual["ficha"], ensure_ascii=False, sort_keys=True
+            )
+            evento = {
+                "processo": processo,
+                "versao": versao + 1,
+                "status": "Excluída",
+                "autor": autor,
+                "data": agora().isoformat(),
+                "hash": hashlib.sha256(texto.encode()).hexdigest(),
+                "alteracoes": {"registro": "Ficha excluída"},
+            }
+            self._excluir(atual, evento)
+            if self.consultar(processo) is not None:
+                raise ValueError(
+                    "A exclusão não foi confirmada. Consulte o processo antes de repetir."
+                )
+            return evento
+
+    def _excluir(
+        self, registro: dict[str, Any], evento: dict[str, Any]
+    ) -> None:
+        """Remove do repositório temporário e conserva evento de auditoria."""
+        processo = registro["ficha"]["processo"]
+        self.registros = [
+            atual
+            for atual in self.registros
+            if atual["ficha"]["processo"] != processo
+        ]
+        self.historico.append(deepcopy(evento))
 
     def _persistir(
         self, registro: dict[str, Any], evento: dict[str, Any]
@@ -262,6 +304,66 @@ class RepositorioSheets(Repositorio):
                         "appendCells": {
                             "sheetId": self.auditoria.id,
                             "rows": [celulas(auditoria)],
+                            "fields": "userEnteredValue",
+                        }
+                    },
+                ]
+            }
+        )
+
+    def _excluir(
+        self, registro: dict[str, Any], evento: dict[str, Any]
+    ) -> None:
+        """Exclui a linha ativa e acrescenta auditoria na mesma operação."""
+        linhas = self.fichas.get_all_values()
+        processo = registro["ficha"]["processo"]
+        indices = [
+            indice
+            for indice, linha in enumerate(linhas[1:], 1)
+            if linha and linha[0] == processo
+        ]
+        if len(indices) != 1:
+            raise ValueError(
+                "A ficha não foi localizada de forma única. Exclusão cancelada."
+            )
+        indice = indices[0]
+        if len(linhas[indice]) < 2 or int(linhas[indice][1]) != evento["versao"] - 1:
+            raise Conflito(
+                "A ficha foi alterada por outra pessoa. Consulte novamente antes de excluir."
+            )
+
+        valores_auditoria = [
+            evento["processo"],
+            evento["versao"],
+            evento["status"],
+            evento["autor"],
+            evento["data"],
+            evento["hash"],
+            json.dumps(evento["alteracoes"], ensure_ascii=False),
+        ]
+        celulas = {
+            "values": [
+                {"userEnteredValue": {"stringValue": str(valor)}}
+                for valor in valores_auditoria
+            ]
+        }
+        self.planilha.batch_update(
+            {
+                "requests": [
+                    {
+                        "deleteDimension": {
+                            "range": {
+                                "sheetId": self.fichas.id,
+                                "dimension": "ROWS",
+                                "startIndex": indice,
+                                "endIndex": indice + 1,
+                            }
+                        }
+                    },
+                    {
+                        "appendCells": {
+                            "sheetId": self.auditoria.id,
+                            "rows": [celulas],
                             "fields": "userEnteredValue",
                         }
                     },
