@@ -370,6 +370,34 @@ with consulta:
         st.info(
             "Processo não cadastrado. Use Cadastro para incluir uma nova ficha."
         )
+    rascunhos = [
+        registro
+        for registro in repositorio.listar()
+        if registro["status"] == "Rascunho"
+    ]
+    st.markdown("#### Rascunhos gravados")
+    st.caption(
+        "Estes registros parciais foram gravados para permitir continuação. "
+        "Informe o número SEI acima para consultar e abrir um rascunho."
+    )
+    if rascunhos:
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Nº SEI": registro["ficha"]["processo"],
+                        "Unidade": registro["ficha"]["unidade"] or "não informada",
+                        "Situação": "Rascunho",
+                        "Última gravação": registro["atualizado_em"],
+                    }
+                    for registro in rascunhos
+                ]
+            ),
+            hide_index=True,
+            width="stretch",
+        )
+    else:
+        st.caption("Não há rascunhos gravados no momento.")
 
 with cadastro:
     st.subheader("Ficha de análise")
@@ -556,15 +584,8 @@ with cadastro:
         rascunho = st.form_submit_button(
             "Salvar rascunho", disabled=not pode_editar
         )
-        confirmado = st.checkbox(
-            "Revisei os dados e confirmo a conclusão ou atualização da ficha."
-        )
-        concluir = st.form_submit_button("Salvar", disabled=not pode_editar)
+        concluir = st.form_submit_button("Cadastrar", disabled=not pode_editar)
     st.markdown("#### Resumo final da ficha")
-    st.caption(
-        "Quadro correspondente à parte inferior do modelo: soma dos pontos "
-        "validados e dos parâmetros municipais, dividida pela pontuação da categoria."
-    )
     try:
         st.dataframe(
             quadro_final_ficha(ficha),
@@ -601,28 +622,23 @@ with cadastro:
                 "Não foi possível gerar a revisão. Confira os dados e tente novamente."
             )
     if rascunho or concluir:
-        if concluir and not confirmado:
-            st.error(
-                "Revise os dados e marque a confirmação antes de concluir."
+        try:
+            salvo = repositorio.gravar(
+                ficha,
+                st.session_state.versao,
+                "Concluída" if concluir else "Rascunho",
+                autor,
             )
-        else:
-            try:
-                salvo = repositorio.gravar(
-                    ficha,
-                    st.session_state.versao,
-                    "Concluída" if concluir else "Rascunho",
-                    autor,
-                )
-                st.session_state.versao = salvo["versao"]
-                st.success(
-                    f"{salvo['status']} salva e verificada. Versão {salvo['versao']}."
-                )
-            except (Conflito, ValueError) as erro:
-                st.error(str(erro))
-            except Exception:
-                st.error(
-                    "A gravação não pôde ser confirmada. Consulte o processo antes de reenviar."
-                )
+            st.session_state.versao = salvo["versao"]
+            st.success(
+                f"{salvo['status']} salva e verificada. Versão {salvo['versao']}."
+            )
+        except (Conflito, ValueError) as erro:
+            st.error(str(erro))
+        except Exception:
+            st.error(
+                "A gravação não pôde ser confirmada. Consulte o processo antes de reenviar."
+            )
 
 with resultados:
     st.subheader("Resultados consolidados")
@@ -636,35 +652,38 @@ with resultados:
     filtro = st.text_input("Filtrar por processo ou unidade")
     try:
         registros = repositorio.listar()
-        if registros:
-            st.markdown("#### Fichas salvas")
-            fichas_salvas = pd.DataFrame(
-                [
-                    {
-                        "Nº SEI": registro["ficha"]["processo"],
-                        "Unidade": registro["ficha"]["unidade"],
-                        "Situação": registro["status"],
-                        "Última atualização": registro["atualizado_em"],
-                    }
-                    for registro in registros
+        concluidas = [
+            registro
+            for registro in registros
+            if registro["status"] == "Concluída"
+        ]
+        processo_mais_recente = None
+        if concluidas:
+            datas_gravacao = [
+                pd.to_datetime(
+                    registro.get("atualizado_em"), utc=True, errors="coerce"
+                )
+                for registro in concluidas
+            ]
+            datas_validas = [
+                (indice, data_gravacao)
+                for indice, data_gravacao in enumerate(datas_gravacao)
+                if not pd.isna(data_gravacao)
+            ]
+            indice_mais_recente = (
+                max(datas_validas, key=lambda item: item[1])[0]
+                if datas_validas
+                else None
+            )
+            if indice_mais_recente is not None:
+                processo_mais_recente = concluidas[indice_mais_recente]["ficha"][
+                    "processo"
                 ]
-            )
-            if filtro:
-                selecao_salvas = fichas_salvas["Nº SEI"].str.contains(
-                    filtro, regex=False, case=False
-                )
-                selecao_salvas |= fichas_salvas["Unidade"].str.contains(
-                    filtro, regex=False, case=False
-                )
-                fichas_salvas = fichas_salvas[selecao_salvas]
-            st.dataframe(fichas_salvas, hide_index=True)
-            st.caption(
-                "Rascunhos ficam salvos para consulta e edição, mas não entram "
-                "no resultado consolidado."
-            )
-        quadro = resultado_consolidado(registros)
+        quadro = resultado_consolidado(concluidas)
         if quadro.empty:
-            st.info("Nenhuma ficha concluída encontrada.")
+            st.info(
+                "Não há fichas concluídas para exibir. Os rascunhos ficam em Consulta/Edição."
+            )
         else:
             if filtro:
                 selecao = quadro["Nº SEI"].str.contains(
@@ -674,6 +693,19 @@ with resultados:
                     filtro, regex=False, case=False
                 )
                 quadro = quadro[selecao]
+            quadro_tela = quadro.copy()
+            if processo_mais_recente:
+                quadro_tela.insert(
+                    1,
+                    "Indicador",
+                    quadro_tela["Nº SEI"].map(
+                        lambda processo: (
+                            "Último cadastro"
+                            if processo == processo_mais_recente
+                            else ""
+                        )
+                    ),
+                )
             configuracao = {
                 "DATA RECEBIDA": st.column_config.DateColumn(
                     format="MM/DD/YYYY"
@@ -688,7 +720,11 @@ with resultados:
                 }
             )
             st.dataframe(
-                quadro, hide_index=True, column_config=configuracao
+                quadro_tela, hide_index=True, column_config=configuracao
+            )
+            st.caption(
+                "'Último cadastro' marca a ficha concluída gravada mais recentemente; "
+                "rascunhos não participam deste indicador."
             )
             st.download_button(
                 "Baixar CSV",
