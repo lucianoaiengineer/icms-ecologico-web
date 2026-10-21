@@ -18,7 +18,44 @@ from icms.regras import (
 from icms.repositorio import Conflito, Repositorio, RepositorioSheets
 
 st.set_page_config(
-    page_title="Gestão de Fichas | ICMS Ecológico", layout="wide"
+    page_title="Gestão de Fichas | ICMS Ecológico", layout="centered"
+)
+
+st.markdown(
+    """
+    <style>
+    [data-testid="stMainBlockContainer"] {
+        max-width: 980px;
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+    /* Mantém rótulos e controles na mesma linha em qualquer largura. */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        align-items: center;
+    }
+    [data-testid="column"] {
+        min-width: 0 !important;
+    }
+    @media (max-width: 640px) {
+        [data-testid="stMainBlockContainer"] {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+        [data-testid="stHorizontalBlock"] {
+            gap: 0.5rem;
+        }
+        [data-testid="stTextInput"],
+        [data-testid="stNumberInput"],
+        [data-testid="stSelectbox"],
+        [data-testid="stDateInput"],
+        [data-testid="stTextArea"] {
+            min-width: 0 !important;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -75,9 +112,61 @@ def abrir(ficha: dict, versao: int = 0) -> None:
     st.session_state.geracao = st.session_state.get("geracao", 0) + 1
 
 
+def texto_em_linha(
+    rotulo: str,
+    valor: str,
+    chave: str,
+    *,
+    desabilitado: bool = False,
+    placeholder: str = "",
+) -> str:
+    """Desenha o rótulo à esquerda e o campo de texto à direita."""
+    coluna_rotulo, coluna_valor = st.columns(
+        [0.42, 0.58], vertical_alignment="center"
+    )
+    with coluna_rotulo:
+        st.markdown(f"**{rotulo}**")
+    with coluna_valor:
+        return st.text_input(
+            rotulo,
+            value=valor,
+            key=chave,
+            disabled=desabilitado,
+            placeholder=placeholder,
+            label_visibility="collapsed",
+        )
+
+
+def inteiro_em_linha(
+    rotulo: str, valor: int | None, chave: str, minimo: int, maximo: int
+) -> int | None:
+    """Desenha o rótulo à esquerda e o campo numérico à direita."""
+    coluna_rotulo, coluna_valor = st.columns(
+        [0.42, 0.58], vertical_alignment="center"
+    )
+    with coluna_rotulo:
+        st.markdown(f"**{rotulo}**")
+    with coluna_valor:
+        return st.number_input(
+            rotulo,
+            min_value=minimo,
+            max_value=maximo,
+            value=valor,
+            step=1,
+            key=chave,
+            label_visibility="collapsed",
+        )
+
+
 def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
     """Monta o relatório a partir das fichas concluídas, sem segunda base."""
-    mapa = dict(segredo("totais_resultado", {}))
+    mapa = {
+        "10": "10",
+        "11.1": "11.1",
+        "11.2": "11.1",
+        "11.3": "11.1",
+    }
+    mapa.update(dict(segredo("totais_resultado", {})))
     linhas = []
     for registro in registros:
         if registro["status"] != "Concluída":
@@ -111,6 +200,40 @@ def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
                 float(nota["FQ"].replace(",", ".")) if nota else None
             )
         linhas.append(linha)
+    return pd.DataFrame(linhas)
+
+
+def quadro_final_ficha(ficha: dict) -> pd.DataFrame:
+    """Monta a parte inferior da ficha para os 13 municípios."""
+    total_validado = sum(
+        ponto.get("validado") or 0
+        for ponto in ficha["parametros"].values()
+    )
+    linhas = []
+    for posicao, municipio in enumerate(ficha["municipios"], 1):
+        nome = municipio["nome"].strip()
+        if not nome or nome == "-":
+            linhas.append(
+                {
+                    "Posição": f"Município {posicao}",
+                    "Município": "-",
+                "SOMA PARÂMETROS": "-",
+                    "PONTUAÇÃO FINAL FQ": "-",
+                }
+            )
+            continue
+        soma = total_validado + sum(
+            municipio.get(codigo) or 0 for codigo in MUNICIPAIS
+        )
+        fq = soma / ficha["pontuacao_categoria"]
+        linhas.append(
+            {
+                "Posição": f"Município {posicao}",
+                "Município": nome,
+                "SOMA PARÂMETROS": str(soma),
+                "PONTUAÇÃO FINAL FQ": f"{fq:.2f}".replace(".", ","),
+            }
+        )
     return pd.DataFrame(linhas)
 
 
@@ -167,102 +290,168 @@ consulta, cadastro, resultados = st.tabs(
 with consulta:
     st.subheader("Localizar ficha")
     st.caption(
-        "Consulte o processo antes de editar. Ao carregar outra ficha, campos não salvos serão substituídos."
+        "A consulta localiza rascunhos e fichas concluídas pelo número do processo. "
+        "Consultar não altera o formulário; a substituição só ocorre se você escolher abrir a ficha."
     )
     with st.form("consulta"):
         busca = st.text_input(
             "Número do processo SEI", placeholder="0000.00.0000000/0000-00"
         )
-        confirmar = st.checkbox(
-            "Confirmo a substituição dos campos não salvos, se houver."
-        )
         consultar = st.form_submit_button("Consultar processo")
     if consultar:
         try:
-            if not confirmar:
-                raise ValueError(
-                    "Confirme a substituição para carregar a ficha."
-                )
-            registro = repositorio.consultar(normalizar_processo(busca))
-            if registro:
-                abrir(registro["ficha"], registro["versao"])
-                st.session_state.aviso = (
-                    "Ficha carregada. Abra Cadastro para consultar ou editar."
-                )
-                st.rerun()
-            else:
-                st.info(
-                    "Processo não cadastrado. Utilize Cadastro para iniciar uma ficha."
-                )
+            processo_consultado = normalizar_processo(busca)
+            st.session_state.processo_consultado = processo_consultado
+            st.session_state.registro_consultado = repositorio.consultar(
+                processo_consultado
+            )
         except ValueError as erro:
             st.error(str(erro))
         except Exception:
             st.error(
-                "Falha na consulta. Tente novamente sem substituir os dados preenchidos."
+                "Falha na consulta. Confira a conexão e tente novamente."
             )
+    registro_consultado = st.session_state.get("registro_consultado")
+    if registro_consultado:
+        ficha_consultada = registro_consultado["ficha"]
+        st.success(
+            f"Ficha encontrada · Situação: {registro_consultado['status']} · "
+            f"Versão {registro_consultado['versao']}"
+        )
+        st.write(
+            f"**Unidade:** {ficha_consultada['unidade'] or 'não informada'}  \n"
+            f"**Atualizada em:** {registro_consultado['atualizado_em']}"
+        )
+        st.caption(
+            "A ficha será carregada no Cadastro para consulta ou edição. "
+            "Dados ainda não salvos que estejam no Cadastro serão substituídos."
+        )
+        coluna_abrir, coluna_excluir = st.columns(2)
+        with coluna_abrir:
+            if st.button(
+                "Abrir ficha no Cadastro",
+                disabled=not pode_editar,
+            ):
+                abrir(ficha_consultada, registro_consultado["versao"])
+                st.session_state.aviso = (
+                    "Ficha aberta para consulta ou edição no Cadastro."
+                )
+                st.rerun()
+        with coluna_excluir:
+            confirmar_exclusao = st.checkbox(
+                "Confirmo a exclusão desta ficha.",
+                key=f"confirmar_exclusao_{st.session_state.processo_consultado}",
+                disabled=not pode_editar,
+            )
+            if st.button(
+                "Excluir ficha",
+                disabled=not confirmar_exclusao or not pode_editar,
+            ):
+                try:
+                    repositorio.excluir(
+                        st.session_state.processo_consultado,
+                        registro_consultado["versao"],
+                        autor,
+                    )
+                    st.session_state.registro_consultado = None
+                    st.session_state.aviso = (
+                        "Ficha excluída. O evento foi registrado no histórico."
+                    )
+                    st.rerun()
+                except (Conflito, ValueError) as erro:
+                    st.error(str(erro))
+                except Exception:
+                    st.error(
+                        "A exclusão não foi confirmada. Consulte novamente antes de repetir."
+                    )
+    elif "registro_consultado" in st.session_state and st.session_state.get(
+        "processo_consultado"
+    ):
+        st.info(
+            "Processo não cadastrado. Use Cadastro para incluir uma nova ficha."
+        )
 
 with cadastro:
     st.subheader("Ficha de análise")
     st.caption(
         f"Versão carregada: {st.session_state.versao}. Rascunhos não alimentam o resultado."
     )
-    if st.checkbox(
-        "Descartar campos não salvos para iniciar outra ficha", key="descartar"
-    ):
-        if st.button("Nova ficha", disabled=not pode_editar):
-            abrir(nova_ficha())
-            st.rerun()
+    if st.button("Iniciar nova ficha", disabled=not pode_editar):
+        st.session_state.confirmar_nova_ficha = True
+    if st.session_state.get("confirmar_nova_ficha"):
+        st.warning(
+            "Iniciar uma ficha nova limpa da tela os dados ainda não salvos. "
+            "Fichas já salvas permanecem na base."
+        )
+        confirmar_nova, manter_atual = st.columns(2)
+        with confirmar_nova:
+            if st.button("Descartar e iniciar nova ficha", disabled=not pode_editar):
+                abrir(nova_ficha())
+                st.session_state.confirmar_nova_ficha = False
+                st.rerun()
+        with manter_atual:
+            if st.button("Continuar com a ficha atual"):
+                st.session_state.confirmar_nova_ficha = False
+                st.rerun()
     ficha = deepcopy(st.session_state.ficha)
     prefixo = str(st.session_state.geracao)
     with st.form("ficha_" + prefixo):
         st.markdown("#### Identificação")
-        esquerda, direita = st.columns(2)
-        for coluna, campos in (
-            (
-                esquerda,
-                [
-                    ("processo", "Processo SEI"),
-                    ("orgao", "Órgão gestor"),
-                    ("unidade", "Nome da U.C."),
-                    ("categoria", "Categoria da U.C."),
-                    ("responsavel", "Responsável GCMUC"),
-                ],
-            ),
-            (
-                direita,
-                [("urfbio", "URFBio"), ("tecnico", "Responsável técnico")],
-            ),
+        for campo, rotulo in (
+            ("processo", "Processo SEI"),
+            ("orgao", "Órgão gestor"),
+            ("unidade", "Nome da U.C."),
+            ("categoria", "Categoria da U.C."),
+            ("responsavel", "Responsável GCMUC"),
+            ("tecnico", "Responsável técnico"),
+            ("urfbio", "URFBio"),
         ):
-            with coluna:
-                for campo, rotulo in campos:
-                    ficha[campo] = st.text_input(
-                        rotulo,
-                        value=ficha[campo],
-                        key=f"{prefixo}_{campo}",
-                        disabled=campo == "processo"
-                        and st.session_state.versao > 0,
-                    )
-        with direita:
-            opcoes = ["", "Estadual", "Federal", "Municipal"]
-            ficha["esfera"] = st.selectbox(
-                "Esfera administrativa",
-                opcoes,
-                index=opcoes.index(ficha["esfera"]),
+            ficha[campo] = texto_em_linha(
+                rotulo,
+                ficha[campo],
+                f"{prefixo}_{campo}",
+                desabilitado=(
+                    campo == "processo" and st.session_state.versao > 0
+                ),
             )
-            ficha["pontuacao_categoria"] = st.number_input(
+        coluna_esfera, coluna_categoria = st.columns(2)
+        with coluna_esfera:
+            rotulo, controle = st.columns([0.42, 0.58], vertical_alignment="center")
+            with rotulo:
+                st.markdown("**Esfera administrativa**")
+            with controle:
+                opcoes = ["", "Estadual", "Federal", "Municipal"]
+                ficha["esfera"] = st.selectbox(
+                    "Esfera administrativa",
+                    opcoes,
+                    index=opcoes.index(ficha["esfera"]),
+                    label_visibility="collapsed",
+                )
+        with coluna_categoria:
+            ficha["pontuacao_categoria"] = inteiro_em_linha(
                 "Pontuação da categoria",
-                min_value=1,
-                max_value=999,
-                value=ficha["pontuacao_categoria"],
-                step=1,
+                ficha["pontuacao_categoria"],
+                f"{prefixo}_pontuacao_categoria",
+                1,
+                999,
             )
-            ficha["analise"] = st.text_input(
-                "Data de análise (mm/aaaa)", value=ficha["analise"]
-            )
+        ficha["analise"] = texto_em_linha(
+            "Data de análise (mm/aaaa)",
+            ficha["analise"],
+            f"{prefixo}_analise",
+            placeholder="mm/aaaa",
+        )
+        rotulo_data, controle_data = st.columns(
+            [0.42, 0.58], vertical_alignment="center"
+        )
+        with rotulo_data:
+            st.markdown("**Data de recebimento**")
+        with controle_data:
             ficha["recebimento"] = st.date_input(
                 "Data de recebimento",
                 value=date.fromisoformat(ficha["recebimento"]),
                 format="MM/DD/YYYY",
+                label_visibility="collapsed",
             ).isoformat()
         st.markdown("#### Pontuações e justificativas")
         st.caption(
@@ -273,28 +462,33 @@ with cadastro:
                 pontos = ficha["parametros"][codigo]
                 gestor, validado = st.columns(2)
                 with gestor:
-                    pontos["gestor"] = st.number_input(
+                    pontos["gestor"] = inteiro_em_linha(
                         "Pontos Gestor",
-                        min_value=0,
-                        max_value=9,
-                        value=pontos["gestor"],
-                        step=1,
-                        key=f"{prefixo}_{codigo}_gestor",
+                        pontos["gestor"],
+                        f"{prefixo}_{codigo}_gestor",
+                        0,
+                        9,
                     )
                 with validado:
-                    pontos["validado"] = st.number_input(
+                    pontos["validado"] = inteiro_em_linha(
                         "Pontos Validados",
-                        min_value=0,
-                        max_value=9,
-                        value=pontos["validado"],
-                        step=1,
-                        key=f"{prefixo}_{codigo}_validado",
+                        pontos["validado"],
+                        f"{prefixo}_{codigo}_validado",
+                        0,
+                        9,
                     )
-                pontos["justificativa"] = st.text_area(
-                    "Justificativa",
-                    value=pontos["justificativa"],
-                    key=f"{prefixo}_{codigo}_justificativa",
+                rotulo_justificativa, campo_justificativa = st.columns(
+                    [0.2, 0.8], vertical_alignment="top"
                 )
+                with rotulo_justificativa:
+                    st.markdown("**Justificativa**")
+                with campo_justificativa:
+                    pontos["justificativa"] = st.text_area(
+                        "Justificativa",
+                        value=pontos["justificativa"],
+                        key=f"{prefixo}_{codigo}_justificativa",
+                        label_visibility="collapsed",
+                    )
         st.markdown("#### Parâmetros por municípios")
         st.caption(
             "Preencha os nomes no bloco 10. Os outros três blocos utilizam "
@@ -366,6 +560,19 @@ with cadastro:
             "Revisei os dados e confirmo a conclusão ou atualização da ficha."
         )
         concluir = st.form_submit_button("Salvar", disabled=not pode_editar)
+    st.markdown("#### Resumo final da ficha")
+    st.caption(
+        "Quadro correspondente à parte inferior do modelo: soma dos pontos "
+        "validados e dos parâmetros municipais, dividida pela pontuação da categoria."
+    )
+    try:
+        st.dataframe(
+            quadro_final_ficha(ficha),
+            hide_index=True,
+            width="stretch",
+        )
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        st.info("O resumo será calculado após informar a pontuação da categoria.")
     if revisar or rascunho or concluir:
         st.session_state.ficha = deepcopy(ficha)
     if revisar:
@@ -422,75 +629,74 @@ with resultados:
     st.caption(
         "Somente fichas concluídas. Notas exibidas com duas casas decimais."
     )
-    st.info(
-        "O destino dos totais de 11.1, 11.2 e 11.3 está pendente de confirmação. "
-        "Até a configuração, essas colunas permanecem vazias no relatório."
+    st.caption(
+        "No relatório, o total do bloco 10 alimenta o fator 10; o total do bloco 11 "
+        "alimenta os fatores 11.1, 11.2 e 11.3, conforme definido para E44 e E60."
     )
     filtro = st.text_input("Filtrar por processo ou unidade")
-    if st.button("Consultar resultados"):
-        try:
-            registros = repositorio.listar()
-            if registros:
-                st.markdown("#### Fichas salvas")
-                fichas_salvas = pd.DataFrame(
-                    [
-                        {
-                            "Nº SEI": registro["ficha"]["processo"],
-                            "Unidade": registro["ficha"]["unidade"],
-                            "Situação": registro["status"],
-                            "Última atualização": registro["atualizado_em"],
-                        }
-                        for registro in registros
-                    ]
-                )
-                if filtro:
-                    selecao_salvas = fichas_salvas["Nº SEI"].str.contains(
-                        filtro, regex=False, case=False
-                    )
-                    selecao_salvas |= fichas_salvas["Unidade"].str.contains(
-                        filtro, regex=False, case=False
-                    )
-                    fichas_salvas = fichas_salvas[selecao_salvas]
-                st.dataframe(fichas_salvas, hide_index=True)
-                st.caption(
-                    "Rascunhos ficam salvos para consulta e edição, mas não entram "
-                    "no resultado consolidado."
-                )
-            quadro = resultado_consolidado(registros)
-            if quadro.empty:
-                st.info("Nenhuma ficha concluída encontrada.")
-            else:
-                if filtro:
-                    selecao = quadro["Nº SEI"].str.contains(
-                        filtro, regex=False, case=False
-                    )
-                    selecao |= quadro["REMETENTE - UCs"].str.contains(
-                        filtro, regex=False, case=False
-                    )
-                    quadro = quadro[selecao]
-                configuracao = {
-                    "DATA RECEBIDA": st.column_config.DateColumn(
-                        format="MM/DD/YYYY"
-                    )
-                }
-                configuracao.update(
+    try:
+        registros = repositorio.listar()
+        if registros:
+            st.markdown("#### Fichas salvas")
+            fichas_salvas = pd.DataFrame(
+                [
                     {
-                        f"Nota{i}": st.column_config.NumberColumn(
-                            format="%.2f"
-                        )
-                        for i in range(1, 14)
+                        "Nº SEI": registro["ficha"]["processo"],
+                        "Unidade": registro["ficha"]["unidade"],
+                        "Situação": registro["status"],
+                        "Última atualização": registro["atualizado_em"],
                     }
-                )
-                st.dataframe(
-                    quadro, hide_index=True, column_config=configuracao
-                )
-                st.download_button(
-                    "Baixar CSV",
-                    proteger_csv(quadro),
-                    "resultado_fq.csv",
-                    "text/csv",
-                )
-        except Exception:
-            st.error(
-                "Não foi possível montar o resultado. Confira as fichas e a conexão."
+                    for registro in registros
+                ]
             )
+            if filtro:
+                selecao_salvas = fichas_salvas["Nº SEI"].str.contains(
+                    filtro, regex=False, case=False
+                )
+                selecao_salvas |= fichas_salvas["Unidade"].str.contains(
+                    filtro, regex=False, case=False
+                )
+                fichas_salvas = fichas_salvas[selecao_salvas]
+            st.dataframe(fichas_salvas, hide_index=True)
+            st.caption(
+                "Rascunhos ficam salvos para consulta e edição, mas não entram "
+                "no resultado consolidado."
+            )
+        quadro = resultado_consolidado(registros)
+        if quadro.empty:
+            st.info("Nenhuma ficha concluída encontrada.")
+        else:
+            if filtro:
+                selecao = quadro["Nº SEI"].str.contains(
+                    filtro, regex=False, case=False
+                )
+                selecao |= quadro["REMETENTE - UCs"].str.contains(
+                    filtro, regex=False, case=False
+                )
+                quadro = quadro[selecao]
+            configuracao = {
+                "DATA RECEBIDA": st.column_config.DateColumn(
+                    format="MM/DD/YYYY"
+                )
+            }
+            configuracao.update(
+                {
+                    f"Nota{i}": st.column_config.NumberColumn(
+                        format="%.2f"
+                    )
+                    for i in range(1, 14)
+                }
+            )
+            st.dataframe(
+                quadro, hide_index=True, column_config=configuracao
+            )
+            st.download_button(
+                "Baixar CSV",
+                proteger_csv(quadro),
+                "resultado_fq.csv",
+                "text/csv",
+            )
+    except Exception:
+        st.error(
+            "Não foi possível montar o resultado. Confira as fichas e a conexão."
+        )
