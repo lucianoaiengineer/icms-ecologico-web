@@ -1,6 +1,5 @@
 """Interface web de cadastro, consulta e resultados do ICMS Ecológico."""
 
-import json
 import os
 from copy import deepcopy
 from datetime import date
@@ -308,33 +307,49 @@ with cadastro:
             with st.expander(
                 f"Parâmetro ({rotulo}) por Municípios", expanded=True
             ):
+                cabecalho_posicao, cabecalho_municipio, cabecalho_valor = (
+                    st.columns([1.1, 2.2, 1])
+                )
+                with cabecalho_posicao:
+                    st.caption("Posição")
+                with cabecalho_municipio:
+                    st.caption("Município")
+                with cabecalho_valor:
+                    st.caption("Valor")
                 for posicao, municipio in enumerate(ficha["municipios"], 1):
-                    coluna_nome, coluna_valor = st.columns([2, 1])
+                    coluna_posicao, coluna_nome, coluna_valor = st.columns(
+                        [1.1, 2.2, 1]
+                    )
+                    with coluna_posicao:
+                        st.markdown(f"**Município {posicao}**")
                     with coluna_nome:
                         if codigo == "10":
                             municipio["nome"] = st.text_input(
-                                f"Município {posicao}",
+                                f"Nome do município {posicao}",
                                 value=municipio["nome"],
                                 placeholder="Digite o nome do município",
                                 key=f"{prefixo}_municipio_{posicao}",
+                                label_visibility="collapsed",
                             )
                         else:
                             # A identificação vem do primeiro bloco e não se duplica.
                             st.text_input(
-                                f"Município {posicao}",
+                                f"Nome do município {posicao}",
                                 value=municipio["nome"],
                                 key=(f"{prefixo}_nome_{codigo}_{posicao}_"
                                      f"{municipio['nome']}"),
                                 disabled=True,
+                                label_visibility="collapsed",
                             )
                     with coluna_valor:
                         municipio[codigo] = st.number_input(
-                            f"Valor — Município {posicao} — Parâmetro ({rotulo})",
+                            f"Valor do parâmetro ({rotulo}) para o município {posicao}",
                             min_value=0,
                             max_value=9,
                             value=municipio[codigo],
                             step=1,
                             key=f"{prefixo}_municipio_{posicao}_{codigo}",
+                            label_visibility="collapsed",
                         )
                 # Soma o bloco; entradas vazias continuam ausentes na ficha.
                 total_bloco = sum(
@@ -350,12 +365,16 @@ with cadastro:
         confirmado = st.checkbox(
             "Revisei os dados e confirmo a conclusão ou atualização da ficha."
         )
-        concluir = st.form_submit_button(
-            "Concluir e salvar resultado", disabled=not pode_editar
-        )
+        concluir = st.form_submit_button("Salvar", disabled=not pode_editar)
     if revisar or rascunho or concluir:
         st.session_state.ficha = deepcopy(ficha)
-    if revisar or concluir:
+    if revisar:
+        # A submissão do formulário atualiza a ficha; uma nova renderização
+        # propaga os nomes do parâmetro 10 para os outros blocos municipais.
+        st.session_state.exibir_revisao = True
+        st.rerun()
+    if revisar or concluir or st.session_state.pop("exibir_revisao", False):
+        st.markdown("#### Revisão do preenchimento")
         try:
             calculo = calcular(ficha)
             st.metric("Total validado", calculo["total_validado"])
@@ -365,34 +384,14 @@ with cadastro:
                 ],
                 hide_index=True,
             )
-            st.write(
-                "Totais dos parâmetros da ficha:",
-                {ROTULOS_MUNICIPAIS[c]: v for c, v in calculo["totais"].items()},
-            )
-            anterior = repositorio.consultar(
-                normalizar_processo(ficha["processo"])
-            )
-            if anterior:
-                diferencas = [
-                    {
-                        "Campo": campo,
-                        "Anterior": json.dumps(
-                            anterior["ficha"].get(campo), ensure_ascii=False
-                        ),
-                        "Atual": json.dumps(ficha[campo], ensure_ascii=False),
-                    }
-                    for campo in ficha
-                    if anterior["ficha"].get(campo) != ficha[campo]
-                ]
-                if diferencas:
-                    st.dataframe(pd.DataFrame(diferencas), hide_index=True)
-                else:
-                    st.caption("Nenhuma alteração em relação à ficha salva.")
         except ValueError as erro:
-            st.error(str(erro))
+            pendencias = [linha for linha in str(erro).splitlines() if linha]
+            st.error("Há campos obrigatórios pendentes ou dados inválidos:")
+            for pendencia in pendencias:
+                st.markdown(f"- {pendencia}")
         except Exception:
             st.error(
-                "Falha ao consultar a versão anterior. Não conclua antes de verificar a base."
+                "Não foi possível gerar a revisão. Confira os dados e tente novamente."
             )
     if rascunho or concluir:
         if concluir and not confirmado:
@@ -430,7 +429,34 @@ with resultados:
     filtro = st.text_input("Filtrar por processo ou unidade")
     if st.button("Consultar resultados"):
         try:
-            quadro = resultado_consolidado(repositorio.listar())
+            registros = repositorio.listar()
+            if registros:
+                st.markdown("#### Fichas salvas")
+                fichas_salvas = pd.DataFrame(
+                    [
+                        {
+                            "Nº SEI": registro["ficha"]["processo"],
+                            "Unidade": registro["ficha"]["unidade"],
+                            "Situação": registro["status"],
+                            "Última atualização": registro["atualizado_em"],
+                        }
+                        for registro in registros
+                    ]
+                )
+                if filtro:
+                    selecao_salvas = fichas_salvas["Nº SEI"].str.contains(
+                        filtro, regex=False, case=False
+                    )
+                    selecao_salvas |= fichas_salvas["Unidade"].str.contains(
+                        filtro, regex=False, case=False
+                    )
+                    fichas_salvas = fichas_salvas[selecao_salvas]
+                st.dataframe(fichas_salvas, hide_index=True)
+                st.caption(
+                    "Rascunhos ficam salvos para consulta e edição, mas não entram "
+                    "no resultado consolidado."
+                )
+            quadro = resultado_consolidado(registros)
             if quadro.empty:
                 st.info("Nenhuma ficha concluída encontrada.")
             else:
