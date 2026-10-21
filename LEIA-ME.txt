@@ -1,0 +1,1 @@
+Arquivo correto para substituir o app.py atual. Na ficha de cadastro, cada rótulo fica na coluna da esquerda e seu campo de preenchimento fica à direita na mesma linha. O CSS mantém as colunas sem quebra também em telas estreitas. O teste_interface.py acompanha a versão de código validada.
