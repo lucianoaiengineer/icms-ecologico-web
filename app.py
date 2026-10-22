@@ -41,22 +41,22 @@ st.markdown(
         padding-left: 1.25rem;
         padding-right: 1.25rem;
     }
-    [data-testid="stMainBlockContainer"]:has(.acesso-marca) {
+    [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
         width: 100%;
-        max-width: 100%;
+        max-width: 980px;
         min-height: calc(100vh - 2rem);
         display: flex;
         flex-direction: column;
         justify-content: center;
+        align-items: center;
         padding-top: 1rem;
         padding-bottom: 1rem;
     }
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.acesso-marca) {
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) {
         width: min(360px, calc(100vw - 2rem));
         max-width: 360px;
-        align-self: center;
-        margin: auto;
-        padding: 1.2rem clamp(1.1rem, 5vw, 1.5rem) !important;
+        margin: auto !important;
+        padding: 1.2rem clamp(1rem, 5vw, 1.4rem) !important;
         background: #ffffff !important;
         background-color: #ffffff !important;
         border: 1px solid #d8e5d2;
@@ -65,8 +65,15 @@ st.markdown(
         box-shadow: 0 12px 35px #24452b18;
         box-sizing: border-box;
     }
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.acesso-marca) > div {
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) > div {
         background: #ffffff !important;
+    }
+    .st-key-cartao_acesso {
+        width: min(360px, calc(100vw - 2rem)) !important;
+        max-width: 360px !important;
+        margin: auto !important;
+        background: #ffffff !important;
+        background-color: #ffffff !important;
     }
     .acesso-marca {
         margin-bottom: 1.5rem;
@@ -206,6 +213,14 @@ st.markdown(
             padding-left: 0.75rem;
             padding-right: 0.75rem;
         }
+        [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
+            min-height: calc(100vh - 1rem);
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso),
+        .st-key-cartao_acesso {
+            width: calc(100vw - 2rem) !important;
+            max-width: 360px !important;
+        }
         [data-testid="stHorizontalBlock"] {
             gap: 0.5rem;
         }
@@ -312,7 +327,12 @@ def exibir_tela_acesso(
     *, auth_configurada: bool, permitir_demo: bool = False
 ) -> None:
     """Apresenta o acesso institucional e orienta recuperação da conta."""
-    with st.container(border=True):
+    with st.container(
+        border=True,
+        key="cartao_acesso",
+        width=360,
+        horizontal_alignment="center",
+    ):
         st.markdown(
                 """
                 <div class="acesso-marca">
