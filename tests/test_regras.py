@@ -102,6 +102,21 @@ class TesteRegras(unittest.TestCase):
         repositorio.gravar(ficha, 0, "Concluída", "usuario")
         self.assertEqual(len(repositorio.historico), 1)
 
+    def test_historico_identifica_apenas_campos_alterados(self) -> None:
+        repositorio = Repositorio()
+        ficha = ficha_valida()
+        repositorio.gravar(ficha, 0, "Rascunho", "usuario")
+        ficha["unidade"] = "Unidade alterada"
+        ficha["municipios"][0]["10"] = 3
+        repositorio.gravar(ficha, 1, "Rascunho", "usuario")
+
+        alteracoes = repositorio.historico[-1]["alteracoes"]
+        self.assertEqual(
+            set(alteracoes),
+            {"unidade", "municipios[1].10"},
+        )
+        self.assertEqual(alteracoes["municipios[1].10"]["depois"], 3)
+
     def test_edicao_concorrente(self) -> None:
         repositorio = Repositorio()
         ficha = ficha_valida()
