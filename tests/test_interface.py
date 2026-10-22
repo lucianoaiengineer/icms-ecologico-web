@@ -27,18 +27,24 @@ class TesteInterface(unittest.TestCase):
         else:
             os.environ["ICMS_MODO"] = self.modo_anterior
 
-    def test_aplicacao_bloqueia_quando_modo_nao_foi_configurado(self) -> None:
-        """Não abre a demonstração automaticamente em uma publicação nova."""
+    def test_modo_nao_configurado_oferece_demonstracao_isolada(self) -> None:
+        """Permite avançar em demonstração sem abrir a base oficial."""
         os.environ.pop("ICMS_MODO", None)
         try:
             caminho = Path(__file__).resolve().parents[1] / "app.py"
             app = AppTest.from_file(str(caminho), default_timeout=30).run()
             self.assertFalse(app.exception)
+            botao = next(
+                item for item in app.button
+                if item.label == "Continuar na demonstração"
+            )
+            botao.click().run()
+            self.assertFalse(app.exception)
             self.assertTrue(
-                any(
-                    "Aplicação ainda não configurada" in aviso.value
-                    for aviso in app.error
-                )
+                any("Modo demonstração" in item.value for item in app.markdown)
+            )
+            self.assertTrue(
+                any("Salvar rascunho" == item.label for item in app.button)
             )
         finally:
             os.environ["ICMS_MODO"] = "demonstracao"

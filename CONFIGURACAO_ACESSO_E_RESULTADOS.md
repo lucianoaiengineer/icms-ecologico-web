@@ -2,16 +2,19 @@
 
 ## O que foi incluído nesta versão
 
-- Tela de acesso centralizada, responsiva e com fundo verde claro, usando o nome
-  do sistema sem reproduzir marcas de Goiás.
+- Tela de acesso centralizada na página, com cartão branco dimensionado para o
+  conteúdo e fundo verde muito claro. Em telas estreitas, o cartão se ajusta à
+  largura disponível.
 - Entrada por provedor institucional OIDC. A aplicação não cria senhas nem envia
   senhas por e-mail; a recuperação de conta é feita pelo provedor configurado.
 - Acesso restrito a e-mails verificados e previamente autorizados. As três
   contas iniciais devem ser adicionadas à lista de editores depois que seus
   endereços institucionais forem definidos. O perfil editor permite incluir,
   consultar, alterar e excluir fichas.
-- Bloqueio por padrão quando o modo de execução não foi configurado. A aplicação
-  não inicia automaticamente em demonstração.
+- Quando o modo institucional ainda não foi configurado, a tela oferece entrada
+  explícita em demonstração. Os registros fictícios ficam isolados na sessão
+  daquele navegador, não são gravados na planilha e desaparecem ao encerrar a
+  sessão. Não use dados reais nesse modo.
 - Tabela de resultados com altura de consulta ampliada, rolagem dentro da grade,
   colunas de processo e unidade fixadas à esquerda e opção de tela cheia.
 

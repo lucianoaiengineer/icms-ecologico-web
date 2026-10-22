@@ -25,29 +25,48 @@ st.markdown(
     """
     <style>
     :root {
-        --ief-verde-fundo: #eef6e9;
-        --ief-verde-medio: #3d8050;
-        --ief-verde-escuro: #245638;
+        --ief-verde-fundo: #f8fbf6;
+        --ief-verde-medio: #2f6b3c;
+        --ief-verde-escuro: #234b2e;
         --ief-terra: #8b6b3e;
     }
     [data-testid="stAppViewContainer"] {
-        background: var(--ief-verde-fundo);
+        background: var(--ief-verde-fundo) !important;
+    }
+    [data-testid="stHeader"] {
+        background: rgba(248, 251, 246, 0.96) !important;
     }
     [data-testid="stMainBlockContainer"] {
         max-width: 980px;
         padding-left: 1.25rem;
         padding-right: 1.25rem;
     }
+    [data-testid="stMainBlockContainer"]:has(.acesso-marca) {
+        width: 100%;
+        max-width: 100%;
+        min-height: calc(100vh - 2rem);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.acesso-marca) {
-        max-width: 460px;
-        margin: 5vh auto 2rem auto;
-        padding: 1.2rem clamp(1rem, 5vw, 2rem);
-        background: #fff;
+        width: min(360px, calc(100vw - 2rem));
+        max-width: 360px;
+        align-self: center;
+        margin: auto;
+        padding: 1.2rem clamp(1.1rem, 5vw, 1.5rem) !important;
+        background: #ffffff !important;
+        background-color: #ffffff !important;
         border: 1px solid #d8e5d2;
         border-top: 5px solid var(--ief-verde-medio);
         border-radius: 0.8rem;
         box-shadow: 0 12px 35px #24452b18;
-        padding: 0.8rem;
+        box-sizing: border-box;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.acesso-marca) > div {
+        background: #ffffff !important;
     }
     .acesso-marca {
         margin-bottom: 1.5rem;
@@ -80,12 +99,35 @@ st.markdown(
         font-weight: 600;
     }
     div.stButton > button[kind="primary"] {
-        border-color: var(--ief-verde-medio);
-        background: var(--ief-verde-medio);
+        border-color: var(--ief-verde-medio) !important;
+        background: var(--ief-verde-medio) !important;
+        color: #ffffff !important;
+        font-weight: 650;
     }
     div.stButton > button[kind="primary"]:hover {
-        border-color: var(--ief-verde-escuro);
-        background: var(--ief-verde-escuro);
+        border-color: var(--ief-verde-escuro) !important;
+        background: var(--ief-verde-escuro) !important;
+        color: #ffffff !important;
+    }
+    div.stButton > button[kind="primary"]:disabled {
+        border-color: #cbd9c8 !important;
+        background: #e8efe5 !important;
+        color: #4c5d4e !important;
+        opacity: 1 !important;
+        cursor: not-allowed;
+    }
+    .aviso-demo {
+        margin: 0.75rem 0 1rem;
+        padding: 0.8rem 1rem;
+        border: 1px solid #c8dbc2;
+        border-left: 4px solid #6c9b67;
+        border-radius: 0.45rem;
+        background: #eff6eb;
+        color: #29452e;
+        line-height: 1.5;
+    }
+    .aviso-demo strong {
+        color: #234b2e;
     }
     /* Mantém rótulos e controles na mesma linha em qualquer largura. */
     [data-testid="stHorizontalBlock"] {
@@ -207,9 +249,17 @@ def segredo(chave: str, padrao: object = None) -> object:
 
 @st.cache_resource
 def conectar(modo: str) -> Repositorio:
-    """Compartilha uma conexão e sua trava entre as sessões do servidor."""
+    """Isola demonstrações por navegador e compartilha só a conexão Sheets."""
     if modo == "demonstracao":
-        return Repositorio()
+        if "repositorio_demonstracao" not in st.session_state:
+            st.session_state.repositorio_demonstracao = Repositorio()
+        return st.session_state.repositorio_demonstracao
+    return conectar_sheets()
+
+
+@st.cache_resource
+def conectar_sheets() -> RepositorioSheets:
+    """Compartilha a conexão persistente com a planilha configurada."""
     return RepositorioSheets(
         dict(st.secrets["gcp_service_account"]), str(st.secrets["planilha_id"])
     )
@@ -258,7 +308,9 @@ def identificar(modo: str) -> tuple[str, bool]:
     return email, email in editores
 
 
-def exibir_tela_acesso(*, auth_configurada: bool) -> None:
+def exibir_tela_acesso(
+    *, auth_configurada: bool, permitir_demo: bool = False
+) -> None:
     """Apresenta o acesso institucional e orienta recuperação da conta."""
     with st.container(border=True):
         st.markdown(
@@ -278,6 +330,15 @@ def exibir_tela_acesso(*, auth_configurada: bool) -> None:
                 use_container_width=True,
                 on_click=st.login,
             )
+        elif permitir_demo:
+            st.caption("Acesso institucional ainda não configurado.")
+            if st.button(
+                "Continuar na demonstração",
+                use_container_width=True,
+                key="abrir_demonstracao",
+            ):
+                st.session_state.modo_demo_sessao = True
+                st.rerun()
         else:
             st.button(
                 "Acesso institucional ainda não configurado",
@@ -305,8 +366,9 @@ def exibir_tela_acesso(*, auth_configurada: bool) -> None:
                 "Para recuperar a conta ou solicitar acesso, procure o suporte institucional."
             )
         if not auth_configurada:
-            st.info(
-                "O responsável técnico precisa configurar a autenticação antes de liberar o acesso."
+            st.caption(
+                "O acesso institucional será liberado após a configuração da autenticação. "
+                "A demonstração aceita somente dados fictícios e não grava na base oficial."
             )
 
 
@@ -519,6 +581,21 @@ def diferencas_ficha(original: dict, atual: dict) -> list[str]:
     return alterados
 
 
+modo_configurado = segredo("modo", os.environ.get("ICMS_MODO", ""))
+modo = str(modo_configurado).strip().lower()
+if st.session_state.get("modo_demo_sessao", False):
+    modo = "demonstracao"
+elif modo not in ("demonstracao", "sheets"):
+    exibir_tela_acesso(auth_configurada=False, permitir_demo=True)
+    st.stop()
+autor, pode_editar = identificar(modo)
+if modo == "demonstracao":
+    st.markdown(
+        '<div class="aviso-demo"><strong>Modo demonstração:</strong> use somente '
+        "dados fictícios. Os registros ficam isolados nesta sessão do navegador, "
+        "não são gravados na base oficial e desaparecem ao encerrar a sessão.</div>",
+        unsafe_allow_html=True,
+    )
 st.markdown(
     '<div id="inicio"></div><nav class="atalhos-rolagem" '
     'aria-label="Navegação vertical"><a href="#inicio" title="Ir ao início da página" '
@@ -528,21 +605,6 @@ st.markdown(
 )
 st.title("ICMS Ecológico")
 st.caption("Gestão de fichas do Fator de Qualidade")
-modo_configurado = segredo("modo", os.environ.get("ICMS_MODO", ""))
-modo = str(modo_configurado).strip().lower()
-if modo not in ("demonstracao", "sheets"):
-    exibir_tela_acesso(auth_configurada=False)
-    st.error(
-        "Aplicação ainda não configurada. O acesso permanece bloqueado até que "
-        "o modo de execução seja definido pelo responsável técnico."
-    )
-    st.stop()
-autor, pode_editar = identificar(modo)
-if modo == "demonstracao":
-    st.warning(
-        "Demonstração: use somente dados sintéticos. Os registros são temporários, "
-        "compartilhados entre visitantes deste servidor e podem desaparecer ao reiniciar."
-    )
 try:
     repositorio = conectar(modo)
 except Exception:
