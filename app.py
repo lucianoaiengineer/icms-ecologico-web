@@ -24,10 +24,68 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+    :root {
+        --ief-verde-fundo: #eef6e9;
+        --ief-verde-medio: #3d8050;
+        --ief-verde-escuro: #245638;
+        --ief-terra: #8b6b3e;
+    }
+    [data-testid="stAppViewContainer"] {
+        background: var(--ief-verde-fundo);
+    }
     [data-testid="stMainBlockContainer"] {
         max-width: 980px;
         padding-left: 1.25rem;
         padding-right: 1.25rem;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.acesso-marca) {
+        max-width: 460px;
+        margin: 5vh auto 2rem auto;
+        padding: 1.2rem clamp(1rem, 5vw, 2rem);
+        background: #fff;
+        border: 1px solid #d8e5d2;
+        border-top: 5px solid var(--ief-verde-medio);
+        border-radius: 0.8rem;
+        box-shadow: 0 12px 35px #24452b18;
+        padding: 0.8rem;
+    }
+    .acesso-marca {
+        margin-bottom: 1.5rem;
+        color: var(--ief-verde-escuro);
+        text-align: center;
+    }
+    .acesso-marca .folha {
+        display: block;
+        margin-bottom: 0.45rem;
+        color: var(--ief-verde-medio);
+        font-size: 2rem;
+    }
+    .acesso-marca h1 {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 700;
+    }
+    .acesso-marca p {
+        margin: 0.45rem 0 0;
+        color: #526257;
+    }
+    .acesso-ajuda {
+        margin-top: 1rem;
+        color: #42564a;
+        font-size: 0.92rem;
+        line-height: 1.55;
+    }
+    .acesso-ajuda a {
+        color: var(--ief-verde-escuro) !important;
+        font-weight: 600;
+    }
+    div.stButton > button[kind="primary"] {
+        border-color: var(--ief-verde-medio);
+        background: var(--ief-verde-medio);
+    }
+    div.stButton > button[kind="primary"]:hover {
+        border-color: var(--ief-verde-escuro);
+        background: var(--ief-verde-escuro);
     }
     /* Mantém rótulos e controles na mesma linha em qualquer largura. */
     [data-testid="stHorizontalBlock"] {
@@ -36,6 +94,70 @@ st.markdown(
     }
     [data-testid="column"] {
         min-width: 0 !important;
+    }
+    .atalhos-rolagem {
+        position: fixed;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        z-index: 999;
+    }
+    .atalhos-rolagem a {
+        width: 2.7rem;
+        height: 2.7rem;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: #174a72;
+        color: #fff !important;
+        font-size: 1.35rem;
+        font-weight: 700;
+        text-decoration: none !important;
+        box-shadow: 0 2px 8px #0003;
+    }
+    .atalhos-rolagem a:hover {
+        background: #0d3554;
+    }
+    .rodape-institucional {
+        margin-top: 3rem;
+        color: #fff;
+        background: #83a398;
+        border-radius: 0.25rem 0.25rem 0 0;
+        overflow: hidden;
+        font-size: 0.82rem;
+    }
+    .rodape-principal,
+    .rodape-inferior {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.1rem 1.25rem;
+    }
+    .rodape-marca {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        line-height: 1.35;
+    }
+    .rodape-marca strong {
+        font-size: 1.7rem;
+        letter-spacing: 0.08em;
+    }
+    .rodape-links {
+        text-align: right;
+    }
+    .rodape-institucional a {
+        color: #fff !important;
+        text-decoration: underline;
+        text-underline-offset: 0.15em;
+    }
+    .rodape-inferior {
+        background: #6f9085;
+        font-size: 0.72rem;
     }
     @media (max-width: 640px) {
         [data-testid="stMainBlockContainer"] {
@@ -51,6 +173,22 @@ st.markdown(
         [data-testid="stDateInput"],
         [data-testid="stTextArea"] {
             min-width: 0 !important;
+        }
+        .atalhos-rolagem {
+            right: 0.35rem;
+        }
+        .atalhos-rolagem a {
+            width: 2.3rem;
+            height: 2.3rem;
+        }
+        .rodape-principal,
+        .rodape-inferior {
+            align-items: flex-start;
+            flex-direction: column;
+            padding: 0.9rem 0.75rem;
+        }
+        .rodape-links {
+            text-align: left;
         }
     }
     </style>
@@ -81,14 +219,29 @@ def identificar(modo: str) -> tuple[str, bool]:
     """Exige identidade e autorização antes de ler dados persistentes."""
     if modo == "demonstracao":
         return "demonstracao", True
-    if not segredo("auth"):
-        st.error(
-            "Configure a autenticação antes de ativar o modo Google Sheets."
+    configuracao_auth = segredo("auth")
+    campos_auth = (
+        "redirect_uri",
+        "cookie_secret",
+        "client_id",
+        "client_secret",
+        "server_metadata_url",
+    )
+    try:
+        auth_configurada = bool(
+            configuracao_auth
+            and all(
+                str(configuracao_auth.get(campo, "")).strip()
+                for campo in campos_auth
+            )
         )
+    except AttributeError:
+        auth_configurada = False
+    if not auth_configurada:
+        exibir_tela_acesso(auth_configurada=False)
         st.stop()
     if not st.user.is_logged_in:
-        st.info("Entre com uma conta autorizada para acessar as fichas.")
-        st.button("Entrar", on_click=st.login)
+        exibir_tela_acesso(auth_configurada=True)
         st.stop()
     email = str(st.user.get("email", "")).lower()
     editores = [str(e).lower() for e in segredo("editores", [])]
@@ -103,6 +256,58 @@ def identificar(modo: str) -> tuple[str, bool]:
     st.sidebar.caption(email)
     st.sidebar.button("Sair", on_click=st.logout)
     return email, email in editores
+
+
+def exibir_tela_acesso(*, auth_configurada: bool) -> None:
+    """Apresenta o acesso institucional e orienta recuperação da conta."""
+    with st.container(border=True):
+        st.markdown(
+                """
+                <div class="acesso-marca">
+                  <span class="folha" aria-hidden="true">🌿</span>
+                  <h1>ICMS Ecológico</h1>
+                  <p>Gestão de fichas do Fator de Qualidade</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+        )
+        if auth_configurada:
+            st.button(
+                "Entrar com conta institucional",
+                type="primary",
+                use_container_width=True,
+                on_click=st.login,
+            )
+        else:
+            st.button(
+                "Acesso institucional ainda não configurado",
+                type="primary",
+                use_container_width=True,
+                disabled=True,
+            )
+        st.markdown(
+            """
+            <div class="acesso-ajuda">
+              <p>O acesso é restrito a contas previamente autorizadas.</p>
+              <p>As credenciais e a confirmação de e-mail são administradas pelo provedor institucional.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        url_recuperacao = str(segredo("url_recuperacao", "")).strip()
+        url_suporte = str(segredo("url_suporte", "")).strip()
+        if url_recuperacao.startswith("https://"):
+            st.link_button("Esqueceu a senha? Recuperar acesso", url_recuperacao)
+        if url_suporte.startswith("https://"):
+            st.link_button("Solicitar acesso ou suporte", url_suporte)
+        elif not url_recuperacao.startswith("https://"):
+            st.caption(
+                "Para recuperar a conta ou solicitar acesso, procure o suporte institucional."
+            )
+        if not auth_configurada:
+            st.info(
+                "O responsável técnico precisa configurar a autenticação antes de liberar o acesso."
+            )
 
 
 def abrir(
@@ -314,11 +519,23 @@ def diferencas_ficha(original: dict, atual: dict) -> list[str]:
     return alterados
 
 
+st.markdown(
+    '<div id="inicio"></div><nav class="atalhos-rolagem" '
+    'aria-label="Navegação vertical"><a href="#inicio" title="Ir ao início da página" '
+    'aria-label="Ir ao início">↑</a><a href="#fim" title="Ir ao final" '
+    'aria-label="Ir ao final">↓</a></nav>',
+    unsafe_allow_html=True,
+)
 st.title("ICMS Ecológico")
 st.caption("Gestão de fichas do Fator de Qualidade")
-modo = str(segredo("modo", os.environ.get("ICMS_MODO", "demonstracao")))
+modo_configurado = segredo("modo", os.environ.get("ICMS_MODO", ""))
+modo = str(modo_configurado).strip().lower()
 if modo not in ("demonstracao", "sheets"):
-    st.error("Modo de execução inválido.")
+    exibir_tela_acesso(auth_configurada=False)
+    st.error(
+        "Aplicação ainda não configurada. O acesso permanece bloqueado até que "
+        "o modo de execução seja definido pelo responsável técnico."
+    )
     st.stop()
 autor, pode_editar = identificar(modo)
 if modo == "demonstracao":
@@ -560,10 +777,26 @@ if modulo == "Ficha":
         ).isoformat()
     st.markdown("#### Pontuações e justificativas")
     st.caption(
-        "Campos vazios não equivalem a zero. Pontuações individuais: 0 a 9."
+        "Nos totais, campos vazios são considerados 0. Para concluir a ficha, "
+        "os campos obrigatórios ainda precisam ser preenchidos. "
+        "Pontuações individuais: 0 a 9."
     )
+    if "parametros_abertos" not in st.session_state:
+        st.session_state.parametros_abertos = False
+    abrir_todos, fechar_todos = st.columns(2)
+    with abrir_todos:
+        if st.button("Abrir todos os parâmetros (1.1 a 9)"):
+            st.session_state.parametros_abertos = True
+            st.rerun()
+    with fechar_todos:
+        if st.button("Fechar todos os parâmetros (1.1 a 9)"):
+            st.session_state.parametros_abertos = False
+            st.rerun()
     for codigo, nome in PARAMETROS:
-        with st.expander(f"{codigo} · {nome}"):
+        with st.expander(
+            f"{codigo} · {nome}",
+            expanded=st.session_state.parametros_abertos,
+        ):
             pontos = ficha["parametros"][codigo]
             gestor, validado = st.columns(2)
             with gestor:
@@ -905,12 +1138,27 @@ else:
                     for i in range(1, 14)
                 }
             )
+            configuracao.update(
+                {
+                    "Nº SEI": st.column_config.TextColumn(
+                        "Nº SEI", pinned=True
+                    ),
+                    "REMETENTE - UCs": st.column_config.TextColumn(
+                        "REMETENTE - UCs", pinned=True
+                    ),
+                }
+            )
             st.dataframe(
-                quadro_tela, hide_index=True, column_config=configuracao
+                quadro_tela,
+                width="stretch",
+                height=650,
+                hide_index=True,
+                column_config=configuracao,
             )
             st.caption(
                 "'Último cadastro' marca a ficha concluída gravada mais recentemente; "
-                "rascunhos não participam deste indicador."
+                "rascunhos não participam deste indicador. Use a barra da grade para "
+                "percorrer as colunas e o controle de tela cheia para ampliar a consulta."
             )
             st.download_button(
                 "Baixar CSV",
@@ -922,3 +1170,28 @@ else:
         st.error(
             "Não foi possível montar o resultado. Confira as fichas e a conexão."
         )
+
+st.markdown(
+    """
+    <footer class="rodape-institucional">
+      <div class="rodape-principal">
+        <div class="rodape-marca">
+          <strong>IEF</strong>
+          <span>Instituto Estadual de Florestas<br>Governo de Minas Gerais</span>
+        </div>
+        <div class="rodape-links">
+          <a href="https://semad.mg.gov.br/politica-de-privacidade-do-sisema"
+             target="_blank" rel="noopener noreferrer">
+            Aspectos legais e responsabilidades · Política de Privacidade do Sisema
+          </a>
+        </div>
+      </div>
+      <div class="rodape-inferior">
+        <span>Rodovia João Paulo II, 4143, Bairro Serra Verde · CEP 31630-900</span>
+        <span>ICMS Ecológico · Aplicação de apoio</span>
+      </div>
+    </footer>
+    <div id="fim"></div>
+    """,
+    unsafe_allow_html=True,
+)
