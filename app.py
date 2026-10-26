@@ -26,7 +26,7 @@ st.markdown(
     """
     <style>
     :root {
-        --ief-verde-fundo: #edf5e8;
+        --ief-verde-fundo: #f7fbf5;
         --ief-verde-medio: #2f6b3c;
         --ief-verde-escuro: #234b2e;
         --ief-verde-contorno: #4b8b55;
@@ -39,7 +39,7 @@ st.markdown(
         color: var(--ief-texto) !important;
     }
     [data-testid="stHeader"] {
-        background: rgba(237, 245, 232, 0.96) !important;
+        background: rgba(247, 251, 245, 0.96) !important;
     }
     [data-testid="stMainBlockContainer"] {
         max-width: 980px;
@@ -1510,7 +1510,7 @@ else:
                     {
                         "selector": "th",
                         "props": [
-                            ("background-color", "#eaf4df"),
+                            ("background-color", "#ffffff"),
                             ("color", "#234b2e"),
                             ("border", "1px solid #234b2e"),
                         ],
