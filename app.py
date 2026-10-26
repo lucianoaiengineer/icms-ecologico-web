@@ -26,7 +26,7 @@ st.markdown(
     """
     <style>
     :root {
-        --ief-verde-fundo: #f7fbf5;
+        --ief-cinza-fundo: #f3f4f6;
         --ief-verde-medio: #2f6b3c;
         --ief-verde-escuro: #234b2e;
         --ief-verde-contorno: #4b8b55;
@@ -35,11 +35,11 @@ st.markdown(
         --ief-terra: #8b6b3e;
     }
     [data-testid="stAppViewContainer"] {
-        background: var(--ief-verde-fundo) !important;
+        background: var(--ief-cinza-fundo) !important;
         color: var(--ief-texto) !important;
     }
     [data-testid="stHeader"] {
-        background: rgba(247, 251, 245, 0.96) !important;
+        background: rgba(243, 244, 246, 0.96) !important;
     }
     [data-testid="stMainBlockContainer"] {
         max-width: 980px;
