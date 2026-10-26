@@ -726,6 +726,94 @@ def quadro_final_ficha(ficha: dict) -> pd.DataFrame:
     return pd.DataFrame(linhas)
 
 
+def estilizar_tabela(
+    quadro: pd.DataFrame,
+    destaques_por_processo: dict[str, set[str]] | None = None,
+) -> Any:
+    """Aplica fundo branco, bordas verdes e destaque localizado de alterações."""
+    estilo = quadro.style.set_properties(
+        **{"background-color": "#ffffff", "color": "#344238"}
+    ).set_table_styles(
+        [
+            {
+                "selector": "table",
+                "props": [
+                    ("border-collapse", "collapse"),
+                    ("border", "1px solid #234b2e"),
+                ],
+            },
+            {
+                "selector": "th",
+                "props": [
+                    ("background-color", "#ffffff"),
+                    ("color", "#111111"),
+                    ("font-weight", "700"),
+                    ("border", "1px solid #234b2e"),
+                ],
+            },
+            {
+                "selector": "td",
+                "props": [
+                    ("background-color", "#ffffff"),
+                    ("color", "#344238"),
+                    ("border", "1px solid #477a3e"),
+                ],
+            },
+        ]
+    )
+    if destaques_por_processo:
+        def estilo_linha(linha: pd.Series) -> list[str]:
+            """Destaca apenas as colunas afetadas na última edição salva."""
+            processo = str(linha.get("Nº SEI", ""))
+            colunas = destaques_por_processo.get(processo, set())
+            return [
+                (
+                    "background-color: #eaf4df; color: #234b2e; "
+                    "font-weight: 600; border: 1px solid #477a3e;"
+                    if coluna in colunas
+                    else ""
+                )
+                for coluna in linha.index
+            ]
+
+        estilo = estilo.apply(estilo_linha, axis=1)
+    return estilo
+
+
+def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
+    """Relaciona campos alterados da ficha às colunas visíveis no resultado."""
+    colunas: set[str] = set()
+    campos_diretos = {
+        "unidade": "REMETENTE - UCs",
+        "recebimento": "DATA RECEBIDA",
+        "esfera": "Esfera",
+        "urfbio": "URFBio",
+        "responsavel": "RESPONSÁVEL",
+    }
+    for caminho in alteracoes:
+        if caminho in campos_diretos:
+            colunas.add(campos_diretos[caminho])
+        elif caminho == "pontuacao_categoria":
+            colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
+        elif caminho.startswith("parametros."):
+            partes = caminho.split(".")
+            if len(partes) == 3 and partes[2] == "validado":
+                colunas.add(f"PARÂM {partes[1]}")
+                colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
+        elif caminho.startswith("municipios[") and "]." in caminho:
+            posicao_texto, campo = caminho[len("municipios["):].split("].", 1)
+            if not posicao_texto.isdigit():
+                continue
+            posicao = int(posicao_texto)
+            if not 1 <= posicao <= 13:
+                continue
+            if campo == "nome":
+                colunas.update((f"Município{posicao}", f"Nota{posicao}"))
+            elif campo in MUNICIPAIS:
+                colunas.update((f"PARÂM {campo}", f"Nota{posicao}"))
+    return colunas
+
+
 def proteger_csv(quadro: pd.DataFrame) -> bytes:
     """Exporta CSV sem permitir fórmulas em campos de texto no Excel."""
     quadro = quadro.copy()
@@ -1303,7 +1391,7 @@ if modulo == "Ficha":
     st.markdown("#### Resumo final da ficha")
     try:
         st.dataframe(
-            quadro_final_ficha(ficha),
+            estilizar_tabela(quadro_final_ficha(ficha)),
             hide_index=True,
             width="stretch",
         )
@@ -1319,9 +1407,11 @@ if modulo == "Ficha":
             calculo = calcular(ficha)
             st.metric("Total validado", calculo["total_validado"])
             st.dataframe(
-                pd.DataFrame(calculo["municipios"])[
-                    ["Município", "Soma", "FQ"]
-                ],
+                estilizar_tabela(
+                    pd.DataFrame(calculo["municipios"])[
+                        ["Município", "Soma", "FQ"]
+                    ]
+                ),
                 hide_index=True,
             )
         except ValueError as erro:
@@ -1503,27 +1593,14 @@ else:
                     ),
                 }
             )
-            estilo_quadro = quadro_tela.style.set_properties(
-                **{"background-color": "#ffffff", "color": "#24352a"}
-            ).set_table_styles(
-                [
-                    {
-                        "selector": "th",
-                        "props": [
-                            ("background-color", "#ffffff"),
-                            ("color", "#234b2e"),
-                            ("border", "1px solid #234b2e"),
-                        ],
-                    },
-                    {
-                        "selector": "td",
-                        "props": [
-                            ("background-color", "#ffffff"),
-                            ("color", "#24352a"),
-                            ("border", "1px solid #d3dfcf"),
-                        ],
-                    },
-                ]
+            destaques_por_processo = {
+                registro["ficha"]["processo"]: colunas_resultado_alteradas(
+                    registro.get("alteracoes_ultima_versao", {})
+                )
+                for registro in concluidas
+            }
+            estilo_quadro = estilizar_tabela(
+                quadro_tela, destaques_por_processo
             )
             with st.container(border=True, key="resultados_grade"):
                 st.dataframe(
@@ -1538,6 +1615,11 @@ else:
                 "rascunhos não participam deste indicador. Use a barra da grade para "
                 "percorrer as colunas e o controle de tela cheia para ampliar a consulta."
             )
+            if any(destaques_por_processo.values()):
+                st.caption(
+                    "Células em verde claro indicam dados alterados na última "
+                    "atualização salva da ficha."
+                )
             st.download_button(
                 "Baixar CSV",
                 proteger_csv(quadro),
