@@ -72,7 +72,31 @@ class Repositorio:
     def listar(self) -> list[dict[str, Any]]:
         """Lê uma cópia dos registros atuais."""
         with self.trava:
-            return deepcopy(self.registros)
+            registros = deepcopy(self.registros)
+            eventos = deepcopy(self.historico)
+        return self._incluir_alteracoes_atuais(registros, eventos)
+
+    @staticmethod
+    def _incluir_alteracoes_atuais(
+        registros: list[dict[str, Any]], eventos: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Anexa ao registro as alterações da versão atualmente publicada."""
+        eventos_por_chave = {
+            (evento.get("processo"), evento.get("versao")): evento
+            for evento in eventos
+        }
+        for registro in registros:
+            chave = (
+                registro["ficha"]["processo"],
+                registro["versao"],
+            )
+            evento = eventos_por_chave.get(chave)
+            registro["alteracoes_ultima_versao"] = (
+                deepcopy(evento.get("alteracoes", {}))
+                if evento and registro["versao"] > 1
+                else {}
+            )
+        return registros
 
     def consultar(self, processo: str) -> dict[str, Any] | None:
         """Procura pela chave, rejeitando duplicidades existentes."""
@@ -141,7 +165,17 @@ class Repositorio:
                 )
             self._persistir(novo, evento)
             confirmado = self.consultar(ficha["processo"])
-            if confirmado != novo:
+            campos_confirmacao = (
+                "ficha",
+                "versao",
+                "status",
+                "autor",
+                "atualizado_em",
+            )
+            if confirmado is None or any(
+                confirmado.get(campo) != novo[campo]
+                for campo in campos_confirmacao
+            ):
                 raise ValueError(
                     "Gravação sem confirmação. Consulte o processo antes de repetir."
                 )
@@ -256,7 +290,23 @@ class RepositorioSheets(Repositorio):
                         "atualizado_em": linha[4],
                     }
                 )
-            return registros
+            eventos = []
+            for linha in self.auditoria.get_all_values()[1:]:
+                if len(linha) < 7 or not linha[0] or not linha[1]:
+                    continue
+                try:
+                    eventos.append(
+                        {
+                            "processo": linha[0],
+                            "versao": int(linha[1]),
+                            "alteracoes": json.loads(linha[6]),
+                        }
+                    )
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    # Uma linha de auditoria inválida não deve impedir a consulta
+                    # das fichas; ela simplesmente não participa do destaque.
+                    continue
+            return self._incluir_alteracoes_atuais(registros, eventos)
 
     def _persistir(
         self, registro: dict[str, Any], evento: dict[str, Any]
