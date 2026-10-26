@@ -1,8 +1,10 @@
 """Interface web de cadastro, consulta e resultados do ICMS Ecológico."""
 
+import html
 import os
 from copy import deepcopy
 from datetime import date
+from numbers import Real
 from typing import Any
 
 import pandas as pd
@@ -300,23 +302,56 @@ st.markdown(
         border-top: 1px solid #a7be98;
         margin: 0.15rem 0 0.7rem;
     }
-    /* A grade fica branca; o verde claro permanece no fundo externo da página. */
+    /* A tabela controla o próprio fundo e as bordas, sem o canvas do dataframe. */
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) {
-        padding: 0.7rem !important;
-        background: #ffffff !important;
-        border: 2px solid var(--ief-verde-escuro) !important;
-        border-radius: 0.45rem !important;
-        box-shadow: 0 3px 12px #234b2e12;
+        padding: 0 !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) > div,
     .st-key-resultados_grade {
+        background: transparent !important;
+        color: var(--ief-texto) !important;
+    }
+    .tabela-planilha-rolagem {
+        width: 100%;
+        max-height: 650px;
+        overflow: auto;
+        background: #ffffff !important;
+        border: 2px solid var(--ief-verde-escuro);
+        border-radius: 0.4rem;
+        box-sizing: border-box;
+    }
+    table.tabela-planilha {
+        width: max-content;
+        min-width: 100%;
+        border-collapse: collapse !important;
         background: #ffffff !important;
         color: var(--ief-texto) !important;
     }
-    .st-key-resultados_grade [data-testid="stDataFrame"] {
+    .tabela-planilha th,
+    .tabela-planilha td {
+        min-width: 6rem;
+        padding: 0.55rem 0.65rem;
+        border: 1px solid #477a3e !important;
         background: #ffffff !important;
-        border: 1px solid var(--ief-verde-escuro) !important;
-        border-radius: 0.2rem;
+        color: #344238 !important;
+        text-align: left;
+        white-space: nowrap;
+    }
+    .tabela-planilha th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #ffffff !important;
+        color: #111111 !important;
+        font-weight: 700;
+    }
+    .tabela-planilha td.celula-alterada {
+        background: #eaf4df !important;
+        color: #234b2e !important;
+        font-weight: 600;
     }
     /* Verde suave destaca somente o campo cujo valor difere da ficha aberta. */
     [class*="st-key-campo_alterado_"] input,
@@ -726,58 +761,53 @@ def quadro_final_ficha(ficha: dict) -> pd.DataFrame:
     return pd.DataFrame(linhas)
 
 
-def estilizar_tabela(
+def renderizar_tabela(
     quadro: pd.DataFrame,
     destaques_por_processo: dict[str, set[str]] | None = None,
-) -> Any:
-    """Aplica fundo branco, bordas verdes e destaque localizado de alterações."""
-    estilo = quadro.style.set_properties(
-        **{"background-color": "#ffffff", "color": "#344238"}
-    ).set_table_styles(
-        [
-            {
-                "selector": "table",
-                "props": [
-                    ("border-collapse", "collapse"),
-                    ("border", "1px solid #234b2e"),
-                ],
-            },
-            {
-                "selector": "th",
-                "props": [
-                    ("background-color", "#ffffff"),
-                    ("color", "#111111"),
-                    ("font-weight", "700"),
-                    ("border", "1px solid #234b2e"),
-                ],
-            },
-            {
-                "selector": "td",
-                "props": [
-                    ("background-color", "#ffffff"),
-                    ("color", "#344238"),
-                    ("border", "1px solid #477a3e"),
-                ],
-            },
-        ]
+) -> str:
+    """Renderiza grade HTML branca e rolável, sem linhas vazias do Streamlit."""
+    colunas = list(quadro.columns)
+    cabecalho = "".join(
+        f"<th scope=\"col\">{html.escape(str(coluna))}</th>"
+        for coluna in colunas
     )
-    if destaques_por_processo:
-        def estilo_linha(linha: pd.Series) -> list[str]:
-            """Destaca apenas as colunas afetadas na última edição salva."""
-            processo = str(linha.get("Nº SEI", ""))
-            colunas = destaques_por_processo.get(processo, set())
-            return [
-                (
-                    "background-color: #eaf4df; color: #234b2e; "
-                    "font-weight: 600; border: 1px solid #477a3e;"
-                    if coluna in colunas
-                    else ""
-                )
-                for coluna in linha.index
-            ]
-
-        estilo = estilo.apply(estilo_linha, axis=1)
-    return estilo
+    linhas = []
+    for _, linha in quadro.iterrows():
+        processo = str(linha.get("Nº SEI", ""))
+        colunas_alteradas = (
+            destaques_por_processo.get(processo, set())
+            if destaques_por_processo
+            else set()
+        )
+        celulas = []
+        for coluna in colunas:
+            valor = linha[coluna]
+            if pd.isna(valor):
+                texto = ""
+            elif coluna == "DATA RECEBIDA" and hasattr(valor, "strftime"):
+                texto = valor.strftime("%m/%d/%Y")
+            elif coluna.startswith("Nota") and isinstance(valor, Real):
+                texto = f"{valor:.2f}"
+            elif isinstance(valor, Real) and not isinstance(valor, bool):
+                texto = str(int(valor)) if float(valor).is_integer() else str(valor)
+            else:
+                texto = str(valor)
+            classe = (
+                ' class="celula-alterada"'
+                if coluna in colunas_alteradas
+                else ""
+            )
+            celulas.append(
+                f"<td{classe}>{html.escape(texto)}</td>"
+            )
+        linhas.append(f"<tr>{''.join(celulas)}</tr>")
+    return (
+        '<div class="tabela-planilha-rolagem" role="region" '
+        'aria-label="Tabela de dados; use as barras de rolagem para navegar" '
+        'tabindex="0"><table class="tabela-planilha">'
+        f"<thead><tr>{cabecalho}</tr></thead>"
+        f"<tbody>{''.join(linhas)}</tbody></table></div>"
+    )
 
 
 def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
@@ -1390,10 +1420,9 @@ if modulo == "Ficha":
         )
     st.markdown("#### Resumo final da ficha")
     try:
-        st.dataframe(
-            estilizar_tabela(quadro_final_ficha(ficha)),
-            hide_index=True,
-            width="stretch",
+        st.markdown(
+            renderizar_tabela(quadro_final_ficha(ficha)),
+            unsafe_allow_html=True,
         )
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
         st.info("O resumo será calculado após informar a pontuação da categoria.")
@@ -1406,13 +1435,13 @@ if modulo == "Ficha":
         try:
             calculo = calcular(ficha)
             st.metric("Total validado", calculo["total_validado"])
-            st.dataframe(
-                estilizar_tabela(
+            st.markdown(
+                renderizar_tabela(
                     pd.DataFrame(calculo["municipios"])[
                         ["Município", "Soma", "FQ"]
                     ]
                 ),
-                hide_index=True,
+                unsafe_allow_html=True,
             )
         except ValueError as erro:
             pendencias = [linha for linha in str(erro).splitlines() if linha]
@@ -1570,46 +1599,17 @@ else:
                         )
                     ),
                 )
-            configuracao = {
-                "DATA RECEBIDA": st.column_config.DateColumn(
-                    format="MM/DD/YYYY"
-                )
-            }
-            configuracao.update(
-                {
-                    f"Nota{i}": st.column_config.NumberColumn(
-                        format="%.2f"
-                    )
-                    for i in range(1, 14)
-                }
-            )
-            configuracao.update(
-                {
-                    "Nº SEI": st.column_config.TextColumn(
-                        "Nº SEI", pinned=True
-                    ),
-                    "REMETENTE - UCs": st.column_config.TextColumn(
-                        "REMETENTE - UCs", pinned=True
-                    ),
-                }
-            )
             destaques_por_processo = {
                 registro["ficha"]["processo"]: colunas_resultado_alteradas(
                     registro.get("alteracoes_ultima_versao", {})
                 )
                 for registro in concluidas
             }
-            estilo_quadro = estilizar_tabela(
+            tabela_quadro = renderizar_tabela(
                 quadro_tela, destaques_por_processo
             )
-            with st.container(border=True, key="resultados_grade"):
-                st.dataframe(
-                    estilo_quadro,
-                    width="stretch",
-                    height=650,
-                    hide_index=True,
-                    column_config=configuracao,
-                )
+            with st.container(key="resultados_grade"):
+                st.markdown(tabela_quadro, unsafe_allow_html=True)
             st.caption(
                 "'Último cadastro' marca a ficha concluída gravada mais recentemente; "
                 "rascunhos não participam deste indicador. Use a barra da grade para "
