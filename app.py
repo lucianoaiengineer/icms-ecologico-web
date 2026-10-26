@@ -52,7 +52,7 @@ st.markdown(
         padding-bottom: 2rem;
         color: var(--ief-texto) !important;
         background: #ffffff !important;
-        border: 1px solid #d3dfcf;
+        border: 2px solid var(--ief-verde-escuro);
         border-radius: 0.8rem;
         box-shadow: 0 5px 20px #24452b0d;
         box-sizing: border-box;
@@ -111,15 +111,26 @@ st.markdown(
         color: var(--ief-texto-secundario) !important;
         opacity: 1 !important;
     }
+    [data-testid="stExpander"] {
+        background: #ffffff !important;
+        border: 1px solid #477a3e !important;
+        border-radius: 0.35rem !important;
+    }
+    [data-testid="stExpander"] summary {
+        color: #111111 !important;
+        font-weight: 700 !important;
+    }
     [data-testid="stMarkdownContainer"] h1,
     [data-testid="stMarkdownContainer"] h2,
     [data-testid="stMarkdownContainer"] h3,
     [data-testid="stMarkdownContainer"] h4,
-    [data-testid="stMarkdownContainer"] strong,
     [data-testid="stWidgetLabel"] p,
     label {
         color: var(--ief-texto) !important;
         opacity: 1 !important;
+    }
+    [data-testid="stMarkdownContainer"] strong {
+        color: #111111 !important;
     }
     /* Delimita visualmente o próprio controle: o tema do Streamlit pode
        ocultar a borda do invólucro BaseWeb, por isso a linha também vai no input. */
@@ -128,9 +139,8 @@ st.markdown(
     [data-testid="stDateInput"] [data-baseweb="input"] {
         min-height: 2.35rem;
         background: #ffffff !important;
-        border: 0 !important;
-        border-bottom: 2px solid var(--ief-verde-contorno) !important;
-        border-radius: 0 !important;
+        border: 1px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.25rem !important;
         box-shadow: none !important;
     }
     [data-testid="stTextInput"] input,
@@ -139,9 +149,8 @@ st.markdown(
         min-height: 2.35rem;
         box-sizing: border-box !important;
         background: #ffffff !important;
-        border: 0 !important;
-        border-bottom: 2px solid var(--ief-verde-contorno) !important;
-        border-radius: 0 !important;
+        border: 1px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.25rem !important;
         box-shadow: none !important;
     }
     [data-testid="stTextInput"] [data-baseweb="input"]:focus-within,
@@ -150,25 +159,30 @@ st.markdown(
     [data-testid="stTextInput"] input:focus,
     [data-testid="stNumberInput"] input:focus,
     [data-testid="stDateInput"] input:focus {
-        border-bottom: 3px solid var(--ief-verde-escuro) !important;
+        border: 2px solid var(--ief-verde-escuro) !important;
         outline: none !important;
     }
     [data-testid="stSelectbox"] [data-baseweb="select"] > div {
         min-height: 2.35rem;
         box-sizing: border-box !important;
         background: #ffffff !important;
-        border: 0 !important;
-        border-bottom: 2px solid var(--ief-verde-contorno) !important;
-        border-radius: 0 !important;
+        border: 1px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.25rem !important;
         box-shadow: none !important;
     }
     [data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within {
-        border-bottom: 3px solid var(--ief-verde-escuro) !important;
+        border: 2px solid var(--ief-verde-escuro) !important;
+    }
+    [data-testid="stForm"] {
+        padding: 0.75rem;
+        background: #ffffff !important;
+        border: 1px solid #477a3e !important;
+        border-radius: 0.35rem !important;
     }
     [data-testid="stTextArea"] [data-baseweb="textarea"] {
         min-height: 6rem !important;
         background: #ffffff !important;
-        border: 1px solid #91a993 !important;
+        border: 1px solid #477a3e !important;
         border-radius: 0.3rem !important;
         box-shadow: none !important;
     }
@@ -180,7 +194,7 @@ st.markdown(
         padding: 0.65rem 0.75rem !important;
         color: var(--ief-texto) !important;
         background: #ffffff !important;
-        border: 1px solid #91a993 !important;
+        border: 1px solid #477a3e !important;
         border-radius: 0.3rem !important;
         box-shadow: none !important;
         opacity: 1 !important;
@@ -299,7 +313,7 @@ st.markdown(
     }
     .linha-parametro {
         border: 0;
-        border-top: 1px solid #a7be98;
+        border-top: 1px solid #477a3e;
         margin: 0.15rem 0 0.7rem;
     }
     /* A tabela controla o próprio fundo e as bordas, sem o canvas do dataframe. */
@@ -371,6 +385,12 @@ st.markdown(
         border-left: 4px solid #477a3e;
         border-radius: 0.4rem;
     }
+    .rotulo-form-linha {
+        color: #111111;
+        font-weight: 600;
+        line-height: 1.35;
+        text-align: right;
+    }
     .rodape-institucional {
         margin-top: 3rem;
         color: #fff;
@@ -428,6 +448,18 @@ st.markdown(
         }
         [data-testid="stHorizontalBlock"] {
             gap: 0.5rem;
+        }
+        [data-testid="stHorizontalBlock"]:has(.rotulo-form-linha) {
+            flex-wrap: wrap !important;
+            row-gap: 0.1rem;
+        }
+        [data-testid="stHorizontalBlock"]:has(.rotulo-form-linha)
+        > [data-testid="column"] {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+        }
+        .rotulo-form-linha {
+            text-align: left;
         }
         [data-testid="stTextInput"],
         [data-testid="stNumberInput"],
@@ -623,6 +655,14 @@ def chave_container_campo(chave: str, valor_original: Any) -> str:
     return f"campo_{estado}_{identificador}"
 
 
+def exibir_rotulo_formulario(rotulo: str) -> None:
+    """Exibe o rótulo alinhado junto ao controle correspondente."""
+    st.markdown(
+        f'<div class="rotulo-form-linha">{html.escape(rotulo)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def texto_em_linha(
     rotulo: str,
     valor: str,
@@ -634,10 +674,10 @@ def texto_em_linha(
 ) -> str:
     """Desenha o rótulo à esquerda e o campo de texto à direita."""
     coluna_rotulo, coluna_valor = st.columns(
-        [0.42, 0.58], vertical_alignment="center"
+        [0.24, 0.76], vertical_alignment="center"
     )
     with coluna_rotulo:
-        st.markdown(f"**{rotulo}**")
+        exibir_rotulo_formulario(rotulo)
     with coluna_valor:
         with st.container(
             key=chave_container_campo(chave, valor_original or "")
@@ -664,10 +704,10 @@ def inteiro_em_linha(
 ) -> int | None:
     """Desenha o rótulo à esquerda e o campo numérico à direita."""
     coluna_rotulo, coluna_valor = st.columns(
-        [0.42, 0.58], vertical_alignment="center"
+        [0.24, 0.76], vertical_alignment="center"
     )
     with coluna_rotulo:
-        st.markdown(f"**{rotulo}**")
+        exibir_rotulo_formulario(rotulo)
     with coluna_valor:
         with st.container(key=chave_container_campo(chave, valor_original)):
             return st.number_input(
@@ -1125,9 +1165,9 @@ if modulo == "Ficha":
         )
     coluna_esfera, coluna_categoria = st.columns(2)
     with coluna_esfera:
-        rotulo, controle = st.columns([0.42, 0.58], vertical_alignment="center")
+        rotulo, controle = st.columns([0.45, 0.55], vertical_alignment="center")
         with rotulo:
-            st.markdown("**Esfera administrativa**")
+            exibir_rotulo_formulario("Esfera administrativa")
         with controle:
             opcoes = ["", "Estadual", "Federal", "Municipal"]
             chave_esfera = f"{prefixo}_esfera"
@@ -1165,10 +1205,10 @@ if modulo == "Ficha":
         placeholder="mm/aaaa",
     )
     rotulo_data, controle_data = st.columns(
-        [0.42, 0.58], vertical_alignment="center"
+        [0.24, 0.76], vertical_alignment="center"
     )
     with rotulo_data:
-        st.markdown("**Data de recebimento**")
+        exibir_rotulo_formulario("Data de recebimento")
     with controle_data:
         chave_recebimento = f"{prefixo}_recebimento"
         data_original = date.fromisoformat(
