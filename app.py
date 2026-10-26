@@ -3,6 +3,7 @@
 import os
 from copy import deepcopy
 from datetime import date
+from typing import Any
 
 import pandas as pd
 import streamlit as st
@@ -68,6 +69,11 @@ st.markdown(
         background: transparent !important;
         border: 0 !important;
         border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stMainBlockContainer"]:has(.st-key-resultados_grade) {
+        background: transparent !important;
+        border: 0 !important;
         box-shadow: none !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) {
@@ -293,6 +299,42 @@ st.markdown(
         border: 0;
         border-top: 1px solid #a7be98;
         margin: 0.15rem 0 0.7rem;
+    }
+    /* A grade fica branca; o verde claro permanece no fundo externo da página. */
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) {
+        padding: 0.7rem !important;
+        background: #ffffff !important;
+        border: 2px solid var(--ief-verde-escuro) !important;
+        border-radius: 0.45rem !important;
+        box-shadow: 0 3px 12px #234b2e12;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) > div,
+    .st-key-resultados_grade {
+        background: #ffffff !important;
+        color: var(--ief-texto) !important;
+    }
+    .st-key-resultados_grade [data-testid="stDataFrame"] {
+        background: #ffffff !important;
+        border: 1px solid var(--ief-verde-escuro) !important;
+        border-radius: 0.2rem;
+    }
+    /* Verde suave destaca somente o campo cujo valor difere da ficha aberta. */
+    [class*="st-key-campo_alterado_"] input,
+    [class*="st-key-campo_alterado_"] textarea,
+    [class*="st-key-campo_alterado_"] [data-baseweb="input"],
+    [class*="st-key-campo_alterado_"] [data-baseweb="select"] > div {
+        background: #eaf4df !important;
+        border-color: #477a3e !important;
+        box-shadow: 0 0 0 2px #477a3e24 !important;
+    }
+    .aviso-alteracoes {
+        margin: 0.75rem 0;
+        padding: 0.75rem 1rem;
+        color: #234b2e;
+        background: #eaf4df;
+        border: 1px solid #8eae7d;
+        border-left: 4px solid #477a3e;
+        border-radius: 0.4rem;
     }
     .rodape-institucional {
         margin-top: 3rem;
@@ -524,8 +566,13 @@ def abrir(
     ficha: dict, versao: int = 0, status: str = ""
 ) -> None:
     """Abre uma ficha em um novo conjunto de campos da sessão."""
-    st.session_state.ficha = deepcopy(ficha)
-    st.session_state.ficha_original = deepcopy(ficha)
+    ficha_aberta = deepcopy(ficha)
+    for codigo, nome in PARAMETROS:
+        ficha_aberta["parametros"].setdefault(codigo, {}).setdefault(
+            "rotulo", f"{codigo} · {nome}"
+        )
+    st.session_state.ficha = deepcopy(ficha_aberta)
+    st.session_state.ficha_original = deepcopy(ficha_aberta)
     st.session_state.versao = versao
     st.session_state.status_ficha = status
     st.session_state.confirmar_exclusao = False
@@ -533,11 +580,20 @@ def abrir(
     st.session_state.geracao = st.session_state.get("geracao", 0) + 1
 
 
+def chave_container_campo(chave: str, valor_original: Any) -> str:
+    """Marca o controle cuja edição diverge da versão aberta da ficha."""
+    valor_atual = st.session_state.get(chave, valor_original)
+    estado = "alterado" if valor_atual != valor_original else "normal"
+    identificador = chave.replace(".", "_").replace("-", "_")
+    return f"campo_{estado}_{identificador}"
+
+
 def texto_em_linha(
     rotulo: str,
     valor: str,
     chave: str,
     *,
+    valor_original: str | None = None,
     desabilitado: bool = False,
     placeholder: str = "",
 ) -> str:
@@ -548,14 +604,17 @@ def texto_em_linha(
     with coluna_rotulo:
         st.markdown(f"**{rotulo}**")
     with coluna_valor:
-        return st.text_input(
-            rotulo,
-            value=valor,
-            key=chave,
-            disabled=desabilitado,
-            placeholder=placeholder,
-            label_visibility="collapsed",
-        )
+        with st.container(
+            key=chave_container_campo(chave, valor_original or "")
+        ):
+            return st.text_input(
+                rotulo,
+                value=valor,
+                key=chave,
+                disabled=desabilitado,
+                placeholder=placeholder,
+                label_visibility="collapsed",
+            )
 
 
 def inteiro_em_linha(
@@ -565,6 +624,7 @@ def inteiro_em_linha(
     minimo: int,
     maximo: int,
     *,
+    valor_original: int | None = None,
     desabilitado: bool = False,
 ) -> int | None:
     """Desenha o rótulo à esquerda e o campo numérico à direita."""
@@ -574,16 +634,17 @@ def inteiro_em_linha(
     with coluna_rotulo:
         st.markdown(f"**{rotulo}**")
     with coluna_valor:
-        return st.number_input(
-            rotulo,
-            min_value=minimo,
-            max_value=maximo,
-            value=valor,
-            step=1,
-            key=chave,
-            disabled=desabilitado,
-            label_visibility="collapsed",
-        )
+        with st.container(key=chave_container_campo(chave, valor_original)):
+            return st.number_input(
+                rotulo,
+                min_value=minimo,
+                max_value=maximo,
+                value=valor,
+                step=1,
+                key=chave,
+                disabled=desabilitado,
+                label_visibility="collapsed",
+            )
 
 
 def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
@@ -714,6 +775,7 @@ def diferencas_ficha(original: dict, atual: dict) -> list[str]:
             ("gestor", "Pontos Gestor"),
             ("justificativa", "Justificativa"),
             ("validado", "Pontos Validados"),
+            ("rotulo", "Parâmetro"),
         ):
             if antigo.get(campo) != dados.get(campo):
                 alterados.append(f"Parâmetro {codigo} · {rotulo}")
@@ -937,6 +999,7 @@ if modulo == "Ficha":
             rotulo,
             ficha[campo],
             f"{prefixo}_{campo}",
+            valor_original=st.session_state.ficha_original.get(campo, ""),
             desabilitado=(
                 not pode_editar
                 or (campo == "processo" and st.session_state.versao > 0)
@@ -949,14 +1012,21 @@ if modulo == "Ficha":
             st.markdown("**Esfera administrativa**")
         with controle:
             opcoes = ["", "Estadual", "Federal", "Municipal"]
-            ficha["esfera"] = st.selectbox(
-                "Esfera administrativa",
-                opcoes,
-                index=opcoes.index(ficha["esfera"]),
-                key=f"{prefixo}_esfera",
-                disabled=not pode_editar,
-                label_visibility="collapsed",
-            )
+            chave_esfera = f"{prefixo}_esfera"
+            with st.container(
+                key=chave_container_campo(
+                    chave_esfera,
+                    st.session_state.ficha_original.get("esfera", ""),
+                )
+            ):
+                ficha["esfera"] = st.selectbox(
+                    "Esfera administrativa",
+                    opcoes,
+                    index=opcoes.index(ficha["esfera"]),
+                    key=chave_esfera,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
+                )
     with coluna_categoria:
         ficha["pontuacao_categoria"] = inteiro_em_linha(
             "Pontuação da categoria",
@@ -964,12 +1034,16 @@ if modulo == "Ficha":
             f"{prefixo}_pontuacao_categoria",
             1,
             999,
+            valor_original=st.session_state.ficha_original.get(
+                "pontuacao_categoria"
+            ),
             desabilitado=not pode_editar,
         )
     ficha["analise"] = texto_em_linha(
         "Data de análise (mm/aaaa)",
         ficha["analise"],
         f"{prefixo}_analise",
+        valor_original=st.session_state.ficha_original.get("analise", ""),
         placeholder="mm/aaaa",
     )
     rotulo_data, controle_data = st.columns(
@@ -978,13 +1052,21 @@ if modulo == "Ficha":
     with rotulo_data:
         st.markdown("**Data de recebimento**")
     with controle_data:
-        ficha["recebimento"] = st.date_input(
-            "Data de recebimento",
-            value=date.fromisoformat(ficha["recebimento"]),
-            format="MM/DD/YYYY",
-            disabled=not pode_editar,
-            label_visibility="collapsed",
-        ).isoformat()
+        chave_recebimento = f"{prefixo}_recebimento"
+        data_original = date.fromisoformat(
+            st.session_state.ficha_original["recebimento"]
+        )
+        with st.container(
+            key=chave_container_campo(chave_recebimento, data_original)
+        ):
+            ficha["recebimento"] = st.date_input(
+                "Data de recebimento",
+                value=date.fromisoformat(ficha["recebimento"]),
+                format="MM/DD/YYYY",
+                key=chave_recebimento,
+                disabled=not pode_editar,
+                label_visibility="collapsed",
+            ).isoformat()
     st.markdown("#### Pontuações e justificativas")
     st.caption(
         "Nos totais, campos vazios são considerados 0. Para concluir a ficha, "
@@ -1009,6 +1091,9 @@ if modulo == "Ficha":
 
     for codigo, nome in PARAMETROS:
         pontos = ficha["parametros"][codigo]
+        pontos_originais = st.session_state.ficha_original["parametros"].get(
+            codigo, {}
+        )
         (
             coluna_parametro,
             coluna_gestor,
@@ -1016,44 +1101,71 @@ if modulo == "Ficha":
             coluna_validado,
         ) = st.columns(proporcao_colunas, vertical_alignment="top")
         with coluna_parametro:
-            pontos["rotulo"] = st.text_input(
-                f"{codigo} · Parâmetro",
-                value=pontos.get("rotulo", f"{codigo} · {nome}"),
-                key=f"{prefixo}_{codigo}_rotulo",
-                disabled=not pode_editar,
-                label_visibility="collapsed",
-            )
+            chave_rotulo = f"{prefixo}_{codigo}_rotulo"
+            rotulo_padrao = f"{codigo} · {nome}"
+            with st.container(
+                key=chave_container_campo(
+                    chave_rotulo,
+                    pontos_originais.get("rotulo", rotulo_padrao),
+                )
+            ):
+                pontos["rotulo"] = st.text_input(
+                    f"{codigo} · Parâmetro",
+                    value=pontos.get("rotulo", rotulo_padrao),
+                    key=chave_rotulo,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
+                )
         with coluna_gestor:
-            pontos["gestor"] = st.number_input(
-                f"{codigo} · Pontos Gestor",
-                min_value=0,
-                max_value=9,
-                value=pontos["gestor"],
-                step=1,
-                key=f"{prefixo}_{codigo}_gestor",
-                disabled=not pode_editar,
-                label_visibility="collapsed",
-            )
+            chave_gestor = f"{prefixo}_{codigo}_gestor"
+            with st.container(
+                key=chave_container_campo(
+                    chave_gestor, pontos_originais.get("gestor")
+                )
+            ):
+                pontos["gestor"] = st.number_input(
+                    f"{codigo} · Pontos Gestor",
+                    min_value=0,
+                    max_value=9,
+                    value=pontos["gestor"],
+                    step=1,
+                    key=chave_gestor,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
+                )
         with coluna_justificativa:
-            pontos["justificativa"] = st.text_area(
-                f"{codigo} · Justificativa/Observação",
-                value=pontos["justificativa"],
-                key=f"{prefixo}_{codigo}_justificativa",
-                height=96,
-                disabled=not pode_editar,
-                label_visibility="collapsed",
-            )
+            chave_justificativa = f"{prefixo}_{codigo}_justificativa"
+            with st.container(
+                key=chave_container_campo(
+                    chave_justificativa,
+                    pontos_originais.get("justificativa", ""),
+                )
+            ):
+                pontos["justificativa"] = st.text_area(
+                    f"{codigo} · Justificativa/Observação",
+                    value=pontos["justificativa"],
+                    key=chave_justificativa,
+                    height=96,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
+                )
         with coluna_validado:
-            pontos["validado"] = st.number_input(
-                f"{codigo} · Pontos Validados",
-                min_value=0,
-                max_value=9,
-                value=pontos["validado"],
-                step=1,
-                key=f"{prefixo}_{codigo}_validado",
-                disabled=not pode_editar,
-                label_visibility="collapsed",
-            )
+            chave_validado = f"{prefixo}_{codigo}_validado"
+            with st.container(
+                key=chave_container_campo(
+                    chave_validado, pontos_originais.get("validado")
+                )
+            ):
+                pontos["validado"] = st.number_input(
+                    f"{codigo} · Pontos Validados",
+                    min_value=0,
+                    max_value=9,
+                    value=pontos["validado"],
+                    step=1,
+                    key=chave_validado,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
+                )
         st.markdown('<hr class="linha-parametro">', unsafe_allow_html=True)
     total_gestor = sum(
         pontos["gestor"] or 0
@@ -1090,6 +1202,9 @@ if modulo == "Ficha":
             with cabecalho_valor:
                 st.caption("Valor")
             for posicao, municipio in enumerate(ficha["municipios"], 1):
+                municipio_original = st.session_state.ficha_original[
+                    "municipios"
+                ][posicao - 1]
                 coluna_posicao, coluna_nome, coluna_valor = st.columns(
                     [1.1, 2.2, 1]
                 )
@@ -1097,14 +1212,20 @@ if modulo == "Ficha":
                     st.markdown(f"**Município {posicao}**")
                 with coluna_nome:
                     if codigo == "10":
-                        municipio["nome"] = st.text_input(
-                            f"Nome do município {posicao}",
-                            value=municipio["nome"],
-                            placeholder="Digite o nome do município",
-                            key=f"{prefixo}_municipio_{posicao}",
-                            disabled=not pode_editar,
-                            label_visibility="collapsed",
-                        )
+                        chave_nome = f"{prefixo}_municipio_{posicao}"
+                        with st.container(
+                            key=chave_container_campo(
+                                chave_nome, municipio_original["nome"]
+                            )
+                        ):
+                            municipio["nome"] = st.text_input(
+                                f"Nome do município {posicao}",
+                                value=municipio["nome"],
+                                placeholder="Digite o nome do município",
+                                key=chave_nome,
+                                disabled=not pode_editar,
+                                label_visibility="collapsed",
+                            )
                     else:
                         # A identificação vem do primeiro bloco e não se duplica.
                         st.text_input(
@@ -1116,16 +1237,22 @@ if modulo == "Ficha":
                             label_visibility="collapsed",
                         )
                 with coluna_valor:
-                    municipio[codigo] = st.number_input(
-                        f"Valor do parâmetro ({rotulo}) para o município {posicao}",
-                        min_value=0,
-                        max_value=9,
-                        value=municipio[codigo],
-                        step=1,
-                        key=f"{prefixo}_municipio_{posicao}_{codigo}",
-                        disabled=not pode_editar,
-                        label_visibility="collapsed",
-                    )
+                    chave_valor = f"{prefixo}_municipio_{posicao}_{codigo}"
+                    with st.container(
+                        key=chave_container_campo(
+                            chave_valor, municipio_original[codigo]
+                        )
+                    ):
+                        municipio[codigo] = st.number_input(
+                            f"Valor do parâmetro ({rotulo}) para o município {posicao}",
+                            min_value=0,
+                            max_value=9,
+                            value=municipio[codigo],
+                            step=1,
+                            key=chave_valor,
+                            disabled=not pode_editar,
+                            label_visibility="collapsed",
+                        )
             # Soma o bloco; entradas vazias continuam ausentes na ficha.
             total_bloco = sum(
                 municipio[codigo] or 0 for municipio in ficha["municipios"]
@@ -1140,8 +1267,11 @@ if modulo == "Ficha":
         st.session_state.ficha_original, ficha
     )
     if tem_alteracoes:
-        st.info(
-            f"Há {len(campos_alterados)} campo(s) alterado(s), ainda sem gravação."
+        st.markdown(
+            f'<div class="aviso-alteracoes">Há {len(campos_alterados)} '
+            "campo(s) alterado(s), ainda sem gravação; os campos destacados "
+            "em verde claro estão diferentes da versão salva.</div>",
+            unsafe_allow_html=True,
         )
         with st.expander("Ver campos alterados"):
             for campo_alterado in campos_alterados:
@@ -1373,13 +1503,36 @@ else:
                     ),
                 }
             )
-            st.dataframe(
-                quadro_tela,
-                width="stretch",
-                height=650,
-                hide_index=True,
-                column_config=configuracao,
+            estilo_quadro = quadro_tela.style.set_properties(
+                **{"background-color": "#ffffff", "color": "#24352a"}
+            ).set_table_styles(
+                [
+                    {
+                        "selector": "th",
+                        "props": [
+                            ("background-color", "#eaf4df"),
+                            ("color", "#234b2e"),
+                            ("border", "1px solid #234b2e"),
+                        ],
+                    },
+                    {
+                        "selector": "td",
+                        "props": [
+                            ("background-color", "#ffffff"),
+                            ("color", "#24352a"),
+                            ("border", "1px solid #d3dfcf"),
+                        ],
+                    },
+                ]
             )
+            with st.container(border=True, key="resultados_grade"):
+                st.dataframe(
+                    estilo_quadro,
+                    width="stretch",
+                    height=650,
+                    hide_index=True,
+                    column_config=configuracao,
+                )
             st.caption(
                 "'Último cadastro' marca a ficha concluída gravada mais recentemente; "
                 "rascunhos não participam deste indicador. Use a barra da grade para "
