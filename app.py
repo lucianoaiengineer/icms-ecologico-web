@@ -28,6 +28,7 @@ st.markdown(
         --ief-verde-fundo: #edf5e8;
         --ief-verde-medio: #2f6b3c;
         --ief-verde-escuro: #234b2e;
+        --ief-verde-contorno: #4b8b55;
         --ief-texto: #24352a;
         --ief-texto-secundario: #46574a;
         --ief-terra: #8b6b3e;
@@ -112,13 +113,50 @@ st.markdown(
         color: var(--ief-texto) !important;
         opacity: 1 !important;
     }
+    [data-testid="stTextInput"] [data-baseweb="input"],
+    [data-testid="stNumberInput"] [data-baseweb="input"],
+    [data-testid="stDateInput"] [data-baseweb="input"] {
+        min-height: 2.35rem;
+        background: #ffffff !important;
+        border: 0 !important;
+        border-bottom: 2px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.2rem 0.2rem 0 0 !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stTextInput"] [data-baseweb="input"]:focus-within,
+    [data-testid="stNumberInput"] [data-baseweb="input"]:focus-within,
+    [data-testid="stDateInput"] [data-baseweb="input"]:focus-within {
+        border-bottom: 3px solid var(--ief-verde-escuro) !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+        min-height: 2.35rem;
+        background: #ffffff !important;
+        border: 0 !important;
+        border-bottom: 2px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.2rem 0.2rem 0 0 !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stTextArea"] [data-baseweb="textarea"] {
+        background: #ffffff !important;
+        border: 1px solid #91a993 !important;
+        border-radius: 0.25rem !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stTextArea"] [data-baseweb="textarea"]:focus-within {
+        border: 2px solid var(--ief-verde-escuro) !important;
+    }
     [data-testid="stTextInput"] input,
     [data-testid="stNumberInput"] input,
     [data-testid="stDateInput"] input,
     [data-testid="stTextArea"] textarea {
         color: var(--ief-texto) !important;
         background: #ffffff !important;
-        border-color: #b7c5b4 !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stTextInput"] input::placeholder,
+    [data-testid="stTextArea"] textarea::placeholder {
+        color: #59675b !important;
+        opacity: 1 !important;
     }
     .acesso-marca {
         margin-bottom: 1.5rem;
