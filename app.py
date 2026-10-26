@@ -25,21 +25,33 @@ st.markdown(
     """
     <style>
     :root {
-        --ief-verde-fundo: #f8fbf6;
+        --ief-verde-fundo: #edf5e8;
         --ief-verde-medio: #2f6b3c;
         --ief-verde-escuro: #234b2e;
+        --ief-texto: #24352a;
+        --ief-texto-secundario: #46574a;
         --ief-terra: #8b6b3e;
     }
     [data-testid="stAppViewContainer"] {
         background: var(--ief-verde-fundo) !important;
+        color: var(--ief-texto) !important;
     }
     [data-testid="stHeader"] {
-        background: rgba(248, 251, 246, 0.96) !important;
+        background: rgba(237, 245, 232, 0.96) !important;
     }
     [data-testid="stMainBlockContainer"] {
         max-width: 980px;
+        margin: 1.1rem auto 2rem auto;
         padding-left: 1.25rem;
         padding-right: 1.25rem;
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+        color: var(--ief-texto) !important;
+        background: #ffffff !important;
+        border: 1px solid #d3dfcf;
+        border-radius: 0.8rem;
+        box-shadow: 0 5px 20px #24452b0d;
+        box-sizing: border-box;
     }
     [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
         width: 100%;
@@ -49,8 +61,13 @@ st.markdown(
         flex-direction: column;
         justify-content: center;
         align-items: center;
+        margin: auto;
         padding-top: 1rem;
         padding-bottom: 1rem;
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) {
         width: min(360px, calc(100vw - 2rem));
@@ -74,6 +91,34 @@ st.markdown(
         margin: auto !important;
         background: #ffffff !important;
         background-color: #ffffff !important;
+        color: var(--ief-texto) !important;
+    }
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    [data-testid="stWidgetLabel"] p,
+    [data-testid="stExpander"] summary,
+    [data-testid="stCaptionContainer"],
+    [data-testid="stCaptionContainer"] p {
+        color: var(--ief-texto-secundario) !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3,
+    [data-testid="stMarkdownContainer"] h4,
+    [data-testid="stMarkdownContainer"] strong,
+    [data-testid="stWidgetLabel"] p,
+    label {
+        color: var(--ief-texto) !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input,
+    [data-testid="stTextArea"] textarea {
+        color: var(--ief-texto) !important;
+        background: #ffffff !important;
+        border-color: #b7c5b4 !important;
     }
     .acesso-marca {
         margin-bottom: 1.5rem;
@@ -212,9 +257,13 @@ st.markdown(
         [data-testid="stMainBlockContainer"] {
             padding-left: 0.75rem;
             padding-right: 0.75rem;
+            margin-top: 0.5rem;
+            border-radius: 0.6rem;
         }
         [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
             min-height: calc(100vh - 1rem);
+            margin: auto;
+            border: 0 !important;
         }
         div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso),
         .st-key-cartao_acesso {
