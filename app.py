@@ -158,13 +158,28 @@ st.markdown(
         border-bottom: 3px solid var(--ief-verde-escuro) !important;
     }
     [data-testid="stTextArea"] [data-baseweb="textarea"] {
+        min-height: 6rem !important;
         background: #ffffff !important;
         border: 1px solid #91a993 !important;
-        border-radius: 0.25rem !important;
+        border-radius: 0.3rem !important;
         box-shadow: none !important;
     }
-    [data-testid="stTextArea"] [data-baseweb="textarea"]:focus-within {
+    [data-testid="stTextArea"] textarea {
+        display: block !important;
+        width: 100% !important;
+        min-height: 6rem !important;
+        box-sizing: border-box !important;
+        padding: 0.65rem 0.75rem !important;
+        color: var(--ief-texto) !important;
+        background: #ffffff !important;
+        border: 1px solid #91a993 !important;
+        border-radius: 0.3rem !important;
+        box-shadow: none !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stTextArea"] textarea:focus {
         border: 2px solid var(--ief-verde-escuro) !important;
+        outline: none !important;
     }
     [data-testid="stTextInput"] input,
     [data-testid="stNumberInput"] input,
@@ -1017,6 +1032,7 @@ if modulo == "Ficha":
                     "Justificativa",
                     value=pontos["justificativa"],
                     key=f"{prefixo}_{codigo}_justificativa",
+                    height=96,
                     disabled=not pode_editar,
                     label_visibility="collapsed",
                 )
