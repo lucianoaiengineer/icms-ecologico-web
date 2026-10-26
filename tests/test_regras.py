@@ -4,7 +4,13 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
-from icms.regras import calcular, normalizar_processo, nova_ficha, validar
+from icms.regras import (
+    calcular,
+    normalizar_processo,
+    nova_ficha,
+    preparar,
+    validar,
+)
 from icms.repositorio import Conflito, Repositorio
 
 
@@ -94,6 +100,30 @@ class TesteRegras(unittest.TestCase):
         repositorio.gravar(ficha, 1, "Rascunho", "usuario")
         self.assertEqual(len(repositorio.listar()), 1)
         self.assertEqual(len(repositorio.historico), 2)
+
+    def test_rotulo_de_parametro_editavel_e_persistido(self) -> None:
+        repositorio = Repositorio()
+        ficha = ficha_valida()
+        ficha["parametros"]["1.1"]["rotulo"] = "Texto do parâmetro revisado"
+
+        salvo = repositorio.gravar(ficha, 0, "Rascunho", "usuario")
+
+        self.assertEqual(
+            salvo["ficha"]["parametros"]["1.1"]["rotulo"],
+            "Texto do parâmetro revisado",
+        )
+
+    def test_rotulo_padrao_e_reposto_em_fichas_antigas(self) -> None:
+        ficha = nova_ficha()
+        ficha["processo"] = "0000.00.0000001/2026-00"
+        del ficha["parametros"]["1.1"]["rotulo"]
+
+        preparada = preparar(ficha)
+
+        self.assertEqual(
+            preparada["parametros"]["1.1"]["rotulo"],
+            "1.1 · Aspecto - Ecossistema/mapa",
+        )
 
     def test_reenvio_identico(self) -> None:
         repositorio = Repositorio()
