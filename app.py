@@ -289,6 +289,11 @@ st.markdown(
     .atalhos-rolagem a:hover {
         background: #0d3554;
     }
+    .linha-parametro {
+        border: 0;
+        border-top: 1px solid #a7be98;
+        margin: 0.15rem 0 0.7rem;
+    }
     .rodape-institucional {
         margin-top: 3rem;
         color: #fff;
@@ -986,56 +991,70 @@ if modulo == "Ficha":
         "os campos obrigatórios ainda precisam ser preenchidos. "
         "Pontuações individuais: 0 a 9."
     )
-    if "parametros_abertos" not in st.session_state:
-        st.session_state.parametros_abertos = False
-    abrir_todos, fechar_todos = st.columns(2)
-    with abrir_todos:
-        if st.button("Abrir todos os parâmetros (1.1 a 9)"):
-            st.session_state.parametros_abertos = True
-            st.rerun()
-    with fechar_todos:
-        if st.button("Fechar todos os parâmetros (1.1 a 9)"):
-            st.session_state.parametros_abertos = False
-            st.rerun()
+    proporcao_colunas = [2.2, 1.0, 3.3, 1.0]
+    (
+        cabecalho_parametro,
+        cabecalho_gestor,
+        cabecalho_justificativa,
+        cabecalho_validado,
+    ) = st.columns(proporcao_colunas, vertical_alignment="bottom")
+    with cabecalho_parametro:
+        st.markdown("**Parâmetro**")
+    with cabecalho_gestor:
+        st.markdown("**Pontos Gestor**")
+    with cabecalho_justificativa:
+        st.markdown("**Justificativa/Observação**")
+    with cabecalho_validado:
+        st.markdown("**Pontos Validados**")
+
     for codigo, nome in PARAMETROS:
-        with st.expander(
-            f"{codigo} · {nome}",
-            expanded=st.session_state.parametros_abertos,
-        ):
-            pontos = ficha["parametros"][codigo]
-            gestor, validado = st.columns(2)
-            with gestor:
-                pontos["gestor"] = inteiro_em_linha(
-                    "Pontos Gestor",
-                    pontos["gestor"],
-                    f"{prefixo}_{codigo}_gestor",
-                    0,
-                    9,
-                    desabilitado=not pode_editar,
-                )
-            with validado:
-                pontos["validado"] = inteiro_em_linha(
-                    "Pontos Validados",
-                    pontos["validado"],
-                    f"{prefixo}_{codigo}_validado",
-                    0,
-                    9,
-                    desabilitado=not pode_editar,
-                )
-            rotulo_justificativa, campo_justificativa = st.columns(
-                [0.2, 0.8], vertical_alignment="top"
+        pontos = ficha["parametros"][codigo]
+        (
+            coluna_parametro,
+            coluna_gestor,
+            coluna_justificativa,
+            coluna_validado,
+        ) = st.columns(proporcao_colunas, vertical_alignment="top")
+        with coluna_parametro:
+            pontos["rotulo"] = st.text_input(
+                f"{codigo} · Parâmetro",
+                value=pontos.get("rotulo", f"{codigo} · {nome}"),
+                key=f"{prefixo}_{codigo}_rotulo",
+                disabled=not pode_editar,
+                label_visibility="collapsed",
             )
-            with rotulo_justificativa:
-                st.markdown("**Justificativa**")
-            with campo_justificativa:
-                pontos["justificativa"] = st.text_area(
-                    "Justificativa",
-                    value=pontos["justificativa"],
-                    key=f"{prefixo}_{codigo}_justificativa",
-                    height=96,
-                    disabled=not pode_editar,
-                    label_visibility="collapsed",
-                )
+        with coluna_gestor:
+            pontos["gestor"] = st.number_input(
+                f"{codigo} · Pontos Gestor",
+                min_value=0,
+                max_value=9,
+                value=pontos["gestor"],
+                step=1,
+                key=f"{prefixo}_{codigo}_gestor",
+                disabled=not pode_editar,
+                label_visibility="collapsed",
+            )
+        with coluna_justificativa:
+            pontos["justificativa"] = st.text_area(
+                f"{codigo} · Justificativa/Observação",
+                value=pontos["justificativa"],
+                key=f"{prefixo}_{codigo}_justificativa",
+                height=96,
+                disabled=not pode_editar,
+                label_visibility="collapsed",
+            )
+        with coluna_validado:
+            pontos["validado"] = st.number_input(
+                f"{codigo} · Pontos Validados",
+                min_value=0,
+                max_value=9,
+                value=pontos["validado"],
+                step=1,
+                key=f"{prefixo}_{codigo}_validado",
+                disabled=not pode_editar,
+                label_visibility="collapsed",
+            )
+        st.markdown('<hr class="linha-parametro">', unsafe_allow_html=True)
     total_gestor = sum(
         pontos["gestor"] or 0
         for pontos in ficha["parametros"].values()
