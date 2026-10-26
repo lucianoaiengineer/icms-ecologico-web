@@ -66,8 +66,13 @@ def nova_ficha() -> dict[str, Any]:
         "analise": hoje.strftime("%m/%Y"),
         "recebimento": hoje.isoformat(),
         "parametros": {
-            codigo: {"gestor": None, "justificativa": "", "validado": None}
-            for codigo, _ in PARAMETROS
+            codigo: {
+                "rotulo": f"{codigo} · {nome}",
+                "gestor": None,
+                "justificativa": "",
+                "validado": None,
+            }
+            for codigo, nome in PARAMETROS
         },
         "municipios": [
             {"nome": "", **{codigo: None for codigo in MUNICIPAIS}}
@@ -174,7 +179,11 @@ def calcular(ficha: dict[str, Any]) -> dict[str, Any]:
 
 
 def preparar(ficha: dict[str, Any]) -> dict[str, Any]:
-    """Retorna cópia com chave normalizada, sem alterar a tela."""
+    """Normaliza a chave e completa rótulos ausentes em fichas antigas."""
     copia = deepcopy(ficha)
     copia["processo"] = normalizar_processo(copia["processo"])
+    for codigo, nome in PARAMETROS:
+        copia["parametros"].setdefault(codigo, {}).setdefault(
+            "rotulo", f"{codigo} · {nome}"
+        )
     return copia
