@@ -111,6 +111,27 @@ class TesteRegras(unittest.TestCase):
         self.assertEqual(len(repositorio.listar()), 1)
         self.assertEqual(len(repositorio.historico), 2)
 
+    def test_atualizar_ficha_preserva_as_demais_fichas(self) -> None:
+        """Atualiza uma chave sem apagar as outras fichas da demonstração."""
+        repositorio = Repositorio()
+        primeira = ficha_valida()
+        segunda = ficha_valida()
+        primeira["processo"] = "0000.00.0000001/2026-00"
+        segunda["processo"] = "0000.00.0000002/2026-00"
+        repositorio.gravar(primeira, 0, "Rascunho", "usuario")
+        repositorio.gravar(segunda, 0, "Rascunho", "usuario")
+
+        primeira["unidade"] = "Unidade atualizada"
+        repositorio.gravar(primeira, 1, "Rascunho", "usuario")
+
+        registros = repositorio.listar()
+        self.assertEqual(len(registros), 2)
+        self.assertEqual(
+            {registro["ficha"]["processo"] for registro in registros},
+            {primeira["processo"], segunda["processo"]},
+        )
+        self.assertEqual(len(repositorio.historico), 3)
+
     def test_rotulo_de_parametro_editavel_e_persistido(self) -> None:
         """Preserva o texto personalizado do parâmetro entre gravações."""
         repositorio = Repositorio()
