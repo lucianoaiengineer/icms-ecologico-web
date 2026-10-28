@@ -58,16 +58,21 @@ st.markdown(
         box-sizing: border-box;
     }
     [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
-        width: 100%;
-        max-width: 980px;
-        min-height: calc(100vh - 2rem);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        margin: auto;
-        padding-top: 1rem;
-        padding-bottom: 1rem;
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        max-width: none;
+        min-height: 100vh;
+        min-height: 100dvh;
+        box-sizing: border-box;
+        display: grid;
+        place-items: center;
+        overflow: auto;
+        margin: 0;
+        padding: 1rem;
         background: transparent !important;
         border: 0 !important;
         border-radius: 0 !important;
@@ -97,7 +102,7 @@ st.markdown(
     .st-key-cartao_acesso {
         width: min(360px, calc(100vw - 2rem)) !important;
         max-width: 360px !important;
-        margin: auto !important;
+        margin: 0 auto !important;
         background: #ffffff !important;
         background-color: #ffffff !important;
         color: var(--ief-texto) !important;
@@ -437,8 +442,13 @@ st.markdown(
             border-radius: 0.6rem;
         }
         [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
-            min-height: calc(100vh - 1rem);
-            margin: auto;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            min-height: 100vh;
+            min-height: 100dvh;
+            margin: 0;
+            padding: 0.75rem;
             border: 0 !important;
         }
         div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso),
@@ -746,7 +756,15 @@ def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
             "RESPONSÁVEL": ficha["responsavel"],
         }
         for codigo, _ in PARAMETROS:
-            linha[f"PARÂM {codigo}"] = ficha["parametros"][codigo]["validado"]
+            pontos = ficha["parametros"][codigo]
+            linha[f"Pontos Gestor {codigo}"] = pontos["gestor"]
+            linha[f"Pontos Validados {codigo}"] = pontos["validado"]
+        linha["TOTAL — PONTOS GESTOR"] = sum(
+            pontos["gestor"] or 0 for pontos in ficha["parametros"].values()
+        )
+        linha["TOTAL — PONTOS VALIDADOS"] = sum(
+            pontos["validado"] or 0 for pontos in ficha["parametros"].values()
+        )
         for codigo in MUNICIPAIS:
             origem = mapa.get(codigo, "10" if codigo == "10" else "")
             linha[f"PARÂM {codigo}"] = calculo["totais"].get(origem)
@@ -866,9 +884,22 @@ def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
         elif caminho == "pontuacao_categoria":
             colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
         elif caminho.startswith("parametros."):
-            partes = caminho.split(".")
-            if len(partes) == 3 and partes[2] == "validado":
-                colunas.add(f"PARÂM {partes[1]}")
+            # Os identificadores 1.1, 1.2, 5.1 etc. contêm ponto; separamos
+            # somente o prefixo e o nome do campo, preservando o código inteiro.
+            codigo_e_campo = caminho.removeprefix("parametros.").rsplit(".", 1)
+            partes = ["parametros", *codigo_e_campo]
+            if len(partes) == 3 and partes[2] == "gestor":
+                colunas.update(
+                    (f"Pontos Gestor {partes[1]}", "TOTAL — PONTOS GESTOR")
+                )
+            elif len(partes) == 3 and partes[2] == "validado":
+                colunas.update(
+                    (
+                        f"Pontos Validados {partes[1]}",
+                        "TOTAL — PONTOS VALIDADOS",
+                        f"PARÂM {partes[1]}",
+                    )
+                )
                 colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
         elif caminho.startswith("municipios[") and "]." in caminho:
             posicao_texto, campo = caminho[len("municipios["):].split("].", 1)
