@@ -185,7 +185,7 @@ class TesteInterface(unittest.TestCase):
             for codigo in ("10", "11.1", "11.2", "11.3")
         )
         self.assertIn(f">{esperado}<", tabela)
-        pontuacao_final = f"{esperado / 89:.2f}".replace(".", ",")
+        pontuacao_final = f"{esperado / 89:.4f}".replace(".", ",")
         self.assertIn(f">{pontuacao_final}<", tabela)
 
     def test_totais_dos_parametros_e_dos_blocos_municipais(self) -> None:
@@ -244,6 +244,10 @@ class TesteInterface(unittest.TestCase):
         self.assertTrue(
             any("salva e verificada" in aviso.value for aviso in self.aplicacao.success)
         )
+        self.assertEqual(self.aplicacao.session_state.versao, 1)
+        self.assertTrue(
+            any(botao.label == "Salvar alterações" for botao in self.aplicacao.button)
+        )
         self.aplicacao.radio[0].set_value("Resultados").run()
         self.assertFalse(
             any(
@@ -279,7 +283,7 @@ class TesteInterface(unittest.TestCase):
         )
         self.assertIn("Indicador", resultado)
         self.assertIn("Último cadastro", resultado)
-        self.assertIn(">0.58<", resultado)
+        self.assertIn(">0.5843<", resultado)
         self.assertIn("PARÂM 10", resultado)
         self.assertIn(">3<", resultado)
         for codigo in ("11.1", "11.2", "11.3"):
@@ -293,6 +297,10 @@ class TesteInterface(unittest.TestCase):
         self.assertFalse(self.aplicacao.exception)
         self.assertTrue(
             any("Concluída salva" in aviso.value for aviso in self.aplicacao.success)
+        )
+        self.assertEqual(self.aplicacao.session_state.versao, 1)
+        self.assertTrue(
+            any(botao.label == "Atualizar ficha" for botao in self.aplicacao.button)
         )
 
     def test_atualizar_exige_alteracao_e_gera_versao_nova(self) -> None:

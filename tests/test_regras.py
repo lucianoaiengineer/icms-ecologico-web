@@ -6,6 +6,7 @@ from copy import deepcopy
 
 from icms.regras import (
     calcular,
+    formatar_fq,
     normalizar_processo,
     nova_ficha,
     preparar,
@@ -33,7 +34,12 @@ class TesteRegras(unittest.TestCase):
 
     def test_fator_base(self) -> None:
         """Confere o cálculo da pontuação final do município."""
-        self.assertEqual(calcular(ficha_valida())["municipios"][0]["FQ"], "0,38")
+        self.assertEqual(calcular(ficha_valida())["municipios"][0]["FQ"], "0,3820")
+
+    def test_fq_usa_quatro_casas_com_arredondamento_comercial(self) -> None:
+        """Exibe quatro casas decimais e arredonda meio para cima."""
+        self.assertEqual(formatar_fq(1, 3), "0,3333")
+        self.assertEqual(formatar_fq(1, 6), "0,1667")
 
     def test_valor_de_outro_municipio_nao_altera_primeiro(self) -> None:
         """Garante que as notas municipais sejam calculadas separadamente."""
