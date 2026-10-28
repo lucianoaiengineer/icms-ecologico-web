@@ -32,6 +32,8 @@ ROTULOS_MUNICIPAIS = {
     "11.2": "11.1",
     "11.3": "11.2",
 }
+CASAS_DECIMAIS_FQ = 4
+PRECISAO_FQ = Decimal(1).scaleb(-CASAS_DECIMAIS_FQ)
 
 
 def agora() -> datetime:
@@ -137,6 +139,14 @@ def validar(ficha: dict[str, Any], concluir: bool = False) -> list[str]:
     return erros
 
 
+def formatar_fq(soma: int, pontuacao_categoria: int) -> str:
+    """Formata a pontuação final com quatro casas e vírgula decimal."""
+    fator = (Decimal(soma) / Decimal(pontuacao_categoria)).quantize(
+        PRECISAO_FQ, rounding=ROUND_HALF_UP
+    )
+    return format(fator, "f").replace(".", ",")
+
+
 def calcular(ficha: dict[str, Any]) -> dict[str, Any]:
     """Calcula FQ individual sem usar os totais consolidados municipais."""
     erros = validar(ficha, concluir=True)
@@ -149,15 +159,14 @@ def calcular(ficha: dict[str, Any]) -> dict[str, Any]:
         if municipio["nome"].strip() in ("", "-"):
             continue
         soma = total_validado + sum(municipio[codigo] for codigo in MUNICIPAIS)
-        fator = Decimal(soma) / Decimal(ficha["pontuacao_categoria"])
+        fator = (Decimal(soma) / Decimal(ficha["pontuacao_categoria"])).quantize(
+            PRECISAO_FQ, rounding=ROUND_HALF_UP
+        )
         resultados.append(
             {
                 "Município": municipio["nome"].strip(),
                 "Soma": soma,
-                "FQ": format(
-                    fator.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-                    "f",
-                ).replace(".", ","),
+                "FQ": format(fator, "f").replace(".", ","),
                 "fq_numero": float(fator),
             }
         )
