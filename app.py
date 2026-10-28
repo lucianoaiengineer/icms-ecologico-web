@@ -12,10 +12,12 @@ import pandas as pd
 import streamlit as st
 
 from icms.regras import (
+    CASAS_DECIMAIS_FQ,
     MUNICIPAIS,
     PARAMETROS,
     ROTULOS_MUNICIPAIS,
     calcular,
+    formatar_fq,
     normalizar_processo,
     nova_ficha,
 )
@@ -536,9 +538,17 @@ def exibir_backup_demonstracao(repositorio: Repositorio) -> None:
             "Baixe o backup ao terminar. Em outro dia, envie esse arquivo para "
             "restaurar fichas e rascunhos nesta sessão de demonstração."
         )
+        exportador_csv = getattr(repositorio, "exportar_backup_csv", None)
+        restaurador_csv = getattr(repositorio, "restaurar_backup_csv", None)
+        if not callable(exportador_csv) or not callable(restaurador_csv):
+            st.warning(
+                "O backup CSV não está disponível nesta versão. Atualize juntos "
+                "app.py e icms/repositorio.py no GitHub."
+            )
+            return
         st.download_button(
             "Baixar backup completo das fichas",
-            data=repositorio.exportar_backup_csv(),
+            data=exportador_csv(),
             file_name="backup_fichas_icms.csv",
             mime="text/csv",
             help="Inclui conteúdo integral, situação, versão e histórico de cada ficha.",
@@ -553,9 +563,7 @@ def exibir_backup_demonstracao(repositorio: Repositorio) -> None:
             "Restaurar fichas do CSV", key="restaurar_backup_fichas"
         ):
             try:
-                quantidade_restaurada = repositorio.restaurar_backup_csv(
-                    arquivo_backup.getvalue()
-                )
+                quantidade_restaurada = restaurador_csv(arquivo_backup.getvalue())
                 st.success(
                     f"Backup lido. {quantidade_restaurada} ficha(s) restaurada(s). "
                     "Consulte pelo número SEI para continuar."
@@ -836,13 +844,12 @@ def quadro_final_ficha(ficha: dict) -> pd.DataFrame:
             )
             continue
         soma = total_validado + sum(municipio.get(codigo) or 0 for codigo in MUNICIPAIS)
-        fq = soma / ficha["pontuacao_categoria"]
         linhas.append(
             {
                 "Posição": f"Município {posicao}",
                 "Município": nome,
                 "SOMA PARÂMETROS": str(soma),
-                "PONTUAÇÃO FINAL FQ": f"{fq:.2f}".replace(".", ","),
+                "PONTUAÇÃO FINAL FQ": formatar_fq(soma, ficha["pontuacao_categoria"]),
             }
         )
     return pd.DataFrame(linhas)
@@ -873,7 +880,7 @@ def renderizar_tabela(
             elif coluna == "DATA RECEBIDA" and hasattr(valor, "strftime"):
                 texto = valor.strftime("%m/%d/%Y")
             elif coluna.startswith("Nota") and isinstance(valor, Real):
-                texto = f"{valor:.2f}"
+                texto = f"{valor:.{CASAS_DECIMAIS_FQ}f}"
             elif isinstance(valor, Real) and not isinstance(valor, bool):
                 texto = str(int(valor)) if float(valor).is_integer() else str(valor)
             else:
@@ -953,9 +960,12 @@ def proteger_csv(quadro: pd.DataFrame) -> bytes:
                     else valor_csv
                 )
             )
-    return quadro.to_csv(index=False, sep=";", decimal=",", float_format="%.2f").encode(
-        "utf-8-sig"
-    )
+    return quadro.to_csv(
+        index=False,
+        sep=";",
+        decimal=",",
+        float_format=f"%.{CASAS_DECIMAIS_FQ}f",
+    ).encode("utf-8-sig")
 
 
 def diferencas_ficha(
@@ -1530,7 +1540,7 @@ if modulo == "Ficha":
                 and registro_atual["ficha"] == ficha
                 and registro_atual["status"] == situacao_destino
             ):
-                st.info(
+                mensagem_salvamento = (
                     "Nenhuma alteração detectada. A ficha não foi gravada novamente."
                 )
                 salvo = registro_atual
@@ -1541,7 +1551,7 @@ if modulo == "Ficha":
                     situacao_destino,
                     autor,
                 )
-                st.success(
+                mensagem_salvamento = (
                     f"{salvo['status']} salva e verificada. Versão {salvo['versao']}."
                 )
             st.session_state.ficha = deepcopy(salvo["ficha"])
@@ -1549,6 +1559,9 @@ if modulo == "Ficha":
             st.session_state.versao = salvo["versao"]
             st.session_state.status_ficha = salvo["status"]
             tem_alteracoes = False
+            # Atualiza a versão da ficha na mesma ação, sem exigir um segundo clique.
+            st.session_state.aviso = mensagem_salvamento
+            st.rerun()
         except (Conflito, ValueError) as erro:
             st.error(str(erro))
         # A persistência remota usa SDKs com exceções específicas por provedor.
@@ -1606,7 +1619,10 @@ if modulo == "Ficha":
                     st.rerun()
 else:
     st.subheader("Resultados consolidados")
-    st.caption("Somente fichas concluídas. Notas exibidas com duas casas decimais.")
+    st.caption(
+        f"Somente fichas concluídas. Notas exibidas com "
+        f"{CASAS_DECIMAIS_FQ} casas decimais."
+    )
     st.caption(
         "No relatório, o total do bloco 10 alimenta o fator 10; o total do bloco 11 "
         "alimenta os fatores 11.1, 11.2 e 11.3, conforme definido para E44 e E60."
