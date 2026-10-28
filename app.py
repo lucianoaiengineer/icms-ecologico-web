@@ -1,6 +1,7 @@
 """Interface web de cadastro, consulta e resultados do ICMS Ecológico."""
 
 import html
+import logging
 import os
 from copy import deepcopy
 from datetime import date
@@ -20,9 +21,10 @@ from icms.regras import (
 )
 from icms.repositorio import Conflito, Repositorio, RepositorioSheets
 
-st.set_page_config(
-    page_title="Gestão de Fichas | ICMS Ecológico", layout="centered"
-)
+registrador_log = logging.getLogger(__name__)
+
+# Mantém as interfaces externas, regras do domínio e armazenamento separados.
+st.set_page_config(page_title="Gestão de Fichas | ICMS Ecológico", layout="centered")
 
 st.markdown(
     """
@@ -40,8 +42,15 @@ st.markdown(
         background: var(--ief-cinza-fundo) !important;
         color: var(--ief-texto) !important;
     }
+    /* Barra superior preenchida para separar visualmente a página do conteúdo. */
     [data-testid="stHeader"] {
-        background: rgba(243, 244, 246, 0.96) !important;
+        background: var(--ief-verde-escuro) !important;
+    }
+    [data-testid="stHeader"] [data-testid="stToolbar"] button,
+    [data-testid="stHeader"] [data-testid="stToolbar"] svg {
+        color: #ffffff !important;
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
     }
     [data-testid="stMainBlockContainer"] {
         max-width: 980px;
@@ -269,10 +278,10 @@ st.markdown(
     .aviso-demo {
         margin: 0.75rem 0 1rem;
         padding: 0.8rem 1rem;
-        border: 1px solid #c8dbc2;
-        border-left: 4px solid #6c9b67;
+        border: 1px solid #9fba95;
+        border-left: 5px solid var(--ief-verde-medio);
         border-radius: 0.45rem;
-        background: #eff6eb;
+        background: #e4efdf;
         color: #29452e;
         line-height: 1.5;
     }
@@ -494,7 +503,7 @@ st.markdown(
 )
 
 
-def segredo(chave: str, padrao: object = None) -> object:
+def segredo(chave: str, padrao: object = None) -> Any:
     """Lê configuração sem exigir arquivo de segredos na demonstração."""
     try:
         return st.secrets.get(chave, padrao)
@@ -520,12 +529,47 @@ def conectar_sheets() -> RepositorioSheets:
     )
 
 
+def exibir_backup_demonstracao(repositorio: Repositorio) -> None:
+    """Permite baixar e restaurar fichas enquanto a aplicação está em demonstração."""
+    with st.expander("Backup temporário das fichas (CSV)"):
+        st.caption(
+            "Baixe o backup ao terminar. Em outro dia, envie esse arquivo para "
+            "restaurar fichas e rascunhos nesta sessão de demonstração."
+        )
+        st.download_button(
+            "Baixar backup completo das fichas",
+            data=repositorio.exportar_backup_csv(),
+            file_name="backup_fichas_icms.csv",
+            mime="text/csv",
+            help="Inclui conteúdo integral, situação, versão e histórico de cada ficha.",
+        )
+        arquivo_backup = st.file_uploader(
+            "Restaurar fichas de um backup CSV",
+            type=["csv"],
+            key="arquivo_backup_fichas",
+            max_upload_size=50,
+        )
+        if arquivo_backup and st.button(
+            "Restaurar fichas do CSV", key="restaurar_backup_fichas"
+        ):
+            try:
+                quantidade_restaurada = repositorio.restaurar_backup_csv(
+                    arquivo_backup.getvalue()
+                )
+                st.success(
+                    f"Backup lido. {quantidade_restaurada} ficha(s) restaurada(s). "
+                    "Consulte pelo número SEI para continuar."
+                )
+            except ValueError as erro:
+                st.error(str(erro))
+
+
 def identificar(modo: str) -> tuple[str, bool]:
     """Exige identidade e autorização antes de ler dados persistentes."""
     if modo == "demonstracao":
         return "demonstracao", True
-    configuracao_auth = segredo("auth")
-    campos_auth = (
+    configuracao_autenticacao = segredo("auth")
+    campos_autenticacao = (
         "redirect_uri",
         "cookie_secret",
         "client_id",
@@ -533,38 +577,38 @@ def identificar(modo: str) -> tuple[str, bool]:
         "server_metadata_url",
     )
     try:
-        auth_configurada = bool(
-            configuracao_auth
+        autenticacao_configurada = bool(
+            configuracao_autenticacao
             and all(
-                str(configuracao_auth.get(campo, "")).strip()
-                for campo in campos_auth
+                str(configuracao_autenticacao.get(campo, "")).strip()
+                for campo in campos_autenticacao
             )
         )
     except AttributeError:
-        auth_configurada = False
-    if not auth_configurada:
-        exibir_tela_acesso(auth_configurada=False)
+        autenticacao_configurada = False
+    if not autenticacao_configurada:
+        exibir_tela_acesso(autenticacao_configurada=False)
         st.stop()
     if not st.user.is_logged_in:
-        exibir_tela_acesso(auth_configurada=True)
+        exibir_tela_acesso(autenticacao_configurada=True)
         st.stop()
-    email = str(st.user.get("email", "")).lower()
-    editores = [str(e).lower() for e in segredo("editores", [])]
-    leitores = [str(e).lower() for e in segredo("leitores", [])]
+    endereco_email = str(st.user.get("email", "")).lower()
+    editores = [str(editor).lower() for editor in segredo("editores", [])]
+    leitores = [str(leitor).lower() for leitor in segredo("leitores", [])]
     if (
         not st.user.get("email_verified", False)
-        or email not in editores + leitores
+        or endereco_email not in editores + leitores
     ):
         st.error("Conta sem autorização para acessar esta aplicação.")
         st.button("Sair", on_click=st.logout)
         st.stop()
-    st.sidebar.caption(email)
+    st.sidebar.caption(endereco_email)
     st.sidebar.button("Sair", on_click=st.logout)
-    return email, email in editores
+    return endereco_email, endereco_email in editores
 
 
 def exibir_tela_acesso(
-    *, auth_configurada: bool, permitir_demo: bool = False
+    *, autenticacao_configurada: bool, permitir_demo: bool = False
 ) -> None:
     """Apresenta o acesso institucional e orienta recuperação da conta."""
     with st.container(
@@ -574,16 +618,16 @@ def exibir_tela_acesso(
         horizontal_alignment="center",
     ):
         st.markdown(
-                """
+            """
                 <div class="acesso-marca">
                   <span class="folha" aria-hidden="true">🌿</span>
                   <h1>ICMS Ecológico</h1>
                   <p>Gestão de fichas do Fator de Qualidade</p>
                 </div>
                 """,
-                unsafe_allow_html=True,
+            unsafe_allow_html=True,
         )
-        if auth_configurada:
+        if autenticacao_configurada:
             st.button(
                 "Entrar com conta institucional",
                 type="primary",
@@ -615,26 +659,24 @@ def exibir_tela_acesso(
             """,
             unsafe_allow_html=True,
         )
-        url_recuperacao = str(segredo("url_recuperacao", "")).strip()
-        url_suporte = str(segredo("url_suporte", "")).strip()
-        if url_recuperacao.startswith("https://"):
-            st.link_button("Esqueceu a senha? Recuperar acesso", url_recuperacao)
-        if url_suporte.startswith("https://"):
-            st.link_button("Solicitar acesso ou suporte", url_suporte)
-        elif not url_recuperacao.startswith("https://"):
+        endereco_recuperacao = str(segredo("url_recuperacao", "")).strip()
+        endereco_suporte = str(segredo("url_suporte", "")).strip()
+        if endereco_recuperacao.startswith("https://"):
+            st.link_button("Esqueceu a senha? Recuperar acesso", endereco_recuperacao)
+        if endereco_suporte.startswith("https://"):
+            st.link_button("Solicitar acesso ou suporte", endereco_suporte)
+        elif not endereco_recuperacao.startswith("https://"):
             st.caption(
                 "Para recuperar a conta ou solicitar acesso, procure o suporte institucional."
             )
-        if not auth_configurada:
+        if not autenticacao_configurada:
             st.caption(
                 "O acesso institucional será liberado após a configuração da autenticação. "
                 "A demonstração aceita somente dados fictícios e não grava na base oficial."
             )
 
 
-def abrir(
-    ficha: dict, versao: int = 0, status: str = ""
-) -> None:
+def abrir(ficha: dict, versao: int = 0, situacao: str = "") -> None:
     """Abre uma ficha em um novo conjunto de campos da sessão."""
     ficha_aberta = deepcopy(ficha)
     for codigo, nome in PARAMETROS:
@@ -644,7 +686,7 @@ def abrir(
     st.session_state.ficha = deepcopy(ficha_aberta)
     st.session_state.ficha_original = deepcopy(ficha_aberta)
     st.session_state.versao = versao
-    st.session_state.status_ficha = status
+    st.session_state.status_ficha = situacao
     st.session_state.confirmar_exclusao = False
     st.session_state.confirmar_nova_ficha = False
     st.session_state.geracao = st.session_state.get("geracao", 0) + 1
@@ -676,23 +718,21 @@ def texto_em_linha(
     placeholder: str = "",
 ) -> str:
     """Desenha o rótulo à esquerda e o campo de texto à direita."""
-    coluna_rotulo, coluna_valor = st.columns(
-        [0.24, 0.76], vertical_alignment="center"
-    )
+    coluna_rotulo, coluna_valor = st.columns([0.24, 0.76], vertical_alignment="center")
     with coluna_rotulo:
         exibir_rotulo_formulario(rotulo)
-    with coluna_valor:
-        with st.container(
-            key=chave_container_campo(chave, valor_original or "")
-        ):
-            return st.text_input(
-                rotulo,
-                value=valor,
-                key=chave,
-                disabled=desabilitado,
-                placeholder=placeholder,
-                label_visibility="collapsed",
-            )
+    with (
+        coluna_valor,
+        st.container(key=chave_container_campo(chave, valor_original or "")),
+    ):
+        return st.text_input(
+            rotulo,
+            value=valor,
+            key=chave,
+            disabled=desabilitado,
+            placeholder=placeholder,
+            label_visibility="collapsed",
+        )
 
 
 def inteiro_em_linha(
@@ -706,23 +746,20 @@ def inteiro_em_linha(
     desabilitado: bool = False,
 ) -> int | None:
     """Desenha o rótulo à esquerda e o campo numérico à direita."""
-    coluna_rotulo, coluna_valor = st.columns(
-        [0.24, 0.76], vertical_alignment="center"
-    )
+    coluna_rotulo, coluna_valor = st.columns([0.24, 0.76], vertical_alignment="center")
     with coluna_rotulo:
         exibir_rotulo_formulario(rotulo)
-    with coluna_valor:
-        with st.container(key=chave_container_campo(chave, valor_original)):
-            return st.number_input(
-                rotulo,
-                min_value=minimo,
-                max_value=maximo,
-                value=valor,
-                step=1,
-                key=chave,
-                disabled=desabilitado,
-                label_visibility="collapsed",
-            )
+    with coluna_valor, st.container(key=chave_container_campo(chave, valor_original)):
+        return st.number_input(
+            rotulo,
+            min_value=minimo,
+            max_value=maximo,
+            value=valor,
+            step=1,
+            key=chave,
+            disabled=desabilitado,
+            label_visibility="collapsed",
+        )
 
 
 def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
@@ -764,11 +801,13 @@ def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
         for posicao in range(13):
             municipio = ficha["municipios"][posicao]
             nome = municipio["nome"].strip()
-            linha[f"Município{posicao + 1}"] = (
-                nome if nome not in ("", "-") else "-"
-            )
+            linha[f"Município{posicao + 1}"] = nome if nome not in ("", "-") else "-"
             nota = next(
-                (m for m in calculo["municipios"] if m["Município"] == nome),
+                (
+                    municipio_calculado
+                    for municipio_calculado in calculo["municipios"]
+                    if municipio_calculado["Município"] == nome
+                ),
                 None,
             )
             linha[f"Nota{posicao + 1}"] = (
@@ -781,8 +820,7 @@ def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
 def quadro_final_ficha(ficha: dict) -> pd.DataFrame:
     """Monta a parte inferior da ficha para os 13 municípios."""
     total_validado = sum(
-        ponto.get("validado") or 0
-        for ponto in ficha["parametros"].values()
+        ponto.get("validado") or 0 for ponto in ficha["parametros"].values()
     )
     linhas = []
     for posicao, municipio in enumerate(ficha["municipios"], 1):
@@ -792,14 +830,12 @@ def quadro_final_ficha(ficha: dict) -> pd.DataFrame:
                 {
                     "Posição": f"Município {posicao}",
                     "Município": "-",
-                "SOMA PARÂMETROS": "-",
+                    "SOMA PARÂMETROS": "-",
                     "PONTUAÇÃO FINAL FQ": "-",
                 }
             )
             continue
-        soma = total_validado + sum(
-            municipio.get(codigo) or 0 for codigo in MUNICIPAIS
-        )
+        soma = total_validado + sum(municipio.get(codigo) or 0 for codigo in MUNICIPAIS)
         fq = soma / ficha["pontuacao_categoria"]
         linhas.append(
             {
@@ -819,8 +855,7 @@ def renderizar_tabela(
     """Renderiza grade HTML branca e rolável, sem linhas vazias do Streamlit."""
     colunas = list(quadro.columns)
     cabecalho = "".join(
-        f"<th scope=\"col\">{html.escape(str(coluna))}</th>"
-        for coluna in colunas
+        f'<th scope="col">{html.escape(str(coluna))}</th>' for coluna in colunas
     )
     linhas = []
     for _, linha in quadro.iterrows():
@@ -843,14 +878,8 @@ def renderizar_tabela(
                 texto = str(int(valor)) if float(valor).is_integer() else str(valor)
             else:
                 texto = str(valor)
-            classe = (
-                ' class="celula-alterada"'
-                if coluna in colunas_alteradas
-                else ""
-            )
-            celulas.append(
-                f"<td{classe}>{html.escape(texto)}</td>"
-            )
+            classe = ' class="celula-alterada"' if coluna in colunas_alteradas else ""
+            celulas.append(f"<td{classe}>{html.escape(texto)}</td>")
         linhas.append(f"<tr>{''.join(celulas)}</tr>")
     return (
         '<div class="tabela-planilha-rolagem" role="region" '
@@ -882,9 +911,7 @@ def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
             codigo_e_campo = caminho.removeprefix("parametros.").rsplit(".", 1)
             partes = ["parametros", *codigo_e_campo]
             if len(partes) == 3 and partes[2] == "gestor":
-                colunas.update(
-                    (f"Pontos Gestor {partes[1]}", "TOTAL — PONTOS GESTOR")
-                )
+                colunas.update((f"Pontos Gestor {partes[1]}", "TOTAL — PONTOS GESTOR"))
             elif len(partes) == 3 and partes[2] == "validado":
                 colunas.update(
                     (
@@ -895,7 +922,7 @@ def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
                 )
                 colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
         elif caminho.startswith("municipios[") and "]." in caminho:
-            posicao_texto, campo = caminho[len("municipios["):].split("].", 1)
+            posicao_texto, campo = caminho[len("municipios[") :].split("].", 1)
             if not posicao_texto.isdigit():
                 continue
             posicao = int(posicao_texto)
@@ -914,24 +941,26 @@ def proteger_csv(quadro: pd.DataFrame) -> bytes:
     for coluna in quadro.columns:
         if coluna == "DATA RECEBIDA":
             quadro[coluna] = quadro[coluna].map(
-                lambda v: v.strftime("%m/%d/%Y")
+                lambda valor_csv: valor_csv.strftime("%m/%d/%Y")
             )
         else:
             quadro[coluna] = quadro[coluna].map(
-                lambda v: (
-                    "'" + v
-                    if isinstance(v, str)
-                    and v.lstrip().startswith(("=", "+", "-", "@"))
-                    and v != "-"
-                    else v
+                lambda valor_csv: (
+                    "'" + valor_csv
+                    if isinstance(valor_csv, str)
+                    and valor_csv.lstrip().startswith(("=", "+", "-", "@"))
+                    and valor_csv != "-"
+                    else valor_csv
                 )
             )
-    return quadro.to_csv(
-        index=False, sep=";", decimal=",", float_format="%.2f"
-    ).encode("utf-8-sig")
+    return quadro.to_csv(index=False, sep=";", decimal=",", float_format="%.2f").encode(
+        "utf-8-sig"
+    )
 
 
-def diferencas_ficha(original: dict, atual: dict) -> list[str]:
+def diferencas_ficha(
+    ficha_original: dict[str, Any], ficha_atual: dict[str, Any]
+) -> list[str]:
     """Lista os campos alterados para tornar a edição visível ao usuário."""
     nomes = {
         "processo": "Processo SEI",
@@ -949,10 +978,10 @@ def diferencas_ficha(original: dict, atual: dict) -> list[str]:
     alterados = [
         rotulo
         for campo, rotulo in nomes.items()
-        if original.get(campo) != atual.get(campo)
+        if ficha_original.get(campo) != ficha_atual.get(campo)
     ]
-    for codigo, dados in atual["parametros"].items():
-        antigo = original["parametros"].get(codigo, {})
+    for codigo, dados in ficha_atual["parametros"].items():
+        antigo = ficha_original["parametros"].get(codigo, {})
         for campo, rotulo in (
             ("gestor", "Pontos Gestor"),
             ("justificativa", "Justificativa"),
@@ -961,8 +990,8 @@ def diferencas_ficha(original: dict, atual: dict) -> list[str]:
         ):
             if antigo.get(campo) != dados.get(campo):
                 alterados.append(f"Parâmetro {codigo} · {rotulo}")
-    for posicao, municipio in enumerate(atual["municipios"], 1):
-        antigo = original["municipios"][posicao - 1]
+    for posicao, municipio in enumerate(ficha_atual["municipios"], 1):
+        antigo = ficha_original["municipios"][posicao - 1]
         if antigo.get("nome") != municipio.get("nome"):
             alterados.append(f"Município {posicao} · Nome")
         for codigo in MUNICIPAIS:
@@ -978,7 +1007,7 @@ modo = str(modo_configurado).strip().lower()
 if st.session_state.get("modo_demo_sessao", False):
     modo = "demonstracao"
 elif modo not in ("demonstracao", "sheets"):
-    exibir_tela_acesso(auth_configurada=False, permitir_demo=True)
+    exibir_tela_acesso(autenticacao_configurada=False, permitir_demo=True)
     st.stop()
 autor, pode_editar = identificar(modo)
 if modo == "demonstracao":
@@ -999,11 +1028,15 @@ st.title("ICMS Ecológico")
 st.caption("Gestão de fichas do Fator de Qualidade")
 try:
     repositorio = conectar(modo)
-except Exception:
+# Os clientes Google e de autenticação podem lançar classes de erro diferentes.
+except Exception:  # noqa: BLE001
+    registrador_log.exception("Falha ao conectar à persistência configurada.")
     st.error(
         "Não foi possível abrir a base. Confira credenciais, permissões e cabeçalhos."
     )
     st.stop()
+if modo == "demonstracao":
+    exibir_backup_demonstracao(repositorio)
 if "ficha" not in st.session_state:
     abrir(nova_ficha())
 if "ficha_original" not in st.session_state:
@@ -1043,9 +1076,7 @@ if modulo == "Ficha":
         try:
             processo_consultado = normalizar_processo(busca)
             registro = repositorio.consultar(processo_consultado)
-            tem_alteracoes = (
-                st.session_state.ficha != st.session_state.ficha_original
-            )
+            tem_alteracoes = st.session_state.ficha != st.session_state.ficha_original
             if tem_alteracoes:
                 st.session_state.consulta_pendente = {
                     "processo": processo_consultado,
@@ -1062,13 +1093,13 @@ if modulo == "Ficha":
                 ficha_nova = nova_ficha()
                 ficha_nova["processo"] = processo_consultado
                 abrir(ficha_nova)
-                st.session_state.aviso = (
-                    "Processo não localizado. Uma ficha nova foi aberta com o SEI informado."
-                )
+                st.session_state.aviso = "Processo não localizado. Uma ficha nova foi aberta com o SEI informado."
                 st.rerun()
         except ValueError as erro:
             st.error(str(erro))
-        except Exception:
+        # A camada de integração pode lançar erros específicos de rede/autenticação.
+        except Exception:  # noqa: BLE001
+            registrador_log.exception("Falha ao consultar uma ficha.")
             st.error("Falha na consulta. Confira a conexão e tente novamente.")
 
     consulta_pendente = st.session_state.get("consulta_pendente")
@@ -1090,9 +1121,7 @@ if modulo == "Ficha":
                     ficha_nova = nova_ficha()
                     ficha_nova["processo"] = consulta_pendente["processo"]
                     abrir(ficha_nova)
-                    st.session_state.aviso = (
-                        "Processo não localizado. Uma ficha nova foi aberta com o SEI informado."
-                    )
+                    st.session_state.aviso = "Processo não localizado. Uma ficha nova foi aberta com o SEI informado."
                 st.session_state.pop("consulta_pendente", None)
                 st.rerun()
         with manter_atual:
@@ -1110,9 +1139,9 @@ if modulo == "Ficha":
             indice = st.selectbox(
                 "Rascunhos disponíveis",
                 options=range(len(rascunhos)),
-                format_func=lambda i: (
-                    f"{rascunhos[i]['ficha']['processo']} · "
-                    f"{rascunhos[i]['ficha']['unidade'] or 'Unidade não informada'}"
+                format_func=lambda indice: (
+                    f"{rascunhos[indice]['ficha']['processo']} · "
+                    f"{rascunhos[indice]['ficha']['unidade'] or 'Unidade não informada'}"
                 ),
                 key="rascunho_indice",
             )
@@ -1134,13 +1163,11 @@ if modulo == "Ficha":
     st.divider()
     st.subheader("Dados da ficha")
     versao = st.session_state.versao
-    status_atual = st.session_state.status_ficha
-    tem_alteracoes = (
-        st.session_state.ficha != st.session_state.ficha_original
-    )
+    situacao_atual = st.session_state.status_ficha
+    tem_alteracoes = st.session_state.ficha != st.session_state.ficha_original
     if versao:
         st.info(
-            f"Ficha {status_atual.lower()} · Versão {versao}. "
+            f"Ficha {situacao_atual.lower()} · Versão {versao}. "
             "As alterações são gravadas somente quando você escolhe salvar."
         )
     else:
@@ -1157,7 +1184,9 @@ if modulo == "Ficha":
         )
         confirmar_nova, manter_atual = st.columns(2)
         with confirmar_nova:
-            if st.button("Descartar alterações e iniciar nova ficha", disabled=not pode_editar):
+            if st.button(
+                "Descartar alterações e iniciar nova ficha", disabled=not pode_editar
+            ):
                 abrir(nova_ficha())
                 st.session_state.confirmar_nova_ficha = False
                 st.rerun()
@@ -1183,8 +1212,7 @@ if modulo == "Ficha":
             f"{prefixo}_{campo}",
             valor_original=st.session_state.ficha_original.get(campo, ""),
             desabilitado=(
-                not pode_editar
-                or (campo == "processo" and st.session_state.versao > 0)
+                not pode_editar or (campo == "processo" and st.session_state.versao > 0)
             ),
         )
     coluna_esfera, coluna_categoria = st.columns(2)
@@ -1216,9 +1244,7 @@ if modulo == "Ficha":
             f"{prefixo}_pontuacao_categoria",
             1,
             999,
-            valor_original=st.session_state.ficha_original.get(
-                "pontuacao_categoria"
-            ),
+            valor_original=st.session_state.ficha_original.get("pontuacao_categoria"),
             desabilitado=not pode_editar,
         )
     ficha["analise"] = texto_em_linha(
@@ -1228,9 +1254,7 @@ if modulo == "Ficha":
         valor_original=st.session_state.ficha_original.get("analise", ""),
         placeholder="mm/aaaa",
     )
-    rotulo_data, controle_data = st.columns(
-        [0.24, 0.76], vertical_alignment="center"
-    )
+    rotulo_data, controle_data = st.columns([0.24, 0.76], vertical_alignment="center")
     with rotulo_data:
         exibir_rotulo_formulario("Data de recebimento")
     with controle_data:
@@ -1238,9 +1262,7 @@ if modulo == "Ficha":
         data_original = date.fromisoformat(
             st.session_state.ficha_original["recebimento"]
         )
-        with st.container(
-            key=chave_container_campo(chave_recebimento, data_original)
-        ):
+        with st.container(key=chave_container_campo(chave_recebimento, data_original)):
             ficha["recebimento"] = st.date_input(
                 "Data de recebimento",
                 value=date.fromisoformat(ficha["recebimento"]),
@@ -1273,9 +1295,7 @@ if modulo == "Ficha":
 
     for codigo, nome in PARAMETROS:
         pontos = ficha["parametros"][codigo]
-        pontos_originais = st.session_state.ficha_original["parametros"].get(
-            codigo, {}
-        )
+        pontos_originais = st.session_state.ficha_original["parametros"].get(codigo, {})
         (
             coluna_parametro,
             coluna_gestor,
@@ -1301,9 +1321,7 @@ if modulo == "Ficha":
         with coluna_gestor:
             chave_gestor = f"{prefixo}_{codigo}_gestor"
             with st.container(
-                key=chave_container_campo(
-                    chave_gestor, pontos_originais.get("gestor")
-                )
+                key=chave_container_campo(chave_gestor, pontos_originais.get("gestor"))
             ):
                 pontos["gestor"] = st.number_input(
                     f"{codigo} · Pontos Gestor",
@@ -1349,13 +1367,9 @@ if modulo == "Ficha":
                     label_visibility="collapsed",
                 )
         st.markdown('<hr class="linha-parametro">', unsafe_allow_html=True)
-    total_gestor = sum(
-        pontos["gestor"] or 0
-        for pontos in ficha["parametros"].values()
-    )
+    total_gestor = sum(pontos["gestor"] or 0 for pontos in ficha["parametros"].values())
     total_validado = sum(
-        pontos["validado"] or 0
-        for pontos in ficha["parametros"].values()
+        pontos["validado"] or 0 for pontos in ficha["parametros"].values()
     )
     st.markdown("**TOTAL DOS PARÂMETROS**")
     coluna_total_gestor, coluna_total_validado = st.columns(2)
@@ -1371,11 +1385,9 @@ if modulo == "Ficha":
     )
     for codigo in MUNICIPAIS:
         rotulo = ROTULOS_MUNICIPAIS[codigo]
-        with st.expander(
-            f"Parâmetro ({rotulo}) por Municípios", expanded=True
-        ):
-            cabecalho_posicao, cabecalho_municipio, cabecalho_valor = (
-                st.columns([1.1, 2.2, 1])
+        with st.expander(f"Parâmetro ({rotulo}) por Municípios", expanded=True):
+            cabecalho_posicao, cabecalho_municipio, cabecalho_valor = st.columns(
+                [1.1, 2.2, 1]
             )
             with cabecalho_posicao:
                 st.caption("Posição")
@@ -1384,12 +1396,10 @@ if modulo == "Ficha":
             with cabecalho_valor:
                 st.caption("Valor")
             for posicao, municipio in enumerate(ficha["municipios"], 1):
-                municipio_original = st.session_state.ficha_original[
-                    "municipios"
-                ][posicao - 1]
-                coluna_posicao, coluna_nome, coluna_valor = st.columns(
-                    [1.1, 2.2, 1]
-                )
+                municipio_original = st.session_state.ficha_original["municipios"][
+                    posicao - 1
+                ]
+                coluna_posicao, coluna_nome, coluna_valor = st.columns([1.1, 2.2, 1])
                 with coluna_posicao:
                     st.markdown(f"**Município {posicao}**")
                 with coluna_nome:
@@ -1413,8 +1423,9 @@ if modulo == "Ficha":
                         st.text_input(
                             f"Nome do município {posicao}",
                             value=municipio["nome"],
-                            key=(f"{prefixo}_nome_{codigo}_{posicao}_"
-                                 f"{municipio['nome']}"),
+                            key=(
+                                f"{prefixo}_nome_{codigo}_{posicao}_{municipio['nome']}"
+                            ),
                             disabled=True,
                             label_visibility="collapsed",
                         )
@@ -1445,9 +1456,7 @@ if modulo == "Ficha":
     # Cada edição é mantida na sessão; a base só é alterada por uma ação explícita.
     st.session_state.ficha = deepcopy(ficha)
     tem_alteracoes = ficha != st.session_state.ficha_original
-    campos_alterados = diferencas_ficha(
-        st.session_state.ficha_original, ficha
-    )
+    campos_alterados = diferencas_ficha(st.session_state.ficha_original, ficha)
     if tem_alteracoes:
         st.markdown(
             f'<div class="aviso-alteracoes">Há {len(campos_alterados)} '
@@ -1464,11 +1473,9 @@ if modulo == "Ficha":
     concluir = False
     atualizar = False
     if versao == 0:
-        rascunho = botoes[1].button(
-            "Salvar rascunho", disabled=not pode_editar
-        )
+        rascunho = botoes[1].button("Salvar rascunho", disabled=not pode_editar)
         concluir = botoes[2].button("Cadastrar", disabled=not pode_editar)
-    elif status_atual == "Concluída":
+    elif situacao_atual == "Concluída":
         atualizar = botoes[1].button(
             "Atualizar ficha",
             disabled=not pode_editar or not tem_alteracoes,
@@ -1479,9 +1486,7 @@ if modulo == "Ficha":
             "Salvar alterações",
             disabled=not pode_editar or not tem_alteracoes,
         )
-        concluir = botoes[2].button(
-            "Concluir ficha", disabled=not pode_editar
-        )
+        concluir = botoes[2].button("Concluir ficha", disabled=not pode_editar)
     st.markdown("#### Resumo final da ficha")
     try:
         st.markdown(
@@ -1501,9 +1506,7 @@ if modulo == "Ficha":
             st.metric("Total validado", calculo["total_validado"])
             st.markdown(
                 renderizar_tabela(
-                    pd.DataFrame(calculo["municipios"])[
-                        ["Município", "Soma", "FQ"]
-                    ]
+                    pd.DataFrame(calculo["municipios"])[["Município", "Soma", "FQ"]]
                 ),
                 unsafe_allow_html=True,
             )
@@ -1512,22 +1515,20 @@ if modulo == "Ficha":
             st.error("Há campos obrigatórios pendentes ou dados inválidos:")
             for pendencia in pendencias:
                 st.markdown(f"- {pendencia}")
-        except Exception:
+        except (KeyError, TypeError, ZeroDivisionError):
             st.error(
                 "Não foi possível gerar a revisão. Confira os dados e tente novamente."
             )
     if rascunho or concluir:
         try:
-            status_destino = "Concluída" if concluir else "Rascunho"
+            situacao_destino = "Concluída" if concluir else "Rascunho"
             registro_atual = (
-                repositorio.consultar(ficha["processo"])
-                if versao > 0
-                else None
+                repositorio.consultar(ficha["processo"]) if versao > 0 else None
             )
             if (
                 registro_atual
                 and registro_atual["ficha"] == ficha
-                and registro_atual["status"] == status_destino
+                and registro_atual["status"] == situacao_destino
             ):
                 st.info(
                     "Nenhuma alteração detectada. A ficha não foi gravada novamente."
@@ -1537,7 +1538,7 @@ if modulo == "Ficha":
                 salvo = repositorio.gravar(
                     ficha,
                     st.session_state.versao,
-                    status_destino,
+                    situacao_destino,
                     autor,
                 )
                 st.success(
@@ -1550,7 +1551,9 @@ if modulo == "Ficha":
             tem_alteracoes = False
         except (Conflito, ValueError) as erro:
             st.error(str(erro))
-        except Exception:
+        # A persistência remota usa SDKs com exceções específicas por provedor.
+        except Exception:  # noqa: BLE001
+            registrador_log.exception("Falha ao salvar ou confirmar uma ficha.")
             st.error(
                 "A gravação não pôde ser confirmada. Consulte o processo antes de reenviar."
             )
@@ -1561,7 +1564,9 @@ if modulo == "Ficha":
         ):
             st.session_state.confirmar_exclusao = True
         if tem_alteracoes:
-            st.caption("Grave ou descarte as alterações antes de excluir a ficha salva.")
+            st.caption(
+                "Grave ou descarte as alterações antes de excluir a ficha salva."
+            )
         if st.session_state.get("confirmar_exclusao"):
             st.warning(
                 f"Confirme a exclusão da ficha do processo {ficha['processo']}. "
@@ -1589,7 +1594,9 @@ if modulo == "Ficha":
                         st.rerun()
                     except (Conflito, ValueError) as erro:
                         st.error(str(erro))
-                    except Exception:
+                    # Mantém erro técnico no log e mostra orientação segura ao usuário.
+                    except Exception:  # noqa: BLE001
+                        registrador_log.exception("Falha ao excluir uma ficha.")
                         st.error(
                             "A exclusão não foi confirmada. Consulte novamente antes de repetir."
                         )
@@ -1599,9 +1606,7 @@ if modulo == "Ficha":
                     st.rerun()
 else:
     st.subheader("Resultados consolidados")
-    st.caption(
-        "Somente fichas concluídas. Notas exibidas com duas casas decimais."
-    )
+    st.caption("Somente fichas concluídas. Notas exibidas com duas casas decimais.")
     st.caption(
         "No relatório, o total do bloco 10 alimenta o fator 10; o total do bloco 11 "
         "alimenta os fatores 11.1, 11.2 e 11.3, conforme definido para E44 e E60."
@@ -1610,16 +1615,12 @@ else:
     try:
         registros = repositorio.listar()
         concluidas = [
-            registro
-            for registro in registros
-            if registro["status"] == "Concluída"
+            registro for registro in registros if registro["status"] == "Concluída"
         ]
         processo_mais_recente = None
         if concluidas:
             datas_gravacao = [
-                pd.to_datetime(
-                    registro.get("atualizado_em"), utc=True, errors="coerce"
-                )
+                pd.to_datetime(registro.get("atualizado_em"), utc=True, errors="coerce")
                 for registro in concluidas
             ]
             datas_validas = [
@@ -1628,7 +1629,7 @@ else:
                 if not pd.isna(data_gravacao)
             ]
             indice_mais_recente = (
-                max(datas_validas, key=lambda item: item[1])[0]
+                max(datas_validas, key=lambda registro_data: registro_data[1])[0]
                 if datas_validas
                 else None
             )
@@ -1643,9 +1644,7 @@ else:
             )
         else:
             if filtro:
-                selecao = quadro["Nº SEI"].str.contains(
-                    filtro, regex=False, case=False
-                )
+                selecao = quadro["Nº SEI"].str.contains(filtro, regex=False, case=False)
                 selecao |= quadro["REMETENTE - UCs"].str.contains(
                     filtro, regex=False, case=False
                 )
@@ -1669,9 +1668,7 @@ else:
                 )
                 for registro in concluidas
             }
-            tabela_quadro = renderizar_tabela(
-                quadro_tela, destaques_por_processo
-            )
+            tabela_quadro = renderizar_tabela(quadro_tela, destaques_por_processo)
             with st.container(key="resultados_grade"):
                 st.markdown(tabela_quadro, unsafe_allow_html=True)
             st.caption(
@@ -1690,10 +1687,10 @@ else:
                 "resultado_fq.csv",
                 "text/csv",
             )
-    except Exception:
-        st.error(
-            "Não foi possível montar o resultado. Confira as fichas e a conexão."
-        )
+    # A consulta agrega dados locais e remotos; erros ficam no log do servidor.
+    except Exception:  # noqa: BLE001
+        registrador_log.exception("Falha ao montar a tabela consolidada.")
+        st.error("Não foi possível montar o resultado. Confira as fichas e a conexão.")
 
 st.markdown(
     """
