@@ -137,23 +137,20 @@ class TesteInterface(unittest.TestCase):
 
     def test_quadro_final_da_ficha_apresenta_13_municipios_e_fq(self) -> None:
         self.preparar_ficha()
-        quadro = next(
+        tabela = next(
             item.value
-            for item in self.app.dataframe
-            if "PONTUAÇÃO FINAL FQ" in item.value.columns
+            for item in self.app.markdown
+            if "class=\"tabela-planilha\"" in item.value
+            and "PONTUAÇÃO FINAL FQ" in item.value
         )
-        self.assertEqual(len(quadro), 13)
-        self.assertEqual(
-            quadro.iloc[0]["Município"], "Município demonstrativo"
-        )
+        self.assertEqual(tabela.count("<tr>"), 14)
+        self.assertIn("Município demonstrativo", tabela)
         esperado = sum(
             ponto["validado"] for ponto in ficha_valida()["parametros"].values()
         ) + sum(ficha_valida()["municipios"][0][codigo] for codigo in ("10", "11.1", "11.2", "11.3"))
-        self.assertEqual(quadro.iloc[0]["SOMA PARÂMETROS"], str(esperado))
-        self.assertEqual(
-            quadro.iloc[0]["PONTUAÇÃO FINAL FQ"],
-            f"{esperado / 89:.2f}".replace(".", ","),
-        )
+        self.assertIn(f">{esperado}<", tabela)
+        pontuacao_final = f"{esperado / 89:.2f}".replace(".", ",")
+        self.assertIn(f">{pontuacao_final}<", tabela)
 
     def test_totais_dos_parametros_e_dos_blocos_municipais(self) -> None:
         """Exibe totais do primeiro quadro e de cada fator municipal."""
@@ -211,7 +208,10 @@ class TesteInterface(unittest.TestCase):
         )
         self.app.radio[0].set_value("Resultados").run()
         self.assertFalse(
-            any("Nota1" in quadro.value.columns for quadro in self.app.dataframe)
+            any(
+                "class=\"tabela-planilha\"" in item.value
+                for item in self.app.markdown
+            )
         )
         self.assertTrue(
             any(
@@ -233,16 +233,20 @@ class TesteInterface(unittest.TestCase):
         )
         self.assertFalse(self.app.exception)
         self.app.radio[0].set_value("Resultados").run()
-        quadros = [quadro.value for quadro in self.app.dataframe]
         resultado = next(
-            quadro for quadro in quadros if "Nota1" in quadro.columns
+            item.value
+            for item in self.app.markdown
+            if "class=\"tabela-planilha\"" in item.value
+            and "Nota1" in item.value
         )
-        self.assertIn("Indicador", resultado.columns)
-        self.assertEqual(resultado.iloc[0]["Indicador"], "Último cadastro")
-        self.assertEqual(resultado.iloc[0]["Nota1"], 0.58)
-        self.assertEqual(resultado.iloc[0]["PARÂM 10"], 3)
+        self.assertIn("Indicador", resultado)
+        self.assertIn("Último cadastro", resultado)
+        self.assertIn(">0.58<", resultado)
+        self.assertIn("PARÂM 10", resultado)
+        self.assertIn(">3<", resultado)
         for codigo in ("11.1", "11.2", "11.3"):
-            self.assertEqual(resultado.iloc[0][f"PARÂM {codigo}"], 4)
+            self.assertIn(f"PARÂM {codigo}", resultado)
+            self.assertIn(">4<", resultado)
 
     def test_cadastrar_nao_exige_checkbox_de_confirmacao(self) -> None:
         self.preparar_ficha()
@@ -280,6 +284,40 @@ class TesteInterface(unittest.TestCase):
         self.assertEqual(self.app.session_state.versao, 2)
         self.assertEqual(
             self.app.session_state.ficha["unidade"], "Unidade atualizada"
+        )
+
+    def test_pontos_gestor_atualizados_aparecem_e_ficam_destacados(self) -> None:
+        """Publica a nova nota do gestor e destaca seu valor no resultado."""
+        self.preparar_ficha()
+        chave = f"{self.app.session_state.geracao}_1.1_gestor"
+        self.app.number_input(key=chave).set_value(9)
+        self.app.run()
+        self.acionar("Cadastrar")
+
+        next(
+            item
+            for item in self.app.text_input
+            if item.label == "Localizar pelo processo SEI"
+        ).set_value("0000.00.0000001/2026-00")
+        self.acionar("Localizar ficha")
+        chave = f"{self.app.session_state.geracao}_1.1_gestor"
+        self.app.number_input(key=chave).set_value(8)
+        self.app.run()
+        self.acionar("Atualizar ficha")
+        self.assertEqual(
+            self.app.session_state.ficha["parametros"]["1.1"]["gestor"], 8
+        )
+
+        self.app.radio[0].set_value("Resultados").run()
+        resultado = next(
+            item.value
+            for item in self.app.markdown
+            if 'class="tabela-planilha"' in item.value
+            and "Pontos Gestor 1.1" in item.value
+        )
+        self.assertIn(">8<", resultado)
+        self.assertIn(
+            '<td class="celula-alterada">8</td>', resultado
         )
 
     def test_consultar_processo_nao_exige_confirmacao_para_consultar(self) -> None:
