@@ -74,35 +74,34 @@ st.markdown(
         box-shadow: none !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) {
+        width: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+    .st-key-cartao_acesso {
         position: fixed !important;
         left: 50vw !important;
         top: 50vh !important;
         top: 50dvh !important;
-        z-index: 1000;
+        z-index: 1000 !important;
         transform: translate(-50%, -50%) !important;
         width: min(360px, calc(100vw - 2rem)) !important;
         max-width: 360px !important;
+        max-height: calc(100vh - 2rem);
         max-height: calc(100dvh - 2rem);
         overflow-y: auto;
         margin: 0 !important;
         padding: 1.2rem clamp(1rem, 5vw, 1.4rem) !important;
         background: #ffffff !important;
         background-color: #ffffff !important;
-        border: 1px solid #d8e5d2;
-        border-top: 5px solid var(--ief-verde-medio);
-        border-radius: 0.8rem;
-        box-shadow: 0 12px 35px #24452b18;
-        box-sizing: border-box;
-    }
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) > div {
-        background: #ffffff !important;
-    }
-    .st-key-cartao_acesso {
-        width: min(360px, calc(100vw - 2rem)) !important;
-        max-width: 360px !important;
-        margin: 0 auto !important;
-        background: #ffffff !important;
-        background-color: #ffffff !important;
+        border: 1px solid #d8e5d2 !important;
+        border-top: 5px solid var(--ief-verde-medio) !important;
+        border-radius: 0.8rem !important;
+        box-shadow: 0 12px 35px #24452b18 !important;
+        box-sizing: border-box !important;
         color: var(--ief-texto) !important;
     }
     [data-testid="stMarkdownContainer"] p,
@@ -446,7 +445,6 @@ st.markdown(
             padding: 0;
             border: 0 !important;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso),
         .st-key-cartao_acesso {
             width: calc(100vw - 2rem) !important;
             max-width: 360px !important;
