@@ -58,21 +58,11 @@ st.markdown(
         box-sizing: border-box;
     }
     [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
-        position: fixed;
-        inset: 0;
-        z-index: 20;
-        width: 100vw;
-        height: 100vh;
-        height: 100dvh;
         max-width: none;
-        min-height: 100vh;
-        min-height: 100dvh;
-        box-sizing: border-box;
-        display: grid;
-        place-items: center;
-        overflow: auto;
+        width: 100%;
+        min-height: 0;
         margin: 0;
-        padding: 1rem;
+        padding: 0;
         background: transparent !important;
         border: 0 !important;
         border-radius: 0 !important;
@@ -84,9 +74,17 @@ st.markdown(
         box-shadow: none !important;
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) {
-        width: min(360px, calc(100vw - 2rem));
-        max-width: 360px;
-        margin: auto !important;
+        position: fixed !important;
+        left: 50vw !important;
+        top: 50vh !important;
+        top: 50dvh !important;
+        z-index: 1000;
+        transform: translate(-50%, -50%) !important;
+        width: min(360px, calc(100vw - 2rem)) !important;
+        max-width: 360px !important;
+        max-height: calc(100dvh - 2rem);
+        overflow-y: auto;
+        margin: 0 !important;
         padding: 1.2rem clamp(1rem, 5vw, 1.4rem) !important;
         background: #ffffff !important;
         background-color: #ffffff !important;
@@ -442,13 +440,10 @@ st.markdown(
             border-radius: 0.6rem;
         }
         [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
-            width: 100vw;
-            height: 100vh;
-            height: 100dvh;
-            min-height: 100vh;
-            min-height: 100dvh;
+            width: 100%;
+            min-height: 0;
             margin: 0;
-            padding: 0.75rem;
+            padding: 0;
             border: 0 !important;
         }
         div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso),
