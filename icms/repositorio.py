@@ -376,10 +376,11 @@ class Repositorio:
 
     def _persistir(self, registro: dict[str, Any], evento: dict[str, Any]) -> None:
         """Atualiza a base temporária de demonstração."""
+        processo = registro["ficha"]["processo"]
         self.registros = [
-            registro
-            for registro in self.registros
-            if registro["ficha"]["processo"] != registro["ficha"]["processo"]
+            atual
+            for atual in self.registros
+            if atual["ficha"]["processo"] != processo
         ]
         self.registros.append(deepcopy(registro))
         self.historico.append(deepcopy(evento))
