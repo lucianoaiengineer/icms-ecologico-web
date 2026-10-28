@@ -1,6 +1,8 @@
-"""Persistência e controle de versão para um único processo servidor."""
+"""Persistência, restauração CSV e controle de versão das fichas do projeto."""
 
+import csv
 import hashlib
+import io
 import json
 from copy import deepcopy
 from threading import RLock
@@ -25,6 +27,7 @@ HISTORICO = [
     "hash",
     "alteracoes_json",
 ]
+CABECALHO_BACKUP_CSV = [*CABECALHO, "historico_json"]
 
 
 class Conflito(ValueError):
@@ -35,6 +38,7 @@ class Repositorio:
     """Coordena leitura, validação e gravação em uma instância do app."""
 
     def __init__(self) -> None:
+        """Inicializa o repositório temporário e seu histórico em memória."""
         self.trava = RLock()
         self.registros: list[dict[str, Any]] = []
         self.historico: list[dict[str, Any]] = []
@@ -82,8 +86,7 @@ class Repositorio:
     ) -> list[dict[str, Any]]:
         """Anexa ao registro as alterações da versão atualmente publicada."""
         eventos_por_chave = {
-            (evento.get("processo"), evento.get("versao")): evento
-            for evento in eventos
+            (evento.get("processo"), evento.get("versao")): evento for evento in eventos
         }
         for registro in registros:
             chave = (
@@ -101,23 +104,25 @@ class Repositorio:
     def consultar(self, processo: str) -> dict[str, Any] | None:
         """Procura pela chave, rejeitando duplicidades existentes."""
         encontrados = [
-            r for r in self.listar() if r["ficha"]["processo"] == processo
+            registro
+            for registro in self.listar()
+            if registro["ficha"]["processo"] == processo
         ]
         if len(encontrados) > 1:
             raise ValueError("Processo duplicado na base. Gravação bloqueada.")
         return encontrados[0] if encontrados else None
 
     def gravar(
-        self, ficha: dict[str, Any], versao: int, status: str, autor: str
+        self, ficha: dict[str, Any], versao: int, situacao: str, autor: str
     ) -> dict[str, Any]:
         """Salva com versão esperada; reenvio idêntico é idempotente."""
-        if status not in ("Rascunho", "Concluída"):
+        if situacao not in ("Rascunho", "Concluída"):
             raise ValueError("Status desconhecido.")
         ficha = preparar(ficha)
-        erros = validar(ficha, concluir=status == "Concluída")
+        erros = validar(ficha, concluir=situacao == "Concluída")
         if erros:
             raise ValueError("\n".join(erros))
-        if status == "Concluída":
+        if situacao == "Concluída":
             calcular(ficha)
         texto = json.dumps(ficha, ensure_ascii=False, sort_keys=True)
         if len(texto) > 45000:
@@ -126,13 +131,9 @@ class Repositorio:
             )
         with self.trava:
             atual = self.consultar(ficha["processo"])
-            if atual and atual["ficha"] == ficha and atual["status"] == status:
+            if atual and atual["ficha"] == ficha and atual["status"] == situacao:
                 return atual
-            if (
-                atual
-                and atual["status"] == "Concluída"
-                and status == "Rascunho"
-            ):
+            if atual and atual["status"] == "Concluída" and situacao == "Rascunho":
                 raise ValueError(
                     "Ficha já concluída: revise e salve a atualização como concluída. "
                     "A versão publicada será preservada até essa gravação."
@@ -144,7 +145,7 @@ class Repositorio:
             novo = {
                 "ficha": ficha,
                 "versao": versao + 1,
-                "status": status,
+                "status": situacao,
                 "autor": autor,
                 "atualizado_em": agora().isoformat(),
             }
@@ -153,16 +154,14 @@ class Repositorio:
             evento = {
                 "processo": ficha["processo"],
                 "versao": novo["versao"],
-                "status": status,
+                "status": situacao,
                 "autor": autor,
                 "data": novo["atualizado_em"],
                 "hash": hashlib.sha256(texto.encode()).hexdigest(),
                 "alteracoes": alteracoes,
             }
             if len(json.dumps(alteracoes, ensure_ascii=False)) > 45000:
-                raise ValueError(
-                    "Histórico da alteração excede o tamanho permitido."
-                )
+                raise ValueError("Histórico da alteração excede o tamanho permitido.")
             self._persistir(novo, evento)
             confirmado = self.consultar(ficha["processo"])
             campos_confirmacao = (
@@ -173,8 +172,7 @@ class Repositorio:
                 "atualizado_em",
             )
             if confirmado is None or any(
-                confirmado.get(campo) != novo[campo]
-                for campo in campos_confirmacao
+                confirmado.get(campo) != novo[campo] for campo in campos_confirmacao
             ):
                 raise ValueError(
                     "Gravação sem confirmação. Consulte o processo antes de repetir."
@@ -192,9 +190,7 @@ class Repositorio:
                 raise Conflito(
                     "A ficha foi alterada por outra pessoa. Consulte novamente antes de excluir."
                 )
-            texto = json.dumps(
-                atual["ficha"], ensure_ascii=False, sort_keys=True
-            )
+            texto = json.dumps(atual["ficha"], ensure_ascii=False, sort_keys=True)
             evento = {
                 "processo": processo,
                 "versao": versao + 1,
@@ -211,26 +207,179 @@ class Repositorio:
                 )
             return evento
 
-    def _excluir(
-        self, registro: dict[str, Any], evento: dict[str, Any]
-    ) -> None:
+    def exportar_backup_csv(self) -> bytes:
+        """Exporta fichas completas e seus históricos para restauração posterior.
+
+        O arquivo é um backup de demonstração, distinto do CSV de resultados.
+        Cada ficha fica em uma linha; campos aninhados são serializados em JSON.
+        """
+        if type(self) is not Repositorio:
+            raise ValueError(
+                "O backup CSV está disponível somente no modo demonstração."
+            )
+
+        with self.trava:
+            arquivo_csv = io.StringIO(newline="")
+            escritor = csv.DictWriter(
+                arquivo_csv,
+                fieldnames=CABECALHO_BACKUP_CSV,
+                delimiter=";",
+                lineterminator="\n",
+            )
+            escritor.writeheader()
+            eventos_por_processo: dict[str, list[dict[str, Any]]] = {}
+            for evento in self.historico:
+                eventos_por_processo.setdefault(evento["processo"], []).append(evento)
+
+            for registro in self.registros:
+                ficha = registro["ficha"]
+                escritor.writerow(
+                    {
+                        "processo": ficha["processo"],
+                        "versao": registro["versao"],
+                        "status": registro["status"],
+                        "autor": registro["autor"],
+                        "atualizado_em": registro["atualizado_em"],
+                        "conteudo_json": json.dumps(
+                            ficha, ensure_ascii=False, sort_keys=True
+                        ),
+                        "historico_json": json.dumps(
+                            eventos_por_processo.get(ficha["processo"], []),
+                            ensure_ascii=False,
+                            sort_keys=True,
+                        ),
+                    }
+                )
+
+        return arquivo_csv.getvalue().encode("utf-8-sig")
+
+    def restaurar_backup_csv(self, conteudo_csv: bytes) -> int:
+        """Restaura sem sobrescrever registros existentes ou mesclar conflitos.
+
+        Retorna a quantidade de fichas novas. Reimportar o mesmo backup é seguro:
+        fichas e eventos idênticos são ignorados.
+        """
+        if type(self) is not Repositorio:
+            raise ValueError(
+                "A restauração CSV está disponível somente no modo demonstração."
+            )
+        if len(conteudo_csv) > 50 * 1024 * 1024:
+            raise ValueError("O arquivo de backup excede o limite de 50 MB.")
+
+        try:
+            texto_csv = conteudo_csv.decode("utf-8-sig")
+            leitor = csv.DictReader(io.StringIO(texto_csv, newline=""), delimiter=";")
+            if leitor.fieldnames != CABECALHO_BACKUP_CSV:
+                raise ValueError("O cabeçalho do backup CSV não é compatível.")
+
+            fichas_importadas: list[dict[str, Any]] = []
+            eventos_importados: list[dict[str, Any]] = []
+            processos_no_arquivo: set[str] = set()
+            for linha in leitor:
+                ficha = preparar(json.loads(linha["conteudo_json"]))
+                processo = ficha["processo"]
+                versao = int(linha["versao"])
+                situacao = linha["status"]
+                if processo != linha["processo"] or versao < 1:
+                    raise ValueError("A chave ou a versão de uma ficha é inválida.")
+                if situacao not in ("Rascunho", "Concluída"):
+                    raise ValueError("O backup contém uma situação desconhecida.")
+                if processo in processos_no_arquivo:
+                    raise ValueError(f"O processo {processo} está duplicado no CSV.")
+                erros = validar(ficha, concluir=situacao == "Concluída")
+                if erros:
+                    raise ValueError(
+                        f"A ficha {processo} contém dados inválidos: "
+                        + "; ".join(erros)
+                    )
+                if situacao == "Concluída":
+                    calcular(ficha)
+                processos_no_arquivo.add(processo)
+                fichas_importadas.append(
+                    {
+                        "ficha": ficha,
+                        "versao": versao,
+                        "status": situacao,
+                        "autor": linha["autor"],
+                        "atualizado_em": linha["atualizado_em"],
+                    }
+                )
+
+                historico = json.loads(linha["historico_json"] or "[]")
+                if not isinstance(historico, list):
+                    raise ValueError("O histórico do backup tem formato inválido.")
+                for evento in historico:
+                    if (
+                        not isinstance(evento, dict)
+                        or evento.get("processo") != processo
+                        or not isinstance(evento.get("alteracoes"), dict)
+                    ):
+                        raise ValueError(
+                            f"O histórico da ficha {processo} não é compatível."
+                        )
+                    eventos_importados.append(evento)
+        except (
+            UnicodeDecodeError,
+            csv.Error,
+            KeyError,
+            TypeError,
+            json.JSONDecodeError,
+        ) as erro:
+            raise ValueError("Não foi possível ler o backup CSV selecionado.") from erro
+
+        with self.trava:
+            atuais = {
+                registro["ficha"]["processo"]: registro for registro in self.registros
+            }
+            novos_registros: list[dict[str, Any]] = []
+            for registro in fichas_importadas:
+                processo = registro["ficha"]["processo"]
+                existente = atuais.get(processo)
+                if existente is None:
+                    novos_registros.append(registro)
+                elif any(
+                    existente.get(campo) != registro.get(campo)
+                    for campo in ("ficha", "versao", "status", "atualizado_em")
+                ):
+                    raise ValueError(
+                        f"O processo {processo} já existe com outra versão. "
+                        "A restauração foi cancelada sem alterar os dados."
+                    )
+
+            eventos_atuais = {
+                (evento["processo"], evento["versao"]): evento
+                for evento in self.historico
+            }
+            novos_eventos: list[dict[str, Any]] = []
+            for evento in eventos_importados:
+                chave_evento = (evento["processo"], evento["versao"])
+                evento_existente = eventos_atuais.get(chave_evento)
+                if evento_existente is None:
+                    novos_eventos.append(evento)
+                elif evento_existente != evento:
+                    raise ValueError(
+                        "O histórico do CSV conflita com o histórico atual. "
+                        "A restauração foi cancelada sem alterar os dados."
+                    )
+
+            self.registros.extend(deepcopy(novos_registros))
+            self.historico.extend(deepcopy(novos_eventos))
+        return len(novos_registros)
+
+    def _excluir(self, registro: dict[str, Any], evento: dict[str, Any]) -> None:
         """Remove do repositório temporário e conserva evento de auditoria."""
         processo = registro["ficha"]["processo"]
         self.registros = [
-            atual
-            for atual in self.registros
-            if atual["ficha"]["processo"] != processo
+            atual for atual in self.registros if atual["ficha"]["processo"] != processo
         ]
         self.historico.append(deepcopy(evento))
 
-    def _persistir(
-        self, registro: dict[str, Any], evento: dict[str, Any]
-    ) -> None:
+    def _persistir(self, registro: dict[str, Any], evento: dict[str, Any]) -> None:
         """Atualiza a base temporária de demonstração."""
         self.registros = [
-            r
-            for r in self.registros
-            if r["ficha"]["processo"] != registro["ficha"]["processo"]
+            registro
+            for registro in self.registros
+            if registro["ficha"]["processo"] != registro["ficha"]["processo"]
         ]
         self.registros.append(deepcopy(registro))
         self.historico.append(deepcopy(evento))
@@ -243,9 +392,8 @@ class RepositorioSheets(Repositorio):
     edições diretas na planilha nem outra aplicação gravando na mesma base.
     """
 
-    def __init__(
-        self, credenciais: dict[str, Any], identificador: str
-    ) -> None:
+    def __init__(self, credenciais: dict[str, Any], identificador: str) -> None:
+        """Conecta às abas de fichas e auditoria da planilha configurada."""
         super().__init__()
         import gspread
         from google.oauth2.service_account import Credentials
@@ -255,9 +403,7 @@ class RepositorioSheets(Repositorio):
             credenciais,
             scopes=["https://www.googleapis.com/auth/spreadsheets"],
         )
-        self.planilha = gspread.authorize(identidade).open_by_key(
-            identificador
-        )
+        self.planilha = gspread.authorize(identidade).open_by_key(identificador)
         self.fichas = self.planilha.worksheet("Fichas")
         self.auditoria = self.planilha.worksheet("Historico")
         if self.fichas.row_values(1) != CABECALHO:
@@ -278,9 +424,7 @@ class RepositorioSheets(Repositorio):
                     )
                 ficha = json.loads(linha[5])
                 if ficha["processo"] != linha[0]:
-                    raise ValueError(
-                        "Chave do processo divergente do conteúdo salvo."
-                    )
+                    raise ValueError("Chave do processo divergente do conteúdo salvo.")
                 registros.append(
                     {
                         "ficha": ficha,
@@ -308,15 +452,13 @@ class RepositorioSheets(Repositorio):
                     continue
             return self._incluir_alteracoes_atuais(registros, eventos)
 
-    def _persistir(
-        self, registro: dict[str, Any], evento: dict[str, Any]
-    ) -> None:
+    def _persistir(self, registro: dict[str, Any], evento: dict[str, Any]) -> None:
         """Atualiza a ficha e acrescenta a auditoria na mesma chamada."""
         linhas = self.fichas.get_all_values()
         processo = registro["ficha"]["processo"]
         indices = [
-            i
-            for i, linha in enumerate(linhas[1:], 1)
+            indice
+            for indice, linha in enumerate(linhas[1:], 1)
             if linha and linha[0] == processo
         ]
         if len(indices) > 1:
@@ -340,6 +482,7 @@ class RepositorioSheets(Repositorio):
         ]
 
         def celulas(dados: list[Any]) -> dict[str, Any]:
+            """Converte valores para o formato de escrita da API do Sheets."""
             # Textos são gravados literalmente; não executam fórmulas.
             return {
                 "values": [
@@ -387,9 +530,7 @@ class RepositorioSheets(Repositorio):
             }
         )
 
-    def _excluir(
-        self, registro: dict[str, Any], evento: dict[str, Any]
-    ) -> None:
+    def _excluir(self, registro: dict[str, Any], evento: dict[str, Any]) -> None:
         """Exclui a linha ativa e acrescenta auditoria na mesma operação."""
         linhas = self.fichas.get_all_values()
         processo = registro["ficha"]["processo"]

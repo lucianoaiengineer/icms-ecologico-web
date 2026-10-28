@@ -45,8 +45,7 @@ def normalizar_processo(valor: str) -> str:
     if not re.fullmatch(r"[0-9]{19}", digitos):
         raise ValueError("Informe o SEI no formato 0000.00.0000000/0000-00.")
     return (
-        f"{digitos[:4]}.{digitos[4:6]}.{digitos[6:13]}/"
-        f"{digitos[13:17]}-{digitos[17:]}"
+        f"{digitos[:4]}.{digitos[4:6]}.{digitos[6:13]}/{digitos[13:17]}-{digitos[17:]}"
     )
 
 
@@ -75,8 +74,7 @@ def nova_ficha() -> dict[str, Any]:
             for codigo, nome in PARAMETROS
         },
         "municipios": [
-            {"nome": "", **{codigo: None for codigo in MUNICIPAIS}}
-            for _ in range(13)
+            {"nome": "", **{codigo: None for codigo in MUNICIPAIS}} for _ in range(13)
         ],
     }
 
@@ -106,13 +104,9 @@ def validar(ficha: dict[str, Any], concluir: bool = False) -> list[str]:
             valor = ficha["parametros"][codigo][campo]
             if valor is None:
                 if concluir:
-                    erros.append(
-                        f"Parâmetro {codigo}: preencha pontos {campo}."
-                    )
+                    erros.append(f"Parâmetro {codigo}: preencha pontos {campo}.")
             elif type(valor) is not int or not 0 <= valor <= 9:
-                erros.append(
-                    f"Parâmetro {codigo}: pontos {campo} devem ser de 0 a 9."
-                )
+                erros.append(f"Parâmetro {codigo}: pontos {campo} devem ser de 0 a 9.")
     municipios = ficha["municipios"]
     if len(municipios) != 13:
         erros.append("A ficha deve manter 13 posições de municípios.")
@@ -125,9 +119,7 @@ def validar(ficha: dict[str, Any], concluir: bool = False) -> list[str]:
             nomes.add(nome.casefold())
         for codigo in MUNICIPAIS:
             valor = municipio[codigo]
-            if valor is not None and (
-                type(valor) is not int or not 0 <= valor <= 9
-            ):
+            if valor is not None and (type(valor) is not int or not 0 <= valor <= 9):
                 erros.append(
                     f"Município {posicao}, parâmetro {ROTULOS_MUNICIPAIS[codigo]}: use 0 a 9."
                 )
@@ -150,13 +142,13 @@ def calcular(ficha: dict[str, Any]) -> dict[str, Any]:
     erros = validar(ficha, concluir=True)
     if erros:
         raise ValueError("\n".join(erros))
-    total = sum(p["validado"] for p in ficha["parametros"].values())
+    total_validado = sum(ponto["validado"] for ponto in ficha["parametros"].values())
     totais = {codigo: 0 for codigo in MUNICIPAIS}
     resultados = []
     for municipio in ficha["municipios"]:
         if municipio["nome"].strip() in ("", "-"):
             continue
-        soma = total + sum(municipio[codigo] for codigo in MUNICIPAIS)
+        soma = total_validado + sum(municipio[codigo] for codigo in MUNICIPAIS)
         fator = Decimal(soma) / Decimal(ficha["pontuacao_categoria"])
         resultados.append(
             {
@@ -172,7 +164,7 @@ def calcular(ficha: dict[str, Any]) -> dict[str, Any]:
         for codigo in MUNICIPAIS:
             totais[codigo] += municipio[codigo]
     return {
-        "total_validado": total,
+        "total_validado": total_validado,
         "totais": totais,
         "municipios": resultados,
     }
