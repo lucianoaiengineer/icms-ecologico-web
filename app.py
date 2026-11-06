@@ -1391,11 +1391,12 @@ if modulo == "Ficha":
     st.caption(
         "Preencha os nomes no bloco 10. Os outros três blocos utilizam "
         "os mesmos municípios, na mesma ordem. Cada bloco tem seus próprios "
-        "valores de 0 a 9. Os totais e o resumo são atualizados enquanto você preenche."
+        "valores de 0 a 9, inclusive zero. Informe o município antes de preencher "
+        "os valores. Os totais e o resumo são atualizados enquanto você preenche."
     )
     for codigo in MUNICIPAIS:
         rotulo = ROTULOS_MUNICIPAIS[codigo]
-        with st.expander(f"Parâmetro ({rotulo}) por Municípios", expanded=True):
+        with st.expander(f"Parâmetro ({rotulo}) por Municípios", expanded=False):
             cabecalho_posicao, cabecalho_municipio, cabecalho_valor = st.columns(
                 [1.1, 2.2, 1]
             )
@@ -1439,6 +1440,8 @@ if modulo == "Ficha":
                             disabled=True,
                             label_visibility="collapsed",
                         )
+                # A pontuação só pode ser editada após identificar o município.
+                municipio_identificado = municipio["nome"].strip() not in ("", "-")
                 with coluna_valor:
                     chave_valor = f"{prefixo}_municipio_{posicao}_{codigo}"
                     with st.container(
@@ -1453,7 +1456,7 @@ if modulo == "Ficha":
                             value=municipio[codigo],
                             step=1,
                             key=chave_valor,
-                            disabled=not pode_editar,
+                            disabled=not pode_editar or not municipio_identificado,
                             label_visibility="collapsed",
                         )
             # Soma o bloco; entradas vazias continuam ausentes na ficha.
@@ -1732,3 +1735,4 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
