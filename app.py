@@ -794,11 +794,7 @@ def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
         }
         for codigo, _ in PARAMETROS:
             pontos = ficha["parametros"][codigo]
-            linha[f"Pontos Gestor {codigo}"] = pontos["gestor"]
             linha[f"Pontos Validados {codigo}"] = pontos["validado"]
-        linha["TOTAL — PONTOS GESTOR"] = sum(
-            pontos["gestor"] or 0 for pontos in ficha["parametros"].values()
-        )
         linha["TOTAL — PONTOS VALIDADOS"] = sum(
             pontos["validado"] or 0 for pontos in ficha["parametros"].values()
         )
@@ -916,9 +912,7 @@ def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
             # somente o prefixo e o nome do campo, preservando o código inteiro.
             codigo_e_campo = caminho.removeprefix("parametros.").rsplit(".", 1)
             partes = ["parametros", *codigo_e_campo]
-            if len(partes) == 3 and partes[2] == "gestor":
-                colunas.update((f"Pontos Gestor {partes[1]}", "TOTAL — PONTOS GESTOR"))
-            elif len(partes) == 3 and partes[2] == "validado":
+            if len(partes) == 3 and partes[2] == "validado":
                 colunas.update(
                     (
                         f"Pontos Validados {partes[1]}",
@@ -1093,10 +1087,6 @@ if modulo == "Ficha":
                 }
             elif registro:
                 abrir(registro["ficha"], registro["versao"], registro["status"])
-                st.session_state.aviso = (
-                    f"Ficha {registro['status'].lower()} carregada. "
-                    "Edite os campos necessários e use Atualizar ficha ou Salvar alterações."
-                )
                 st.rerun()
             else:
                 ficha_nova = nova_ficha()
@@ -1125,7 +1115,6 @@ if modulo == "Ficha":
                 registro = consulta_pendente["registro"]
                 if registro:
                     abrir(registro["ficha"], registro["versao"], registro["status"])
-                    st.session_state.aviso = "Ficha localizada carregada para edição."
                 else:
                     ficha_nova = nova_ficha()
                     ficha_nova["processo"] = consulta_pendente["processo"]
@@ -1164,7 +1153,6 @@ if modulo == "Ficha":
                     st.rerun()
                 else:
                     abrir(registro["ficha"], registro["versao"], registro["status"])
-                    st.session_state.aviso = "Rascunho carregado para continuação."
                     st.rerun()
     else:
         st.caption("Não há rascunhos gravados.")
