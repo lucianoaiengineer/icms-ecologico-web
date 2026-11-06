@@ -696,7 +696,6 @@ def abrir(ficha: dict, versao: int = 0, situacao: str = "") -> None:
     st.session_state.versao = versao
     st.session_state.status_ficha = situacao
     st.session_state.confirmar_exclusao = False
-    st.session_state.confirmar_nova_ficha = False
     st.session_state.geracao = st.session_state.get("geracao", 0) + 1
 
 
@@ -1073,7 +1072,7 @@ modulo = st.radio(
 if modulo == "Ficha":
     st.subheader("Ficha · inclusão, consulta e edição")
     st.caption(
-        "Localize uma ficha pelo processo SEI ou preencha uma nova. "
+        "Informe o processo SEI para abrir uma ficha existente ou iniciar uma nova. "
         "A ficha encontrada abre neste mesmo módulo para edição."
     )
     with st.form("localizar_ficha"):
@@ -1182,28 +1181,6 @@ if modulo == "Ficha":
         )
     else:
         st.caption("Preencha os dados e escolha Cadastrar ou Salvar rascunho.")
-    if st.button("Nova ficha", disabled=not pode_editar):
-        if tem_alteracoes:
-            st.session_state.confirmar_nova_ficha = True
-        else:
-            abrir(nova_ficha())
-            st.rerun()
-    if st.session_state.get("confirmar_nova_ficha"):
-        st.warning(
-            "Há alterações não gravadas. Descartá-las não remove fichas que já estejam salvas."
-        )
-        confirmar_nova, manter_atual = st.columns(2)
-        with confirmar_nova:
-            if st.button(
-                "Descartar alterações e iniciar nova ficha", disabled=not pode_editar
-            ):
-                abrir(nova_ficha())
-                st.session_state.confirmar_nova_ficha = False
-                st.rerun()
-        with manter_atual:
-            if st.button("Manter ficha atual"):
-                st.session_state.confirmar_nova_ficha = False
-                st.rerun()
     ficha = deepcopy(st.session_state.ficha)
     prefixo = str(st.session_state.geracao)
     st.markdown("#### Identificação")
