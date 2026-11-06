@@ -137,6 +137,7 @@ class TesteInterface(unittest.TestCase):
             ],
         )
         for bloco in blocos:
+            self.assertFalse(bloco.proto.expanded)
             self.assertEqual(len(bloco.text_input), 13)
             self.assertEqual(len(bloco.number_input), 13)
         self.aplicacao.text_input(key="99_municipio_1").set_value("Município de teste")
@@ -166,6 +167,30 @@ class TesteInterface(unittest.TestCase):
         municipio = self.aplicacao.session_state.ficha["municipios"][0]
         self.assertEqual(municipio["nome"], "Município de teste")
         self.assertEqual([municipio[codigo] for codigo in chaves], [1, 2, 3, 4])
+
+    def test_pontuacoes_municipais_exigem_nome(self) -> None:
+        """Libera os quatro valores somente nas posições identificadas."""
+        self.preparar_ficha()
+        chaves = ("10", "11.1", "11.2", "11.3")
+        for chave in chaves:
+            informado = self.aplicacao.number_input(key=f"99_municipio_1_{chave}")
+            vazio = self.aplicacao.number_input(key=f"99_municipio_2_{chave}")
+            self.assertFalse(informado.disabled)
+            self.assertEqual(informado.value, 0)
+            self.assertTrue(vazio.disabled)
+            self.assertIsNone(vazio.value)
+
+        self.aplicacao.text_input(key="99_municipio_2").set_value("Outro município")
+        self.aplicacao.run()
+
+        self.assertFalse(self.aplicacao.exception)
+        for chave in chaves:
+            self.assertFalse(
+                self.aplicacao.number_input(key=f"99_municipio_2_{chave}").disabled
+            )
+            self.assertTrue(
+                self.aplicacao.number_input(key=f"99_municipio_3_{chave}").disabled
+            )
 
     def test_quadro_final_da_ficha_apresenta_13_municipios_e_fq(self) -> None:
         """Mostra os treze municípios e a pontuação final calculada."""
@@ -435,3 +460,4 @@ class TesteInterface(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
 from icms.regras import (
+    MUNICIPAIS,
     calcular,
     formatar_fq,
     normalizar_processo,
@@ -75,10 +76,51 @@ class TesteRegras(unittest.TestCase):
         self.assertTrue(validar(ficha, concluir=True))
 
     def test_pontos_sem_municipio(self) -> None:
-        """Rejeita valores municipais sem município associado."""
-        ficha = ficha_valida()
-        ficha["municipios"][5]["10"] = 6
-        self.assertTrue(validar(ficha))
+        """Rejeita inclusive zero sem nome, no rascunho e na conclusão."""
+        for nome in ("", "   ", "-"):
+            for codigo in MUNICIPAIS:
+                for valor in (0, 6):
+                    for concluir in (False, True):
+                        with self.subTest(
+                            nome=nome, codigo=codigo, valor=valor, concluir=concluir
+                        ):
+                            ficha = ficha_valida()
+                            ficha["municipios"][5].update(nome=nome)
+                            ficha["municipios"][5][codigo] = valor
+                            self.assertIn(
+                                "Município 6: há pontos sem nome de município.",
+                                validar(ficha, concluir=concluir),
+                            )
+
+    def test_zero_com_municipio_pode_ser_gravado(self) -> None:
+        """Preserva zeros em todos os blocos ao salvar e consultar a ficha."""
+        for status in ("Rascunho", "Concluída"):
+            with self.subTest(status=status):
+                ficha = ficha_valida()
+                repositorio = Repositorio()
+                self.assertFalse(validar(ficha, concluir=status == "Concluída"))
+
+                repositorio.gravar(ficha, 0, status, "usuario")
+                salvo = repositorio.consultar(ficha["processo"])
+
+                self.assertIsNotNone(salvo)
+                for codigo in MUNICIPAIS:
+                    self.assertEqual(salvo["ficha"]["municipios"][0][codigo], 0)
+                    self.assertIsNone(salvo["ficha"]["municipios"][1][codigo])
+
+    def test_gravacao_bloqueia_zero_sem_municipio(self) -> None:
+        """A persistência rejeita a ficha, sem criar registro ou histórico."""
+        for status in ("Rascunho", "Concluída"):
+            with self.subTest(status=status):
+                ficha = ficha_valida()
+                ficha["municipios"][5]["10"] = 0
+                repositorio = Repositorio()
+
+                with self.assertRaisesRegex(ValueError, "pontos sem nome"):
+                    repositorio.gravar(ficha, 0, status, "usuario")
+
+                self.assertFalse(repositorio.listar())
+                self.assertFalse(repositorio.historico)
 
     def test_municipio_duplicado(self) -> None:
         """Impede que o mesmo município apareça em duas posições."""
@@ -298,3 +340,4 @@ class TesteRegras(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
