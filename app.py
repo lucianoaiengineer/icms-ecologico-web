@@ -769,15 +769,20 @@ def inteiro_em_linha(
         )
 
 
-def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
-    """Monta o relatório a partir das fichas concluídas, sem segunda base."""
+def mapa_parametros_resultado() -> dict[str, str]:
+    """Relaciona os três fatores visíveis aos totais usados no cálculo."""
     mapa = {
-        "10": "10",
         "11.1": "11.1",
         "11.2": "11.1",
         "11.3": "11.1",
     }
     mapa.update(dict(segredo("totais_resultado", {})))
+    return {codigo: mapa[codigo] for codigo in ("11.1", "11.2", "11.3")}
+
+
+def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
+    """Monta o relatório a partir das fichas concluídas, sem segunda base."""
+    mapa = mapa_parametros_resultado()
     linhas = []
     for registro in registros:
         if registro["status"] != "Concluída":
@@ -792,14 +797,7 @@ def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
             "URFBio": ficha["urfbio"],
             "RESPONSÁVEL": ficha["responsavel"],
         }
-        for codigo, _ in PARAMETROS:
-            pontos = ficha["parametros"][codigo]
-            linha[f"Pontos Validados {codigo}"] = pontos["validado"]
-        linha["TOTAL — PONTOS VALIDADOS"] = sum(
-            pontos["validado"] or 0 for pontos in ficha["parametros"].values()
-        )
-        for codigo in MUNICIPAIS:
-            origem = mapa.get(codigo, "10" if codigo == "10" else "")
+        for codigo, origem in mapa.items():
             linha[f"PARÂM {codigo}"] = calculo["totais"].get(origem)
         for posicao in range(13):
             municipio = ficha["municipios"][posicao]
@@ -895,6 +893,7 @@ def renderizar_tabela(
 def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
     """Relaciona campos alterados da ficha às colunas visíveis no resultado."""
     colunas: set[str] = set()
+    mapa = mapa_parametros_resultado()
     campos_diretos = {
         "unidade": "REMETENTE - UCs",
         "recebimento": "DATA RECEBIDA",
@@ -913,13 +912,7 @@ def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
             codigo_e_campo = caminho.removeprefix("parametros.").rsplit(".", 1)
             partes = ["parametros", *codigo_e_campo]
             if len(partes) == 3 and partes[2] == "validado":
-                colunas.update(
-                    (
-                        f"Pontos Validados {partes[1]}",
-                        "TOTAL — PONTOS VALIDADOS",
-                        f"PARÂM {partes[1]}",
-                    )
-                )
+                # Os pontos validados ficam na ficha e repercutem nas notas FQ.
                 colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
         elif caminho.startswith("municipios[") and "]." in caminho:
             posicao_texto, campo = caminho[len("municipios[") :].split("].", 1)
@@ -931,7 +924,13 @@ def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
             if campo == "nome":
                 colunas.update((f"Município{posicao}", f"Nota{posicao}"))
             elif campo in MUNICIPAIS:
-                colunas.update((f"PARÂM {campo}", f"Nota{posicao}"))
+                colunas.add(f"Nota{posicao}")
+                # Um mesmo total pode alimentar mais de um fator no relatório.
+                colunas.update(
+                    f"PARÂM {codigo}"
+                    for codigo, origem in mapa.items()
+                    if origem == campo
+                )
     return colunas
 
 
@@ -1245,6 +1244,7 @@ if modulo == "Ficha":
                 key=chave_recebimento,
                 disabled=not pode_editar,
                 label_visibility="collapsed",
+                width=180,
             ).isoformat()
     st.markdown("#### Pontuações e justificativas")
     st.caption(
@@ -1445,26 +1445,32 @@ if modulo == "Ficha":
         with st.expander("Ver campos alterados"):
             for campo_alterado in campos_alterados:
                 st.markdown(f"- {campo_alterado}")
-    botoes = st.columns(4)
-    revisar = botoes[0].button("Revisar preenchimento")
     rascunho = False
     concluir = False
     atualizar = False
-    if versao == 0:
-        rascunho = botoes[1].button("Salvar rascunho", disabled=not pode_editar)
-        concluir = botoes[2].button("Cadastrar", disabled=not pode_editar)
-    elif situacao_atual == "Concluída":
-        atualizar = botoes[1].button(
-            "Atualizar ficha",
-            disabled=not pode_editar or not tem_alteracoes,
-        )
-        concluir = atualizar
-    else:
-        rascunho = botoes[1].button(
-            "Salvar alterações",
-            disabled=not pode_editar or not tem_alteracoes,
-        )
-        concluir = botoes[2].button("Concluir ficha", disabled=not pode_editar)
+    # As ações ficam próximas, alinhadas à direita e com quebra em telas estreitas.
+    with st.container(
+        key="acoes_ficha",
+        horizontal=True,
+        horizontal_alignment="right",
+        gap="small",
+    ):
+        revisar = st.button("Revisar preenchimento")
+        if versao == 0:
+            rascunho = st.button("Salvar rascunho", disabled=not pode_editar)
+            concluir = st.button("Cadastrar", disabled=not pode_editar)
+        elif situacao_atual == "Concluída":
+            atualizar = st.button(
+                "Atualizar ficha",
+                disabled=not pode_editar or not tem_alteracoes,
+            )
+            concluir = atualizar
+        else:
+            rascunho = st.button(
+                "Salvar alterações",
+                disabled=not pode_editar or not tem_alteracoes,
+            )
+            concluir = st.button("Concluir ficha", disabled=not pode_editar)
     st.markdown("#### Resumo final da ficha")
     try:
         st.markdown(
@@ -1663,7 +1669,8 @@ else:
             if any(destaques_por_processo.values()):
                 st.caption(
                     "Células em verde claro indicam dados alterados na última "
-                    "atualização salva da ficha."
+                    "atualização salva da ficha. Os destaques permanecem até "
+                    "a próxima atualização salva da própria ficha."
                 )
             st.download_button(
                 "Baixar CSV",

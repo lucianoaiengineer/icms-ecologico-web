@@ -11,6 +11,10 @@ Alteração preparada em 06/11/2026 sobre os arquivos da branch `main` do reposi
 - O botão redundante `Nova ficha` foi removido. A consulta por SEI continua abrindo a ficha existente ou uma ficha nova com o processo informado.
 - A confirmação antes de descartar alterações não gravadas na consulta foi preservada, tanto ao abrir um registro existente quanto ao iniciar uma ficha de processo ainda não cadastrado.
 - A tabela de resultados e o CSV gerado não incluem as colunas `Pontos Gestor` nem `TOTAL — PONTOS GESTOR`. Os valores continuam salvos e editáveis na ficha; os pontos validados e os cálculos foram preservados.
+- A tabela de resultados e o CSV também não incluem `Pontos Validados`, `TOTAL — PONTOS VALIDADOS` nem `PARÂM 10`. Permanecem os dados de identificação, os fatores `PARÂM 11.1`, `PARÂM 11.2` e `PARÂM 11.3`, os municípios e as notas. As pontuações continuam disponíveis na ficha e no cálculo.
+- O campo de data de recebimento tem largura compacta de 180 px, mantendo o calendário junto da data.
+- As ações da ficha ficam agrupadas à direita. Na ficha concluída, `Revisar preenchimento` e `Atualizar ficha` ficam lado a lado. O grupo permite quebra de linha quando necessário em telas estreitas.
+- O destaque verde identifica os campos associados à última atualização salva daquela ficha. Não expira ao reabrir a página; uma nova atualização substitui os destaques anteriores. Salvar sem mudanças não cria uma nova versão nem apaga os destaques.
 - A abertura de fichas existentes e de rascunhos não exibe mais o aviso verde de ficha carregada. As confirmações de gravação e os alertas de alterações não salvas foram mantidos.
 - Campo vazio continua diferente de zero. Os nomes compartilhados e as chaves internas dos quatro blocos foram preservados.
 - Se o nome de uma posição que já possui valores for apagado, os valores não são apagados silenciosamente: a validação impede salvar até corrigir essa posição.
