@@ -89,6 +89,9 @@ class TesteInterface(unittest.TestCase):
     def test_inicio(self) -> None:
         """Confere a navegação inicial e os rótulos da ficha."""
         self.assertFalse(self.aplicacao.exception)
+        self.assertFalse(
+            any(botao.label == "Nova ficha" for botao in self.aplicacao.button)
+        )
         self.assertEqual(
             list(self.aplicacao.radio[0].options),
             ["Ficha", "Resultados"],
@@ -108,18 +111,45 @@ class TesteInterface(unittest.TestCase):
             )
         )
 
-    def test_nova_ficha_tem_confirmacao_clara(self) -> None:
-        """Pede confirmação antes de descartar alterações da ficha atual."""
+    def test_novo_sei_preserva_edicao_ate_confirmacao(self) -> None:
+        """Consulta de novo processo só limpa os dados após confirmar o descarte."""
         self.preparar_ficha()
-        self.acionar("Nova ficha")
+        processo_anterior = self.aplicacao.session_state.ficha["processo"]
+        processo_novo = "0000.00.0000099/2026-00"
+        campo_busca = next(
+            campo
+            for campo in self.aplicacao.text_input
+            if campo.label == "Localizar pelo processo SEI"
+        )
+        campo_busca.set_value(processo_novo)
+        self.acionar("Localizar ficha")
+
+        self.assertFalse(self.aplicacao.exception)
+        self.assertEqual(
+            self.aplicacao.session_state.ficha["processo"], processo_anterior
+        )
         self.assertTrue(
             any(
-                "alterações não gravadas" in aviso.value
+                "alterações ainda não gravadas" in aviso.value
                 for aviso in self.aplicacao.warning
             )
         )
-        self.acionar("Descartar alterações e iniciar nova ficha")
-        self.assertEqual(self.aplicacao.session_state.ficha["processo"], "")
+        self.acionar("Continuar na ficha atual")
+        self.assertEqual(
+            self.aplicacao.session_state.ficha["processo"], processo_anterior
+        )
+
+        self.acionar("Localizar ficha")
+        self.acionar("Descartar alterações e abrir ficha localizada")
+
+        self.assertFalse(self.aplicacao.exception)
+        self.assertEqual(
+            self.aplicacao.session_state.ficha["processo"], processo_novo
+        )
+        self.assertEqual(self.aplicacao.session_state.ficha["unidade"], "")
+        self.assertIsNone(
+            self.aplicacao.session_state.ficha["municipios"][0]["10"]
+        )
 
     def test_blocos_municipais(self) -> None:
         """Confere nomes compartilhados e pontuações independentes ao salvar."""
@@ -159,8 +189,8 @@ class TesteInterface(unittest.TestCase):
         ).set_value("0000.00.0000001/2026-00")
         self.acionar("Localizar ficha")
         self.assertFalse(self.aplicacao.exception)
-        self.assertTrue(
-            any("rascunho" in aviso.value.lower() for aviso in self.aplicacao.success)
+        self.assertFalse(
+            any("carregad" in aviso.value.lower() for aviso in self.aplicacao.success)
         )
         self.assertFalse(self.aplicacao.exception)
         self.assertEqual(self.aplicacao.session_state.modulo, "Ficha")
@@ -311,6 +341,9 @@ class TesteInterface(unittest.TestCase):
         self.assertIn(">0.5843<", resultado)
         self.assertIn("PARÂM 10", resultado)
         self.assertIn(">3<", resultado)
+        self.assertNotIn("Pontos Gestor", resultado)
+        self.assertNotIn("TOTAL — PONTOS GESTOR", resultado)
+        self.assertIn("TOTAL — PONTOS VALIDADOS", resultado)
         for codigo in ("11.1", "11.2", "11.3"):
             self.assertIn(f"PARÂM {codigo}", resultado)
             self.assertIn(">4<", resultado)
@@ -359,8 +392,8 @@ class TesteInterface(unittest.TestCase):
             self.aplicacao.session_state.ficha["unidade"], "Unidade atualizada"
         )
 
-    def test_pontos_gestor_atualizados_aparecem_e_ficam_destacados(self) -> None:
-        """Publica a nova nota do gestor e destaca seu valor no resultado."""
+    def test_pontos_gestor_ficam_na_ficha_e_nao_no_resultado(self) -> None:
+        """Mantém a edição das notas do gestor sem expor colunas no relatório."""
         self.preparar_ficha()
         chave = f"{self.aplicacao.session_state.geracao}_1.1_gestor"
         self.aplicacao.number_input(key=chave).set_value(9)
@@ -373,7 +406,9 @@ class TesteInterface(unittest.TestCase):
             if elemento.label == "Localizar pelo processo SEI"
         ).set_value("0000.00.0000001/2026-00")
         self.acionar("Localizar ficha")
+        self.assertFalse(self.aplicacao.success)
         chave = f"{self.aplicacao.session_state.geracao}_1.1_gestor"
+        self.assertEqual(self.aplicacao.number_input(key=chave).value, 9)
         self.aplicacao.number_input(key=chave).set_value(8)
         self.aplicacao.run()
         self.acionar("Atualizar ficha")
@@ -386,9 +421,35 @@ class TesteInterface(unittest.TestCase):
             elemento.value
             for elemento in self.aplicacao.markdown
             if 'class="tabela-planilha"' in elemento.value
-            and "Pontos Gestor 1.1" in elemento.value
+            and "Pontos Validados 1.1" in elemento.value
         )
-        self.assertIn(">8<", resultado)
+        self.assertNotIn("Pontos Gestor", resultado)
+        self.assertNotIn("TOTAL — PONTOS GESTOR", resultado)
+        self.assertFalse(
+            any(
+                "Células em verde claro" in elemento.value
+                for elemento in self.aplicacao.caption
+            )
+        )
+
+    def test_pontos_validados_atualizados_continuam_destacados(self) -> None:
+        """Preserva o destaque dos campos que continuam visíveis no resultado."""
+        self.preparar_ficha()
+        self.acionar("Cadastrar")
+        chave = f"{self.aplicacao.session_state.geracao}_1.1_validado"
+        self.aplicacao.number_input(key=chave).set_value(8)
+        self.aplicacao.run()
+        self.acionar("Atualizar ficha")
+
+        self.aplicacao.radio[0].set_value("Resultados").run()
+
+        self.assertFalse(self.aplicacao.exception)
+        resultado = next(
+            elemento.value
+            for elemento in self.aplicacao.markdown
+            if 'class="tabela-planilha"' in elemento.value
+            and "Pontos Validados 1.1" in elemento.value
+        )
         self.assertIn('<td class="celula-alterada">8</td>', resultado)
 
     def test_consultar_processo_nao_exige_confirmacao_para_consultar(self) -> None:
@@ -437,6 +498,7 @@ class TesteInterface(unittest.TestCase):
         )
         self.acionar("Descartar alterações e abrir ficha localizada")
         self.assertEqual(self.aplicacao.session_state.modulo, "Ficha")
+        self.assertFalse(self.aplicacao.success)
         self.assertEqual(
             self.aplicacao.session_state.ficha["unidade"], "UC demonstrativa"
         )
