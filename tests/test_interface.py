@@ -8,6 +8,8 @@ import streamlit as st
 from streamlit.testing.v1 import AppTest
 from test_regras import ficha_valida
 
+from icms.regras import calcular
+
 
 class TesteInterface(unittest.TestCase):
     """Verifica inicialização e ações essenciais do Streamlit."""
@@ -339,11 +341,11 @@ class TesteInterface(unittest.TestCase):
         self.assertIn("Indicador", resultado)
         self.assertIn("Último cadastro", resultado)
         self.assertIn(">0.5843<", resultado)
-        self.assertIn("PARÂM 10", resultado)
-        self.assertIn(">3<", resultado)
+        self.assertNotIn("PARÂM 10", resultado)
         self.assertNotIn("Pontos Gestor", resultado)
         self.assertNotIn("TOTAL — PONTOS GESTOR", resultado)
-        self.assertIn("TOTAL — PONTOS VALIDADOS", resultado)
+        self.assertNotIn("Pontos Validados", resultado)
+        self.assertNotIn("TOTAL — PONTOS VALIDADOS", resultado)
         for codigo in ("11.1", "11.2", "11.3"):
             self.assertIn(f"PARÂM {codigo}", resultado)
             self.assertIn(">4<", resultado)
@@ -421,7 +423,7 @@ class TesteInterface(unittest.TestCase):
             elemento.value
             for elemento in self.aplicacao.markdown
             if 'class="tabela-planilha"' in elemento.value
-            and "Pontos Validados 1.1" in elemento.value
+            and "Nota1" in elemento.value
         )
         self.assertNotIn("Pontos Gestor", resultado)
         self.assertNotIn("TOTAL — PONTOS GESTOR", resultado)
@@ -432,14 +434,15 @@ class TesteInterface(unittest.TestCase):
             )
         )
 
-    def test_pontos_validados_atualizados_continuam_destacados(self) -> None:
-        """Preserva o destaque dos campos que continuam visíveis no resultado."""
+    def test_pontos_validados_atualizados_destacam_as_notas(self) -> None:
+        """Mantém a nota FQ destacada ao alterar os pontos validados da ficha."""
         self.preparar_ficha()
         self.acionar("Cadastrar")
         chave = f"{self.aplicacao.session_state.geracao}_1.1_validado"
         self.aplicacao.number_input(key=chave).set_value(8)
         self.aplicacao.run()
         self.acionar("Atualizar ficha")
+        nota = calcular(self.aplicacao.session_state.ficha)["municipios"][0]["FQ"]
 
         self.aplicacao.radio[0].set_value("Resultados").run()
 
@@ -448,9 +451,11 @@ class TesteInterface(unittest.TestCase):
             elemento.value
             for elemento in self.aplicacao.markdown
             if 'class="tabela-planilha"' in elemento.value
-            and "Pontos Validados 1.1" in elemento.value
+            and "Nota1" in elemento.value
         )
-        self.assertIn('<td class="celula-alterada">8</td>', resultado)
+        self.assertIn(
+            f'<td class="celula-alterada">{nota.replace(",", ".")}</td>', resultado
+        )
 
     def test_consultar_processo_nao_exige_confirmacao_para_consultar(self) -> None:
         """Abre formulário novo quando o processo consultado não existe."""
