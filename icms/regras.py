@@ -126,7 +126,8 @@ def validar(ficha: dict[str, Any], concluir: bool = False) -> list[str]:
                     f"Município {posicao}, parâmetro {ROTULOS_MUNICIPAIS[codigo]}: use 0 a 9."
                 )
             if not nome or nome == "-":
-                if valor not in (None, 0):
+                # Zero informado também exige a identificação do município.
+                if valor is not None:
                     erros.append(
                         f"Município {posicao}: há pontos sem nome de município."
                     )
@@ -188,3 +189,4 @@ def preparar(ficha: dict[str, Any]) -> dict[str, Any]:
             "rotulo", f"{codigo} · {nome}"
         )
     return copia
+
