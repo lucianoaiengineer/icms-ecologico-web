@@ -1,37 +1,42 @@
-# ICMS Ecológico — Resultado da conferência local
+# Relatório de verificação — ICMS Ecológico
 
-**Data da revisão:** 10/11/2026.
-**Base GitHub consultada:** branch `main`, commit `b92ad132a59c29b679347bfa09a3e77b0df45ade`.
-**Ambiente de testes deste pacote:** Python 3.13.5 com SQLAlchemy e pandas instalados.
+**Revisão preparada:** 10/11/2026  
+**Referência de origem:** branch `main` do repositório `lucianoaiengineer/icms-ecologico-web`, conferida nesta data.  
+**Objetivo desta revisão:** simplificar os modos de armazenamento, retirar o adaptador descontinuado e revisar a documentação pública.
 
-## Verificações executadas
+## Alterações conferidas
 
-| Escopo | Resultado |
+- O ponto de entrada `app.py` seleciona somente `demonstracao` ou `banco`.
+- `icms/repositorio.py` conserva apenas o repositório de memória, seu histórico e o backup da demonstração.
+- `icms/repositorio_sql.py` permanece responsável pelas transações SQL e edições recuperáveis.
+- `requirements.txt` contém somente as dependências utilizadas pelos modos disponíveis.
+- O teste de interface com acesso não configurado agora cobre o modo `banco`.
+- `README.md`, `CONFIGURACAO_ACESSO_E_RESULTADOS.md`, `GUIA_PERSISTENCIA.md` e `PADROES_E_PUBLICACAO.md` foram revisados para o funcionamento atual.
+- `assets/estilos.css`, os relatórios de 50 colunas e as regras de cálculo foram preservados.
+
+## Resultados locais
+
+| Verificação | Resultado |
 | --- | --- |
-| `tests/test_regras.py` | 26 testes aprovados |
-| `tests/test_persistencia_sql.py` | 6 testes aprovados |
-| `tests/test_relatorios.py` | 12 testes aprovados |
-| `tests/test_estrutura.py` | 3 testes aprovados |
-| `compileall` de código e testes | Aprovado |
-| Análise por AST das 13 unidades Python | Todas as funções possuem docstring e anotação de retorno |
-| Comprimento das linhas Python | Nenhuma linha acima de 88 caracteres |
+| Regras e repositório temporário | **26 testes aprovados** |
+| Persistência SQL | **6 testes aprovados** |
+| Relatório e CSV | **12 testes aprovados** |
+| Estrutura e modos permitidos | **5 testes aprovados** |
+| Compilação estática dos módulos Python | **Aprovada** |
 
-**Total de testes executados: 47 (47 aprovados, zero falhas).**
+**Total efetivamente executado nesta revisão: 49 testes, sem falhas.**
 
-## Não executado ou não comprovado
+## O que ainda não foi comprovado
 
-- **18 testes de interface** (`tests/test_interface.py`): não executados; o pacote Streamlit não está instalado neste ambiente e o índice externo de pacotes não está acessível.
-- **Ruff e mypy:** não executados; ferramentas indisponíveis. As verificações feitas não substituem lint e checagem de tipos completos.
-- **Teste visual:** posição dos atalhos em monitor widescreen, navegação por teclado e responsividade devem ser conferidas no navegador após a publicação.
-- **Banco PostgreSQL real / autenticação OIDC:** não configurados ou testados nesta execução.
-- **Google Sheets:** permanece fora de operação, como integração eventual futura.
+- Os testes de interface Streamlit não foram executados neste ambiente, pois o pacote Streamlit não está instalado.
+- A autenticação com o provedor institucional e a conexão a PostgreSQL real não foram verificadas.
+- Não foram realizados testes visuais de navegador, implantação na nuvem ou restauração institucional de backup.
+- Ruff e verificação completa de tipagem não foram executados nesta revisão.
 
-## Publicação necessária
+Os testes automatizados realizados **não equivalem à homologação de produção**.
 
-O `ModuleNotFoundError` informado ocorreu porque `app.py` foi publicado sem `icms/repositorio_sql.py`. Esta revisão entrega o módulo, as dependências e o CSS/relatórios separados. **A correção só terá efeito no site depois que todos os arquivos novos e modificados forem colocados nas pastas corretas da branch usada na publicação.** Não foi feita alteração no GitHub pelo assistente.
+## Publicação
 
-## Atualização do relatório (10/11/2026)
+Os arquivos deste pacote precisam ser publicados nas pastas correspondentes. Isso inclui `assets/estilos.css`, os módulos `icms/` e o `requirements.txt` atualizado. Não substitua apenas `app.py`.
 
-O relatório e o CSV passaram de 35 para **50 colunas**. Agora incluem os 14 pontos validados gerais (`PARÂM 1.1` até `PARÂM 9`), o somatório municipal `PARÂM 10` e os três fatores `11.1`–`11.3`, além de identificação, 13 municípios e 13 notas. A fórmula do FQ não foi alterada. Os testes adicionais verificaram a ordem das colunas, a origem dos pontos validados, os totais municipais e os destaques de alterações.
-
-**Nota:** os três parâmetros 11.1–11.3 mantêm o mapeamento padrão configurado no código. A conferência com a planilha institucional (E44/E60) permanece pendente.
+As atualizações descritas neste relatório foram preparadas localmente; **não foram aplicadas automaticamente ao GitHub ou à aplicação hospedada**.

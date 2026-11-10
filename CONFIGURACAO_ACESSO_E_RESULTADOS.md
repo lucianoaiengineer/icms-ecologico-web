@@ -1,84 +1,48 @@
-# Configuração do acesso e da consulta de resultados
+# Configuração de acesso e resultados
 
-## O que foi incluído nesta versão
+Este guia apresenta os requisitos de acesso ao **Sistema Web de Gestão de Fichas do ICMS Ecológico** e os cuidados necessários para uso de registros institucionais.
 
-- Tela de acesso centralizada na página, com cartão branco dimensionado para o
-  conteúdo e fundo verde muito claro. Em telas estreitas, o cartão se ajusta à
-  largura disponível.
-- Entrada por provedor institucional OIDC. A aplicação não cria senhas nem envia
-  senhas por e-mail; a recuperação de conta é feita pelo provedor configurado.
-- Acesso restrito a e-mails verificados e previamente autorizados. As três
-  contas iniciais devem ser adicionadas à lista de editores depois que seus
-  endereços institucionais forem definidos. O perfil editor permite incluir,
-  consultar, alterar e excluir fichas.
-- Quando o modo institucional ainda não foi configurado, a tela oferece entrada
-  explícita em demonstração. Os registros fictícios ficam isolados na sessão
-  daquele navegador, não são gravados na planilha e desaparecem ao encerrar a
-  sessão. Não use dados reais nesse modo.
-- Tabela de resultados com altura de consulta ampliada, rolagem dentro da grade,
-  colunas de processo e unidade fixadas à esquerda e opção de tela cheia.
+## Perfis e autenticação
 
-## Configurações ainda necessárias para uso real
+No modo **banco**, o usuário deve entrar com uma identidade verificada por um provedor **OIDC**. O sistema consulta listas de e-mails autorizados para definir seu perfil:
 
-O código não contém credenciais, e-mails reais ou identificador de planilha.
-Esses valores devem ser incluídos em **Settings → Secrets** no Streamlit Cloud,
-após a instituição definir o provedor de identidade e a planilha autorizada.
+- **Editor:** consulta, cadastra, atualiza e exclui fichas conforme as validações.
+- **Leitor:** consulta fichas e resultados; não deve gravar ou excluir.
 
-Exemplo de estrutura TOML para um único provedor OIDC. Substitua cada marcador
-pelos valores fornecidos pelo administrador do provedor e do Google Sheets:
+O sistema não cria senhas. A recuperação de conta deve ser oferecida pelo provedor de identidade definido pela instituição.
+
+## Configuração protegida
+
+A hospedagem precisa receber, em **Secrets**, a URL do banco, os perfis e as informações OIDC. Os valores abaixo são apenas marcadores de formato:
 
 ```toml
-modo = "sheets"
-planilha_id = "<IDENTIFICADOR_DA_PLANILHA>"
-editores = [
-  "<EMAIL_INSTITUCIONAL_USER1>",
-  "<EMAIL_INSTITUCIONAL_USER2>",
-  "<EMAIL_INSTITUCIONAL_USER3>"
-]
-leitores = []
-url_recuperacao = "<URL_DE_RECUPERACAO_DE_CONTA_DO_PROVEDOR>"
-url_suporte = "<URL_DO_CANAL_INSTITUCIONAL_DE_SUPORTE>"
+modo = "banco"
+banco_url = "postgresql+psycopg://USUARIO:SENHA@HOST:5432/BASE?sslmode=require"
+editores = ["EDITOR_AUTORIZADO"]
+leitores = ["LEITOR_AUTORIZADO"]
+url_recuperacao = "https://DOMINIO-INSTITUCIONAL/recuperacao"
+url_suporte = "https://DOMINIO-INSTITUCIONAL/suporte"
 
 [auth]
-redirect_uri = "https://icms-ecologico.streamlit.app/oauth2callback"
-cookie_secret = "<SEGREDO_FORTE_GERADO_PARA_A_APLICACAO>"
-client_id = "<CLIENT_ID_DO_PROVEDOR>"
-client_secret = "<CLIENT_SECRET_DO_PROVEDOR>"
-server_metadata_url = "<URL_DE_METADADOS_OIDC_DO_PROVEDOR>"
-
-[gcp_service_account]
-type = "service_account"
-project_id = "<PROJETO_GOOGLE_CLOUD>"
-private_key_id = "<ID_DA_CHAVE>"
-private_key = "<CHAVE_PRIVADA>"
-client_email = "<EMAIL_DA_CONTA_DE_SERVICO>"
-client_id = "<ID_DA_CONTA_DE_SERVICO>"
-token_uri = "https://oauth2.googleapis.com/token"
+redirect_uri = "https://DOMINIO-DA-APLICACAO/oauth2callback"
+cookie_secret = "SEGREDO_A_CONFIGURAR"
+client_id = "IDENTIFICADOR_DO_PROVEDOR"
+client_secret = "SEGREDO_DO_PROVEDOR"
+server_metadata_url = "https://PROVEDOR/.well-known/openid-configuration"
 ```
 
-O formato de autenticação acima usa um provedor OIDC único. A instituição deve
-fornecer os dados reais e registrar a URL de retorno da aplicação no provedor.
-Os e-mails de `user1`, `user2` e `user3` são marcadores de configuração, não
-logins funcionais. A conta de serviço do Google Sheets precisa receber acesso à
-planilha que contém as abas `Fichas` e `Historico`.
+**Nunca publique Secrets, senhas, chaves ou dados pessoais no GitHub.** A conexão, os perfis e as permissões devem ser conferidos com contas de teste autorizadas.
 
-Não coloque o conteúdo real dos Secrets no GitHub, neste arquivo ou em mensagens.
+## Consulta de resultados
 
-## Comportamento da consulta consolidada
+O módulo **Resultados** utiliza somente **fichas concluídas** do repositório selecionado. Rascunhos e cópias automáticas de edição não entram nesse relatório.
 
-- A tabela inclui apenas fichas concluídas; rascunhos continuam no módulo Ficha.
-- A fonte é o repositório configurado para o aplicativo. No modo persistente,
-  os dados vêm da planilha Google Sheets conectada; o arquivo Excel anterior é
-  referência de visualização e regras, não a base duplicada do sistema.
-- Os filtros existentes permitem localizar por processo ou unidade.
-- A grade mantém o processo e a unidade visíveis durante a rolagem horizontal.
-- As alterações devem ser realizadas pela ficha e pelo fluxo de atualização,
-  preservando validações e histórico.
+A grade apresenta **50 colunas**, com identificação, parâmetros de 1.1 a 11.3, municípios e notas. Os filtros permitem localizar processos ou unidades; o CSV exporta os mesmos campos do resultado, sem estilos visuais.
 
-## Limite deste pacote
+A exclusão confirmada remove a ficha do conjunto ativo consultado e do CSV gerado depois da operação. O histórico de exclusão continua registrado.
 
-Esta entrega contém código preparado e testes locais. Ela não configura o
-provedor de identidade, as três contas reais, a planilha institucional, os
-Secrets do Streamlit Cloud nem publica uma nova versão da aplicação.
-Até que esses itens sejam fornecidos e testados, não use o modo demonstração
-para registrar dados reais.
+## Condições de liberação
+
+Antes do uso institucional, é necessário homologar login, autorização de leitores e editores, gravação e leitura com PostgreSQL, recuperação de edições, backup, restauração e o mapeamento dos fatores de qualidade.
+
+Uma instalação em modo demonstração **não constitui base institucional**: os dados são temporários e devem ser fictícios.

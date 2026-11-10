@@ -22,7 +22,7 @@ from icms.regras import (
     normalizar_processo,
     nova_ficha,
 )
-from icms.repositorio import Conflito, Repositorio, RepositorioSheets
+from icms.repositorio import Conflito, Repositorio
 from icms.relatorios import (
     colunas_resultado_alteradas,
     proteger_csv,
@@ -70,7 +70,7 @@ def conectar(modo: str) -> Repositorio:
         if not url:
             raise ValueError("Configure banco_url nos Secrets para o modo banco.")
         return conectar_banco(url)
-    return conectar_sheets()
+    raise ValueError("Modo de armazenamento não reconhecido.")
 
 
 @st.cache_resource
@@ -79,14 +79,6 @@ def conectar_banco(url: str) -> RepositorioSQL:
     from icms.repositorio_sql import RepositorioSQL
 
     return RepositorioSQL(url)
-
-
-@st.cache_resource
-def conectar_sheets() -> RepositorioSheets:
-    """Compartilha a conexão persistente com a planilha configurada."""
-    return RepositorioSheets(
-        dict(st.secrets["gcp_service_account"]), str(st.secrets["planilha_id"])
-    )
 
 
 def exibir_backup_demonstracao(repositorio: Repositorio) -> None:
@@ -432,7 +424,7 @@ modo_configurado = segredo("modo", os.environ.get("ICMS_MODO", ""))
 modo = str(modo_configurado).strip().lower()
 if st.session_state.get("modo_demo_sessao", False):
     modo = "demonstracao"
-elif modo not in ("demonstracao", "sheets", "banco"):
+elif modo not in ("demonstracao", "banco"):
     exibir_tela_acesso(autenticacao_configurada=False, permitir_demo=True)
     st.stop()
 autor, pode_editar = identificar(modo)
@@ -455,11 +447,11 @@ st.title("ICMS Ecológico")
 st.caption("Gestão de fichas do Fator de Qualidade")
 try:
     repositorio = conectar(modo)
-# Os clientes Google e de autenticação podem lançar classes de erro diferentes.
+# Os adaptadores de persistência podem lançar erros específicos de conexão.
 except Exception:  # noqa: BLE001
     registrador_log.exception("Falha ao conectar à persistência configurada.")
     st.error(
-        "Não foi possível abrir a base. Confira credenciais, permissões e cabeçalhos."
+        "Não foi possível abrir o banco de dados. Confira a conexão e as permissões."
     )
     st.stop()
 if modo == "demonstracao":

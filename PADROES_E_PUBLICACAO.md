@@ -1,54 +1,33 @@
-# ICMS Ecológico — Padrões e publicação segura
+# Padrões de desenvolvimento e publicação
 
-## Problema corrigido
+## Organização do projeto
 
-Na `main` conferida em 10/11/2026, commit `b92ad132`, `app.py` importava
-`icms.repositorio_sql`, mas o módulo não estava versionado. O `requirements.txt`
-também não declarava SQLAlchemy e psycopg. Isso causou `ModuleNotFoundError`
-no Streamlit Cloud. Esta revisão disponibiliza o módulo e suas dependências,
-e também adia a importação SQL até que o modo `banco` seja selecionado.
+O `app.py` coordena a interface Streamlit. Os estilos ficam em `assets/estilos.css`; regras, persistência e relatórios ficam em módulos próprios dentro de `icms/`.
 
-**Não substitua apenas `app.py`.** A aplicação possui vários módulos relacionados;
-publicar apenas parte deles pode impedir a inicialização ou alterar cálculos.
+| Arquivo ou pasta | Responsabilidade |
+| --- | --- |
+| `app.py` | Interface, navegação e fluxos de preenchimento. |
+| `assets/estilos.css` | Layout, responsividade e atalhos laterais. |
+| `icms/regras.py` | Validação e Fator de Qualidade. |
+| `icms/repositorio.py` | Repositório temporário e histórico da demonstração. |
+| `icms/repositorio_sql.py` | Transações SQL e edições recuperáveis. |
+| `icms/relatorios.py` | Resultados, CSV e destaques. |
+| `icms/edicoes.py` | Identificação das cópias provisórias. |
+| `tests/` | Verificação das regras, relatórios, persistência, estrutura e interface. |
 
-## Organização do código
+## Convenções adotadas
 
-- `app.py`: interface Streamlit e orquestração das operações.
-- `assets/estilos.css`: visual, responsividade e atalhos de início/fim.
-- `icms/regras.py`: normalização do SEI, validações e FQ.
-- `icms/repositorio.py`: memória da demonstração, histórico e adaptador Sheets não operacional.
-- `icms/repositorio_sql.py`: transações e cópias recuperáveis no banco.
-- `icms/relatorios.py`: composição do relatório, tabela HTML, CSV e destaques.
-- `icms/edicoes.py`: identificador de edições recuperáveis, sem dependência SQL.
-- `tests/`: testes separados para regra, interface, banco, relatório e estrutura.
+- **PEP 8:** nomes expressivos, imports organizados e largura-alvo de 88 caracteres conforme `pyproject.toml`.
+- **Docstrings:** funções, classes e módulos documentados.
+- **Tipagem:** anotações nos parâmetros e retornos, preservando a legibilidade.
+- **Separação de responsabilidades:** regras de negócio independentes da camada visual.
+- **Segurança:** credenciais fora do GitHub; autenticação e autorização para o modo de banco persistente.
 
-## Convenções aplicadas
+Os padrões devem ser verificados por testes e ferramentas de análise estática; documentá-los não equivale a comprovar conformidade total.
 
-- **PEP 8:** largura-alvo de 88 caracteres definida em `pyproject.toml`, imports organizados e nomes em `snake_case` para funções e variáveis.
-- **Docstrings:** módulos, classes e funções documentados em português, descrevendo responsabilidade e principais invariantes.
-- **Tipagem:** anotações de parâmetros e retornos nas funções, utilizando `dict[str, Any]`, `list[...]`, tipos opcionais e interfaces do domínio onde apropriado.
-- **Separação de responsabilidades:** cálculos e dados no pacote `icms`, visual em CSS e ponto de entrada no Streamlit.
-- **Segurança:** segredos fora do GitHub e HTML dos dados escapado na tabela; exclusão e gravação permanecem vinculadas a permissões e versões.
-- **Importação opcional de SQL:** a demonstração não depende da existência de um driver de PostgreSQL para carregar a interface.
+## Publicação completa
 
-A conformidade integral de lint e análise estática deverá ser confirmada com Ruff e
-ferramentas de tipagem no ambiente de desenvolvimento; **não foi declarada uma
-aprovação de Ruff ou mypy neste pacote**, pois essas ferramentas não estavam
-instaladas na análise. As verificações locais confirmaram sintaxe, docstrings,
-anotações de retorno e limites de linha do código incluído.
-
-## Atalhos laterais
-
-O formulário é centralizado com largura máxima de **980 px**. Em telas largas,
-os atalhos são posicionados **14 px depois da sua borda direita**. Por exemplo,
-em uma janela de 1920 px o formulário ocupa aproximadamente x=470 a x=1450,
-e os atalhos começam em x=1464. Em telas de até 1100 px, a regra responsiva
-aproxima-os da borda direita disponível. O comportamento deve ser confirmado
-visualmente no navegador usado pela instituição.
-
-## Arquivos a publicar juntos
-
-Os caminhos abaixo são relativos à raiz do repositório:
+Para evitar erros de importação ou arquivos ausentes, publique **todos os caminhos do pacote** na estrutura apresentada. Não substitua apenas o `app.py`.
 
 ```text
 app.py
@@ -63,29 +42,25 @@ requirements.txt
 .gitignore
 .streamlit/config.toml
 pyproject.toml
-tests/__init__.py
-tests/test_regras.py
-tests/test_interface.py
-tests/test_persistencia_sql.py
-tests/test_relatorios.py
-tests/test_estrutura.py
+tests/
 README.md
+CONFIGURACAO_ACESSO_E_RESULTADOS.md
 GUIA_PERSISTENCIA.md
 PADROES_E_PUBLICACAO.md
+RELATORIO_VERIFICACAO.md
 ```
 
-O repositório possui também `CONFIGURACAO_ACESSO_E_RESULTADOS.md`: **preserve esse
-arquivo**. Nenhum arquivo de credenciais deve ser publicado.
+**Revisão da documentação antiga:** retire do repositório os guias históricos `LEIA-ME_AJUSTE_PARAMETROS.md` e `LEIA-ME_BACKUP_E_DADOS_SINTETICOS.md` depois de verificar que não são mais necessários. Ambos se referem a entregas anteriores; o primeiro descreve um relatório que já não corresponde às 50 colunas atuais.
 
-## Validação antes de implantar
+Os arquivos `tests/regras.py`, `tests/repositorio.py` e `tests/repositorio_sql.py` existentes em algumas publicações devem ser avaliados antes de removê-los: a suíte oficial está nos arquivos `test_*.py`.
 
-1. Conferir os caminhos acima em uma branch de atualização ou PR.
-2. Instalar o `requirements.txt` completo e executar `python -m unittest discover -s tests -v` com Streamlit disponível.
-3. Verificar login/demo e formulários, incluindo posição dos atalhos no monitor widescreen.
-4. Excluir uma ficha de teste e confirmar sua ausência imediata em Resultados e no CSV.
-5. Se o modo SQL for adotado, usar primeiro uma base isolada de homologação, verificar controle de acesso, concorrência e recuperação; não utilizar SQLite efêmero em nuvem como base oficial.
-6. Só então publicar uma versão identificada e registrar o resultado da homologação.
+## Validação antes de disponibilizar
 
-**Estado da conferência local:** 47 testes aprovados (26 de regras, 6 SQL,
-12 de relatório, 3 estruturais). A execução dos 18 testes de interface, a
-homologação no navegador e a conexão com PostgreSQL real ainda estão pendentes.
+1. Conferir todos os arquivos na branch de implantação.
+2. Executar `python -m unittest discover -s tests -v` com as dependências instaladas.
+3. Verificar abertura, consulta, edição, exclusão e exportação com dados fictícios.
+4. Homologar o acesso institucional e a persistência em banco isolado.
+5. Verificar visualmente a interface em computador e celular, incluindo atalhos de início e fim.
+6. Registrar versão, evidências de teste, backup e procedimento de retorno.
+
+**Não use dados reais na demonstração nem considere a implantação homologada apenas porque o site iniciou.**
