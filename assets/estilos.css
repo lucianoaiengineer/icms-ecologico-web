@@ -1,1 +1,501 @@
+:root {
+    --ief-cinza-fundo: #f3f4f6;
+    --ief-verde-medio: #2f6b3c;
+    --ief-verde-escuro: #234b2e;
+    --ief-verde-contorno: #4b8b55;
+    --ief-texto: #24352a;
+    --ief-texto-secundario: #46574a;
+    /* Largura de referência única para formulário e atalhos flutuantes. */
+    --icms-largura-formulario: 980px;
+    --icms-metade-formulario: 490px;
+    --icms-atalho-largura: 2.7rem;
+    --icms-atalho-distancia: 14px;
+    --ief-terra: #8b6b3e;
+}
+[data-testid="stAppViewContainer"] {
+    background: var(--ief-cinza-fundo) !important;
+    color: var(--ief-texto) !important;
+}
+/* Barra superior preenchida para separar visualmente a página do conteúdo. */
+[data-testid="stHeader"] {
+    background: var(--ief-verde-escuro) !important;
+}
+[data-testid="stHeader"] [data-testid="stToolbar"] button,
+[data-testid="stHeader"] [data-testid="stToolbar"] svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+}
+[data-testid="stMainBlockContainer"] {
+    max-width: var(--icms-largura-formulario);
+    margin: 1.1rem auto 2rem auto;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+    color: var(--ief-texto) !important;
+    background: #ffffff !important;
+    border: 2px solid var(--ief-verde-escuro);
+    border-radius: 0.8rem;
+    box-shadow: 0 5px 20px #24452b0d;
+    box-sizing: border-box;
+}
+[data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
+    max-width: none;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+[data-testid="stMainBlockContainer"]:has(.st-key-resultados_grade) {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) {
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+.st-key-cartao_acesso {
+    position: fixed !important;
+    left: 50vw !important;
+    top: 50vh !important;
+    top: 50dvh !important;
+    z-index: 1000 !important;
+    transform: translate(-50%, -50%) !important;
+    width: min(360px, calc(100vw - 2rem)) !important;
+    max-width: 360px !important;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    margin: 0 !important;
+    padding: 1.2rem clamp(1rem, 5vw, 1.4rem) !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: 1px solid #d8e5d2 !important;
+    border-top: 5px solid var(--ief-verde-medio) !important;
+    border-radius: 0.8rem !important;
+    box-shadow: 0 12px 35px #24452b18 !important;
+    box-sizing: border-box !important;
+    color: var(--ief-texto) !important;
+}
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stWidgetLabel"] p,
+[data-testid="stExpander"] summary,
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+    color: var(--ief-texto-secundario) !important;
+    opacity: 1 !important;
+}
+[data-testid="stExpander"] {
+    background: #ffffff !important;
+    border: 1px solid #477a3e !important;
+    border-radius: 0.35rem !important;
+}
+[data-testid="stExpander"] summary {
+    color: #111111 !important;
+    font-weight: 700 !important;
+}
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stMarkdownContainer"] h4,
+[data-testid="stWidgetLabel"] p,
+label {
+    color: var(--ief-texto) !important;
+    opacity: 1 !important;
+}
+[data-testid="stMarkdownContainer"] strong {
+    color: #111111 !important;
+}
+/* Delimita visualmente o próprio controle: o tema do Streamlit pode
+   ocultar a borda do invólucro BaseWeb, por isso a linha também vai no input. */
+[data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stNumberInput"] [data-baseweb="input"],
+[data-testid="stDateInput"] [data-baseweb="input"] {
+    min-height: 2.35rem;
+    background: #ffffff !important;
+    border: 1px solid var(--ief-verde-contorno) !important;
+    border-radius: 0.25rem !important;
+    box-shadow: none !important;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input {
+    min-height: 2.35rem;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    border: 1px solid var(--ief-verde-contorno) !important;
+    border-radius: 0.25rem !important;
+    box-shadow: none !important;
+}
+[data-testid="stTextInput"] [data-baseweb="input"]:focus-within,
+[data-testid="stNumberInput"] [data-baseweb="input"]:focus-within,
+[data-testid="stDateInput"] [data-baseweb="input"]:focus-within,
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stDateInput"] input:focus {
+    border: 2px solid var(--ief-verde-escuro) !important;
+    outline: none !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+    min-height: 2.35rem;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    border: 1px solid var(--ief-verde-contorno) !important;
+    border-radius: 0.25rem !important;
+    box-shadow: none !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within {
+    border: 2px solid var(--ief-verde-escuro) !important;
+}
+[data-testid="stForm"] {
+    padding: 0.75rem;
+    background: #ffffff !important;
+    border: 1px solid #477a3e !important;
+    border-radius: 0.35rem !important;
+}
+[data-testid="stTextArea"] [data-baseweb="textarea"] {
+    min-height: 6rem !important;
+    background: #ffffff !important;
+    border: 1px solid #477a3e !important;
+    border-radius: 0.3rem !important;
+    box-shadow: none !important;
+}
+[data-testid="stTextArea"] textarea {
+    display: block !important;
+    width: 100% !important;
+    min-height: 6rem !important;
+    box-sizing: border-box !important;
+    padding: 0.65rem 0.75rem !important;
+    color: var(--ief-texto) !important;
+    background: #ffffff !important;
+    border: 1px solid #477a3e !important;
+    border-radius: 0.3rem !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+}
+[data-testid="stTextArea"] textarea:focus {
+    border: 2px solid var(--ief-verde-escuro) !important;
+    outline: none !important;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input,
+[data-testid="stTextArea"] textarea {
+    color: var(--ief-texto) !important;
+    background: #ffffff !important;
+    opacity: 1 !important;
+}
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder {
+    color: #59675b !important;
+    opacity: 1 !important;
+}
+.acesso-marca {
+    margin-bottom: 1.5rem;
+    color: var(--ief-verde-escuro);
+    text-align: center;
+}
+.acesso-marca .folha {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: var(--ief-verde-medio);
+    font-size: 2rem;
+}
+.acesso-marca h1 {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 700;
+}
+.acesso-marca p {
+    margin: 0.45rem 0 0;
+    color: #526257;
+}
+.acesso-ajuda {
+    margin-top: 1rem;
+    color: #42564a;
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+.acesso-ajuda a {
+    color: var(--ief-verde-escuro) !important;
+    font-weight: 600;
+}
+div.stButton > button[kind="primary"] {
+    border-color: var(--ief-verde-medio) !important;
+    background: var(--ief-verde-medio) !important;
+    color: #ffffff !important;
+    font-weight: 650;
+}
+div.stButton > button[kind="primary"]:hover {
+    border-color: var(--ief-verde-escuro) !important;
+    background: var(--ief-verde-escuro) !important;
+    color: #ffffff !important;
+}
+div.stButton > button[kind="primary"]:disabled {
+    border-color: #cbd9c8 !important;
+    background: #e8efe5 !important;
+    color: #4c5d4e !important;
+    opacity: 1 !important;
+    cursor: not-allowed;
+}
+.aviso-demo {
+    margin: 0.75rem 0 1rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid #9fba95;
+    border-left: 5px solid var(--ief-verde-medio);
+    border-radius: 0.45rem;
+    background: #e4efdf;
+    color: #29452e;
+    line-height: 1.5;
+}
+.aviso-demo strong {
+    color: #234b2e;
+}
+/* Mantém rótulos e controles na mesma linha em qualquer largura. */
+[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    align-items: center;
+}
+[data-testid="column"] {
+    min-width: 0 !important;
+}
+.atalhos-rolagem {
+    position: fixed;
+    /* Aproxima os atalhos da borda direita do formulário centralizado.
+       Ex.: tela 1920px => formulário termina em x=1450 e os atalhos
+       começam em x=1464 (14px depois), em vez de x~1876. */
+    right: max(
+        0.5rem,
+        calc(50vw - var(--icms-metade-formulario)
+            - var(--icms-atalho-largura) - var(--icms-atalho-distancia))
+    );
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    z-index: 999;
+}
+.atalhos-rolagem a {
+    width: var(--icms-atalho-largura);
+    height: 2.7rem;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #174a72;
+    color: #fff !important;
+    font-size: 1.35rem;
+    font-weight: 700;
+    text-decoration: none !important;
+    box-shadow: 0 2px 8px #0003;
+}
+.atalhos-rolagem a:hover {
+    background: #0d3554;
+}
+.linha-parametro {
+    border: 0;
+    border-top: 1px solid #477a3e;
+    margin: 0.15rem 0 0.7rem;
+}
+/* A tabela controla o próprio fundo e as bordas, sem o canvas do dataframe. */
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) {
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) > div,
+.st-key-resultados_grade {
+    background: transparent !important;
+    color: var(--ief-texto) !important;
+}
+.tabela-planilha-rolagem {
+    width: 100%;
+    max-height: 650px;
+    overflow: auto;
+    background: #ffffff !important;
+    border: 2px solid var(--ief-verde-escuro);
+    border-radius: 0.4rem;
+    box-sizing: border-box;
+}
+table.tabela-planilha {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse !important;
+    background: #ffffff !important;
+    color: var(--ief-texto) !important;
+}
+.tabela-planilha th,
+.tabela-planilha td {
+    min-width: 6rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid #477a3e !important;
+    background: #ffffff !important;
+    color: #344238 !important;
+    text-align: left;
+    white-space: nowrap;
+}
+.tabela-planilha th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #ffffff !important;
+    color: #111111 !important;
+    font-weight: 700;
+}
+.tabela-planilha td.celula-alterada {
+    background: #eaf4df !important;
+    color: #234b2e !important;
+    font-weight: 600;
+}
+/* Verde suave destaca somente o campo cujo valor difere da ficha aberta. */
+[class*="st-key-campo_alterado_"] input,
+[class*="st-key-campo_alterado_"] textarea,
+[class*="st-key-campo_alterado_"] [data-baseweb="input"],
+[class*="st-key-campo_alterado_"] [data-baseweb="select"] > div {
+    background: #eaf4df !important;
+    border-color: #477a3e !important;
+    box-shadow: 0 0 0 2px #477a3e24 !important;
+}
+/* Exclusão: botões compactos, sem ocupar a largura das colunas. */
+.st-key-excluir_ficha button,
+.st-key-acao_confirmar_exclusao button,
+.st-key-cancelar_exclusao button {
+    width: auto !important;
+    min-height: 1.85rem !important;
+    padding: 0.25rem 0.65rem !important;
+    font-size: 0.82rem !important;
+    line-height: 1.2 !important;
+    white-space: nowrap;
+}
+
+.aviso-alteracoes {
+    margin: 0.75rem 0;
+    padding: 0.75rem 1rem;
+    color: #234b2e;
+    background: #eaf4df;
+    border: 1px solid #8eae7d;
+    border-left: 4px solid #477a3e;
+    border-radius: 0.4rem;
+}
+.rotulo-form-linha {
+    color: #111111;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: right;
+}
+.rodape-institucional {
+    margin-top: 3rem;
+    color: #fff;
+    background: #83a398;
+    border-radius: 0.25rem 0.25rem 0 0;
+    overflow: hidden;
+    font-size: 0.82rem;
+}
+.rodape-principal,
+.rodape-inferior {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
+}
+.rodape-marca {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    line-height: 1.35;
+}
+.rodape-marca strong {
+    font-size: 1.7rem;
+    letter-spacing: 0.08em;
+}
+.rodape-links {
+    text-align: right;
+}
+.rodape-institucional a {
+    color: #fff !important;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+.rodape-inferior {
+    background: #6f9085;
+    font-size: 0.72rem;
+}
+/* Em telas estreitas, não forçar um cálculo baseado nos 980px.
+   Os atalhos continuam acessíveis junto à borda direita. */
+@media (max-width: 1100px) {
+    .atalhos-rolagem {
+        right: 0.5rem;
+    }
+}
+
+@media (max-width: 640px) {
+    [data-testid="stMainBlockContainer"] {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+        margin-top: 0.5rem;
+        border-radius: 0.6rem;
+    }
+    [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
+        width: 100%;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        border: 0 !important;
+    }
+    .st-key-cartao_acesso {
+        width: calc(100vw - 2rem) !important;
+        max-width: 360px !important;
+    }
+    [data-testid="stHorizontalBlock"] {
+        gap: 0.5rem;
+    }
+    [data-testid="stHorizontalBlock"]:has(.rotulo-form-linha) {
+        flex-wrap: wrap !important;
+        row-gap: 0.1rem;
+    }
+    [data-testid="stHorizontalBlock"]:has(.rotulo-form-linha)
+    > [data-testid="column"] {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+    }
+    .rotulo-form-linha {
+        text-align: left;
+    }
+    [data-testid="stTextInput"],
+    [data-testid="stNumberInput"],
+    [data-testid="stSelectbox"],
+    [data-testid="stDateInput"],
+    [data-testid="stTextArea"] {
+        min-width: 0 !important;
+    }
+    .atalhos-rolagem {
+        right: 0.35rem;
+    }
+    .atalhos-rolagem a {
+        width: 2.3rem;
+        height: 2.3rem;
+    }
+    .rodape-principal,
+    .rodape-inferior {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 0.9rem 0.75rem;
+    }
+    .rodape-links {
+        text-align: left;
+    }
+}
 
