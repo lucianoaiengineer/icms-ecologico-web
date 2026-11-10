@@ -13,16 +13,19 @@ from tests.test_regras import ficha_valida
 
 
 class TestePersistenciaSQL(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
+        """Abre SQLite temporário isolado para cada teste."""
         self.diretorio = tempfile.TemporaryDirectory()
         self.url = f"sqlite:///{Path(self.diretorio.name) / 'icms.sqlite'}"
         self.base = RepositorioSQL(self.url)
 
-    def tearDown(self):
+    def tearDown(self) -> None:
+        """Fecha a conexão e remove o banco de teste."""
         self.base.engine.dispose()
         self.diretorio.cleanup()
 
-    def test_ficha_e_historico_sobrevivem_nova_conexao(self):
+    def test_ficha_e_historico_sobrevivem_nova_conexao(self) -> None:
+        """Ficha e historico sobrevivem nova conexao."""
         ficha = ficha_valida()
         salvo = self.base.gravar(ficha, 0, "Concluída", "editor@exemplo.org")
         self.assertEqual(salvo["versao"], 1)
@@ -36,22 +39,30 @@ class TestePersistenciaSQL(unittest.TestCase):
         finally:
             outra_sessao.engine.dispose()
 
-    def test_edicao_automatica_nao_altera_registro_concluido(self):
+    def test_edicao_automatica_nao_altera_registro_concluido(self) -> None:
+        """Edicao automatica nao altera registro concluido."""
         ficha = ficha_valida()
         self.base.gravar(ficha, 0, "Concluída", "editor@exemplo.org")
         edicao = deepcopy(ficha)
         edicao["unidade"] = "Unidade ainda não confirmada"
         self.base.salvar_edicao("editor@exemplo.org", edicao, ficha, 1, "Concluída")
         self.assertEqual(self.base.consultar(ficha["processo"])["ficha"], ficha)
-        self.assertEqual(self.base.listar_edicoes("editor@exemplo.org")[0]["ficha"], edicao)
+        self.assertEqual(
+            self.base.listar_edicoes("editor@exemplo.org")[0]["ficha"],
+            edicao,
+        )
         self.assertEqual(self.base.listar_edicoes("outro@exemplo.org"), [])
         nova_sessao = RepositorioSQL(self.url)
         try:
-            self.assertEqual(nova_sessao.listar_edicoes("editor@exemplo.org")[0]["ficha"], edicao)
+            self.assertEqual(
+                nova_sessao.listar_edicoes("editor@exemplo.org")[0]["ficha"],
+                edicao,
+            )
         finally:
             nova_sessao.engine.dispose()
 
-    def test_gravacao_confirmada_apaga_autosalvamento_da_ficha(self):
+    def test_gravacao_confirmada_apaga_autosalvamento_da_ficha(self) -> None:
+        """Gravacao confirmada apaga autosalvamento da ficha."""
         ficha = ficha_valida()
         self.base.gravar(ficha, 0, "Concluída", "editor@exemplo.org")
         nova = deepcopy(ficha)
@@ -60,9 +71,11 @@ class TestePersistenciaSQL(unittest.TestCase):
         salvo = self.base.gravar(nova, 1, "Concluída", "editor@exemplo.org")
         self.assertEqual(salvo["versao"], 2)
         self.assertEqual(self.base.listar_edicoes("editor@exemplo.org"), [])
-        self.assertEqual(self.base.listar()[0]["alteracoes_ultima_versao"]["unidade"]["depois"], "Alteração confirmada")
+        mudanca = self.base.listar()[0]["alteracoes_ultima_versao"]["unidade"]
+        self.assertEqual(mudanca["depois"], "Alteração confirmada")
 
-    def test_exclusao_remove_do_relatorio_e_autosalvamentos_de_todos(self):
+    def test_exclusao_remove_do_relatorio_e_autosalvamentos_de_todos(self) -> None:
+        """Exclusao remove do relatorio e autosalvamentos de todos."""
         ficha = ficha_valida()
         self.base.gravar(ficha, 0, "Concluída", "editor@exemplo.org")
         for usuario in ("editor@exemplo.org", "outro@exemplo.org"):
@@ -79,7 +92,8 @@ class TestePersistenciaSQL(unittest.TestCase):
         finally:
             outra_sessao.engine.dispose()
 
-    def test_gravacoes_de_duas_instancias_nao_sobrescrevem_versao(self):
+    def test_gravacoes_de_duas_instancias_nao_sobrescrevem_versao(self) -> None:
+        """Gravacoes de duas instancias nao sobrescrevem versao."""
         ficha = ficha_valida()
         self.base.gravar(ficha, 0, "Concluída", "editor@exemplo.org")
         a = RepositorioSQL(self.url)
@@ -89,7 +103,9 @@ class TestePersistenciaSQL(unittest.TestCase):
             segunda = deepcopy(ficha)
             primeira["unidade"] = "A"
             segunda["unidade"] = "B"
-            def tentar(argumentos):
+
+            def tentar(argumentos: tuple[RepositorioSQL, dict, str]) -> str:
+                """Tenta gravar uma versão anterior em uma conexão diferente."""
                 repo, conteudo, autor = argumentos
                 try:
                     repo.gravar(conteudo, 1, "Concluída", autor)
@@ -97,17 +113,23 @@ class TestePersistenciaSQL(unittest.TestCase):
                 except Conflito:
                     return "conflito"
             with ThreadPoolExecutor(max_workers=2) as executor:
-                resultados = list(executor.map(tentar, [
-                    (a, primeira, "a@exemplo.org"),
-                    (b, segunda, "b@exemplo.org"),
-                ]))
+                resultados = list(
+                    executor.map(
+                        tentar,
+                        [
+                            (a, primeira, "a@exemplo.org"),
+                            (b, segunda, "b@exemplo.org"),
+                        ],
+                    )
+                )
             self.assertEqual(sorted(resultados), ["conflito", "gravado"])
             self.assertEqual(self.base.consultar(ficha["processo"])["versao"], 2)
         finally:
             a.engine.dispose()
             b.engine.dispose()
 
-    def test_copia_de_ficha_nova_sem_sei_pode_ser_recuperada(self):
+    def test_copia_de_ficha_nova_sem_sei_pode_ser_recuperada(self) -> None:
+        """Copia de ficha nova sem sei pode ser recuperada."""
         ficha = nova_ficha()
         ficha["unidade"] = "Trabalho interrompido"
         original = nova_ficha()
