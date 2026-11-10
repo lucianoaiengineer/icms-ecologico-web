@@ -13,6 +13,8 @@ from tests.test_regras import ficha_valida
 
 
 class TestePersistenciaSQL(unittest.TestCase):
+    """Confere gravação, auditoria e recuperação em banco SQL local."""
+
     def setUp(self) -> None:
         """Abre SQLite temporário isolado para cada teste."""
         self.diretorio = tempfile.TemporaryDirectory()

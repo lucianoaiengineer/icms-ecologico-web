@@ -59,7 +59,7 @@ class TesteInterface(unittest.TestCase):
 
     def test_tela_de_acesso_nao_abre_autocadastro_sem_configuracao(self) -> None:
         """Exibe o acesso restrito e mantém o botão inativo sem OIDC."""
-        os.environ["ICMS_MODO"] = "sheets"
+        os.environ["ICMS_MODO"] = "banco"
         caminho = Path(__file__).resolve().parents[1] / "app.py"
         aplicacao = AppTest.from_file(str(caminho), default_timeout=30).run()
         self.assertFalse(aplicacao.exception)

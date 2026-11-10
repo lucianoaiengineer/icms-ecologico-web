@@ -41,5 +41,25 @@ class TesteEstrutura(unittest.TestCase):
         self.assertIn("beforeunload", codigo)
 
 
+    def test_modos_de_armazenamento_permitidos(self) -> None:
+        """A aplicação aceita somente demonstração e banco SQL."""
+        codigo = (RAIZ / "app.py").read_text(encoding="utf-8")
+        self.assertIn('modo not in ("demonstracao", "banco")', codigo)
+        self.assertIn(
+            'raise ValueError("Modo de armazenamento não reconhecido.")',
+            codigo,
+        )
+
+    def test_repositorio_tem_apenas_modelo_temporario(self) -> None:
+        """O módulo base não inclui adaptadores de infraestrutura obsoletos."""
+        raiz = RAIZ / "icms" / "repositorio.py"
+        arvore = ast.parse(raiz.read_text(encoding="utf-8"))
+        classes = [
+            item.name for item in arvore.body
+            if isinstance(item, ast.ClassDef)
+        ]
+        self.assertEqual(classes, ["Conflito", "Repositorio"])
+
+
 if __name__ == "__main__":
     unittest.main()
