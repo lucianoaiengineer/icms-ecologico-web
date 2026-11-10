@@ -1,1 +1,1 @@
-"""Gestão de fichas do Fator de Qualidade."""
+"""Módulos de domínio e persistência do ICMS Ecológico."""
