@@ -6,6 +6,7 @@ import html
 import logging
 import os
 from copy import deepcopy
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
