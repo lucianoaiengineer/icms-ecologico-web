@@ -4,3 +4,12 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+# Banco SQLite local e arquivos transacionais nunca devem entrar no GitHub.
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+# Diretórios locais usados por hosts com volume persistente.
+dados/
