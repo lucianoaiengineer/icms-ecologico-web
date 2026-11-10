@@ -22,6 +22,7 @@ from icms.regras import (
     nova_ficha,
 )
 from icms.repositorio import Conflito, Repositorio, RepositorioSheets
+from icms.repositorio_sql import RepositorioSQL, chave_edicao
 
 registrador_log = logging.getLogger(__name__)
 
@@ -535,7 +536,18 @@ def conectar(modo: str) -> Repositorio:
         if "repositorio_demonstracao" not in st.session_state:
             st.session_state.repositorio_demonstracao = Repositorio()
         return st.session_state.repositorio_demonstracao
+    if modo == "banco":
+        url = str(segredo("banco_url", os.environ.get("ICMS_BANCO_URL", ""))).strip()
+        if not url:
+            raise ValueError("Configure banco_url nos Secrets para o modo banco.")
+        return conectar_banco(url)
     return conectar_sheets()
+
+
+@st.cache_resource
+def conectar_banco(url: str) -> RepositorioSQL:
+    """Compartilha conexões SQL; cada gravação possui transação atômica."""
+    return RepositorioSQL(url)
 
 
 @st.cache_resource
@@ -712,6 +724,55 @@ def abrir(ficha: dict, versao: int = 0, situacao: str = "") -> None:
     st.session_state.status_ficha = situacao
     st.session_state.confirmar_exclusao = False
     st.session_state.geracao = st.session_state.get("geracao", 0) + 1
+    st.session_state.pop("ultimo_autosalvamento", None)
+    st.session_state.pop("autosalvo_chave", None)
+
+
+def validar_troca_modulo() -> None:
+    """Exige confirmação antes de sair do formulário modificado."""
+    if (
+        st.session_state.get("modulo") == "Resultados"
+        and st.session_state.get("ficha") != st.session_state.get("ficha_original")
+    ):
+        st.session_state.modulo = "Ficha"
+        st.session_state.confirmar_saida_modulo = True
+
+
+def aviso_saida_navegador(alterado: bool, geracao: int) -> None:
+    """Solicita confirmação nativa do navegador quando há edição pendente.
+
+    O aviso é melhor esforço: navegadores móveis e encerramentos forçados podem
+    ignorá-lo. O autosave em banco permanece a proteção principal.
+    """
+    st.html(
+        f"""<script>
+        (() => {{
+          const ativo = {str(alterado).lower()};
+          const campo = 'st-key-{geracao}_';
+          window.__icmsAvisoEdicao = ativo;
+          if (window.__icmsAvisoAntes) {{
+            window.removeEventListener('beforeunload', window.__icmsAvisoAntes);
+          }}
+          if (window.__icmsDetectaDigitacao) {{
+            document.removeEventListener('input', window.__icmsDetectaDigitacao, true);
+          }}
+          window.__icmsDetectaDigitacao = (evento) => {{
+            if (evento.target.closest('[class*="' + campo + '"]')) {{
+              window.__icmsAvisoEdicao = true;
+            }}
+          }};
+          document.addEventListener('input', window.__icmsDetectaDigitacao, true);
+          window.__icmsAvisoAntes = (evento) => {{
+            if (window.__icmsAvisoEdicao) {{
+              evento.preventDefault();
+              evento.returnValue = '';
+            }}
+          }};
+          window.addEventListener('beforeunload', window.__icmsAvisoAntes);
+        }})();
+        </script>""",
+        unsafe_allow_javascript=True,
+    )
 
 
 def chave_container_campo(chave: str, valor_original: Any) -> str:
@@ -1023,7 +1084,7 @@ modo_configurado = segredo("modo", os.environ.get("ICMS_MODO", ""))
 modo = str(modo_configurado).strip().lower()
 if st.session_state.get("modo_demo_sessao", False):
     modo = "demonstracao"
-elif modo not in ("demonstracao", "sheets"):
+elif modo not in ("demonstracao", "sheets", "banco"):
     exibir_tela_acesso(autenticacao_configurada=False, permitir_demo=True)
     st.stop()
 autor, pode_editar = identificar(modo)
@@ -1054,6 +1115,15 @@ except Exception:  # noqa: BLE001
     st.stop()
 if modo == "demonstracao":
     exibir_backup_demonstracao(repositorio)
+elif modo == "banco":
+    if repositorio.engine.dialect.name == "sqlite":
+        st.warning(
+            "Armazenamento SQLite local: recuperar após reiniciar o navegador é possível "
+            "enquanto o arquivo do banco existir. No Streamlit Community Cloud o disco "
+            "NÃO é persistente: use PostgreSQL externo para operação durável."
+        )
+    else:
+        st.caption("Banco PostgreSQL configurado. Alterações em edição recebem uma cópia automática.")
 if "ficha" not in st.session_state:
     abrir(nova_ficha())
 if "ficha_original" not in st.session_state:
@@ -1075,7 +1145,23 @@ modulo = st.radio(
     horizontal=True,
     key="modulo",
     label_visibility="collapsed",
+    on_change=validar_troca_modulo,
 )
+
+if st.session_state.get("confirmar_saida_modulo"):
+    st.warning(
+        "A ficha tem alterações ainda não confirmadas. Sair do formulário "
+        "não atualiza a ficha oficial. Em modo banco, uma cópia automática "
+        "pode ser recuperada ao voltar."
+    )
+    with st.container(horizontal=True, gap="small"):
+        if st.button("Continuar editando", key="continuar_edicao"):
+            st.session_state.confirmar_saida_modulo = False
+            st.rerun()
+        if st.button("Ir para Resultados sem gravar", key="sair_com_edicao"):
+            st.session_state.confirmar_saida_modulo = False
+            st.session_state.modulo_pendente = "Resultados"
+            st.rerun()
 
 if modulo == "Ficha":
     st.subheader("Ficha · inclusão, consulta e edição")
@@ -1083,6 +1169,64 @@ if modulo == "Ficha":
         "Informe o processo SEI para abrir uma ficha existente ou iniciar uma nova. "
         "A ficha encontrada abre neste mesmo módulo para edição."
     )
+    if modo == "banco" and pode_editar:
+        try:
+            recuperaveis = repositorio.listar_edicoes(autor)
+            # Não oferece recuperar o documento que já está aberto no mesmo estado.
+            recuperaveis = [
+                copia for copia in recuperaveis
+                if copia["ficha"] != st.session_state.ficha
+            ]
+            if recuperaveis:
+                with st.expander(
+                    f"Edições automáticas disponíveis para recuperação ({len(recuperaveis)})",
+                    expanded=True,
+                ):
+                    st.caption(
+                        "Estas cópias não atualizam a ficha oficial nem aparecem no relatório. "
+                        "Verifique os dados e escolha Salvar/Atualizar após recuperar."
+                    )
+                    for indice, copia in enumerate(recuperaveis):
+                        st.write(
+                            f"SEI: {copia['processo'] or '(não informado)'} · "
+                            f"Cópia: {copia['atualizado_em']}"
+                        )
+                        col_recuperar, col_descartar = st.columns([1, 1])
+                        with col_recuperar:
+                            if st.button("Recuperar edição", key=f"recuperar_{indice}"):
+                                if st.session_state.ficha != st.session_state.ficha_original:
+                                    st.error(
+                                        "A ficha atual já tem alterações. Salve ou descarte "
+                                        "as alterações desta sessão antes de recuperar outra edição."
+                                    )
+                                else:
+                                    atual = (
+                                        repositorio.consultar(copia["processo"])
+                                        if copia["processo"] else None
+                                    )
+                                    versao_atual = atual["versao"] if atual else 0
+                                    if versao_atual != copia["versao"] or (
+                                        atual and atual["status"] != copia["status"]
+                                    ):
+                                        st.error(
+                                            "A ficha oficial mudou ou foi excluída desde esta edição. "
+                                            "Recuperação bloqueada para não sobrescrever dados de terceiros."
+                                        )
+                                    else:
+                                        abrir(copia["original"], copia["versao"], copia["status"])
+                                        st.session_state.ficha = deepcopy(copia["ficha"])
+                                        st.session_state.geracao += 1
+                                        st.session_state.aviso = (
+                                            "Edição automática recuperada. Revise e confirme a gravação."
+                                        )
+                                        st.rerun()
+                        with col_descartar:
+                            if st.button("Descartar cópia", key=f"descartar_{indice}"):
+                                repositorio.excluir_edicao(autor, copia["chave"])
+                                st.rerun()
+        except Exception:  # noqa: BLE001
+            registrador_log.exception("Falha na lista de edições automáticas.")
+            st.error("Não foi possível consultar as cópias automáticas.")
     with st.form("localizar_ficha"):
         busca = st.text_input(
             "Localizar pelo processo SEI",
@@ -1126,6 +1270,10 @@ if modulo == "Ficha":
             if st.button(
                 "Descartar alterações e abrir ficha localizada", type="primary"
             ):
+                if modo == "banco" and pode_editar:
+                    repositorio.excluir_edicao(autor, str(
+                        st.session_state.ficha.get("processo", "")).strip() or "__nova__"
+                    )
                 registro = consulta_pendente["registro"]
                 if registro:
                     abrir(registro["ficha"], registro["versao"], registro["status"])
@@ -1446,9 +1594,44 @@ if modulo == "Ficha":
             _, _, total_valor = st.columns([1.1, 2.2, 1])
             with total_valor:
                 st.markdown(f"**TOTAL: {total_bloco}**")
-    # Cada edição é mantida na sessão; a base só é alterada por uma ação explícita.
+    # A cópia automática não é a ficha oficial. Somente Salvar/Atualizar
+    # modifica o registro e o relatório do sistema.
     st.session_state.ficha = deepcopy(ficha)
     tem_alteracoes = ficha != st.session_state.ficha_original
+    if tem_alteracoes and modo == "banco" and pode_editar:
+        try:
+            assinatura = (ficha, st.session_state.versao)
+            if assinatura != st.session_state.get("ultimo_autosalvamento"):
+                repositorio.salvar_edicao(
+                    autor, ficha, st.session_state.ficha_original,
+                    st.session_state.versao, st.session_state.status_ficha,
+                )
+                chave_atual = chave_edicao(ficha)
+                chave_anterior = st.session_state.get("autosalvo_chave")
+                if chave_anterior and chave_anterior != chave_atual:
+                    repositorio.excluir_edicao(autor, chave_anterior)
+                st.session_state.autosalvo_chave = chave_atual
+                st.session_state.ultimo_autosalvamento = deepcopy(assinatura)
+            st.caption(
+                "Cópia de edição registrada automaticamente no banco. "
+                "A ficha oficial só muda após Salvar/Atualizar."
+            )
+        except Exception:  # noqa: BLE001
+            registrador_log.exception("Falha no salvamento automático da edição.")
+            st.error(
+                "A edição NÃO foi salva automaticamente. "
+                "Não feche a página antes de salvar ou resolver a conexão."
+            )
+    if not tem_alteracoes and modo == "banco" and pode_editar:
+        chave_anterior = st.session_state.get("autosalvo_chave")
+        if chave_anterior:
+            try:
+                repositorio.excluir_edicao(autor, chave_anterior)
+                st.session_state.pop("autosalvo_chave", None)
+                st.session_state.pop("ultimo_autosalvamento", None)
+            except Exception:  # noqa: BLE001
+                registrador_log.exception("Falha ao limpar edição automática revertida.")
+                st.warning("Não foi possível limpar a cópia automática antiga.")
     campos_alterados = diferencas_ficha(st.session_state.ficha_original, ficha)
     if tem_alteracoes:
         st.markdown(
@@ -1460,6 +1643,15 @@ if modulo == "Ficha":
         with st.expander("Ver campos alterados"):
             for campo_alterado in campos_alterados:
                 st.markdown(f"- {campo_alterado}")
+    if tem_alteracoes:
+        if st.button("Descartar alterações desta sessão", key="descartar_edicao_sessao"):
+            if modo == "banco" and pode_editar:
+                repositorio.excluir_edicao(
+                    autor, str(ficha.get("processo", "")).strip() or "__nova__"
+                )
+            abrir(st.session_state.ficha_original, versao, situacao_atual)
+            st.session_state.aviso = "Alterações não gravadas descartadas."
+            st.rerun()
     rascunho = False
     concluir = False
     atualizar = False
@@ -1543,6 +1735,17 @@ if modulo == "Ficha":
                 mensagem_salvamento = (
                     f"{salvo['status']} salva e verificada. Versão {salvo['versao']}."
                 )
+            if modo == "banco":
+                try:
+                    repositorio.excluir_edicao(
+                        autor, str(salvo["ficha"].get("processo", "")).strip()
+                    )
+                except Exception:  # noqa: BLE001
+                    # A ficha oficial já foi confirmada: falha secundária na
+                    # limpeza da cópia não pode converter sucesso em erro.
+                    registrador_log.exception(
+                        "Gravação confirmada; não foi possível limpar cópia automática."
+                    )
             st.session_state.ficha = deepcopy(salvo["ficha"])
             st.session_state.ficha_original = deepcopy(salvo["ficha"])
             st.session_state.versao = salvo["versao"]
@@ -1731,3 +1934,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# Aviso nativo de saída. Não substitui o salvamento transacional no banco.
+aviso_saida_navegador(
+    st.session_state.ficha != st.session_state.ficha_original,
+    int(st.session_state.get("geracao", 0)),
+)
