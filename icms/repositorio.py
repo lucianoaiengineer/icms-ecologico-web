@@ -140,7 +140,8 @@ class Repositorio:
                 )
             if (atual["versao"] if atual else 0) != versao:
                 raise Conflito(
-                    "Outra pessoa alterou esta ficha. Consulte novamente antes de editar."
+                    "Outra pessoa alterou esta ficha. "
+                    "Consulte novamente antes de editar."
                 )
             novo = {
                 "ficha": ficha,
@@ -188,7 +189,8 @@ class Repositorio:
                 raise ValueError("Não há ficha cadastrada para excluir.")
             if atual["versao"] != versao:
                 raise Conflito(
-                    "A ficha foi alterada por outra pessoa. Consulte novamente antes de excluir."
+                    "A ficha foi alterada por outra pessoa. "
+                    "Consulte novamente antes de excluir."
                 )
             texto = json.dumps(atual["ficha"], ensure_ascii=False, sort_keys=True)
             evento = {
@@ -203,7 +205,8 @@ class Repositorio:
             self._excluir(atual, evento)
             if self.consultar(processo) is not None:
                 raise ValueError(
-                    "A exclusão não foi confirmada. Consulte o processo antes de repetir."
+                    "A exclusão não foi confirmada. "
+                    "Consulte o processo antes de repetir."
                 )
             return evento
 
@@ -547,7 +550,8 @@ class RepositorioSheets(Repositorio):
         indice = indices[0]
         if len(linhas[indice]) < 2 or int(linhas[indice][1]) != evento["versao"] - 1:
             raise Conflito(
-                "A ficha foi alterada por outra pessoa. Consulte novamente antes de excluir."
+                "A ficha foi alterada por outra pessoa. "
+                "Consulte novamente antes de excluir."
             )
 
         valores_auditoria = [
@@ -588,3 +592,4 @@ class RepositorioSheets(Repositorio):
                 ]
             }
         )
+

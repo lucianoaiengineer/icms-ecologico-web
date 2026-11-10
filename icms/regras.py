@@ -123,7 +123,8 @@ def validar(ficha: dict[str, Any], concluir: bool = False) -> list[str]:
             valor = municipio[codigo]
             if valor is not None and (type(valor) is not int or not 0 <= valor <= 9):
                 erros.append(
-                    f"Município {posicao}, parâmetro {ROTULOS_MUNICIPAIS[codigo]}: use 0 a 9."
+                    f"Município {posicao}, parâmetro "
+                    f"{ROTULOS_MUNICIPAIS[codigo]}: use 0 a 9."
                 )
             if not nome or nome == "-":
                 # Zero informado também exige a identificação do município.
