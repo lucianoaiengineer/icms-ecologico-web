@@ -1,524 +1,53 @@
 """Interface web de cadastro, consulta e resultados do ICMS Ecológico."""
 
+from __future__ import annotations
+
 import html
 import logging
 import os
 from copy import deepcopy
-from datetime import date
-from numbers import Real
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import streamlit as st
 
+from icms.edicoes import chave_edicao
 from icms.regras import (
     CASAS_DECIMAIS_FQ,
     MUNICIPAIS,
     PARAMETROS,
     ROTULOS_MUNICIPAIS,
     calcular,
-    formatar_fq,
     normalizar_processo,
     nova_ficha,
 )
 from icms.repositorio import Conflito, Repositorio, RepositorioSheets
-from icms.repositorio_sql import RepositorioSQL, chave_edicao
+from icms.relatorios import (
+    colunas_resultado_alteradas,
+    proteger_csv,
+    quadro_final_ficha,
+    renderizar_tabela,
+    resultado_consolidado,
+)
+
+if TYPE_CHECKING:
+    from icms.repositorio_sql import RepositorioSQL
 
 registrador_log = logging.getLogger(__name__)
 
 # Mantém as interfaces externas, regras do domínio e armazenamento separados.
 st.set_page_config(page_title="Gestão de Fichas | ICMS Ecológico", layout="centered")
 
+# Estilos separados do ponto de entrada. O arquivo faz parte da distribuição.
+ESTILOS = Path(__file__).resolve().parent / "assets" / "estilos.css"
 st.markdown(
-    """
-    <style>
-    :root {
-        --ief-cinza-fundo: #f3f4f6;
-        --ief-verde-medio: #2f6b3c;
-        --ief-verde-escuro: #234b2e;
-        --ief-verde-contorno: #4b8b55;
-        --ief-texto: #24352a;
-        --ief-texto-secundario: #46574a;
-        --ief-terra: #8b6b3e;
-    }
-    [data-testid="stAppViewContainer"] {
-        background: var(--ief-cinza-fundo) !important;
-        color: var(--ief-texto) !important;
-    }
-    /* Barra superior preenchida para separar visualmente a página do conteúdo. */
-    [data-testid="stHeader"] {
-        background: var(--ief-verde-escuro) !important;
-    }
-    [data-testid="stHeader"] [data-testid="stToolbar"] button,
-    [data-testid="stHeader"] [data-testid="stToolbar"] svg {
-        color: #ffffff !important;
-        fill: #ffffff !important;
-        stroke: #ffffff !important;
-    }
-    [data-testid="stMainBlockContainer"] {
-        max-width: 980px;
-        margin: 1.1rem auto 2rem auto;
-        padding-left: 1.25rem;
-        padding-right: 1.25rem;
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-        color: var(--ief-texto) !important;
-        background: #ffffff !important;
-        border: 2px solid var(--ief-verde-escuro);
-        border-radius: 0.8rem;
-        box-shadow: 0 5px 20px #24452b0d;
-        box-sizing: border-box;
-    }
-    [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
-        max-width: none;
-        width: 100%;
-        min-height: 0;
-        margin: 0;
-        padding: 0;
-        background: transparent !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-    }
-    [data-testid="stMainBlockContainer"]:has(.st-key-resultados_grade) {
-        background: transparent !important;
-        border: 0 !important;
-        box-shadow: none !important;
-    }
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) {
-        width: auto !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: transparent !important;
-        border: 0 !important;
-        box-shadow: none !important;
-    }
-    .st-key-cartao_acesso {
-        position: fixed !important;
-        left: 50vw !important;
-        top: 50vh !important;
-        top: 50dvh !important;
-        z-index: 1000 !important;
-        transform: translate(-50%, -50%) !important;
-        width: min(360px, calc(100vw - 2rem)) !important;
-        max-width: 360px !important;
-        max-height: calc(100vh - 2rem);
-        max-height: calc(100dvh - 2rem);
-        overflow-y: auto;
-        margin: 0 !important;
-        padding: 1.2rem clamp(1rem, 5vw, 1.4rem) !important;
-        background: #ffffff !important;
-        background-color: #ffffff !important;
-        border: 1px solid #d8e5d2 !important;
-        border-top: 5px solid var(--ief-verde-medio) !important;
-        border-radius: 0.8rem !important;
-        box-shadow: 0 12px 35px #24452b18 !important;
-        box-sizing: border-box !important;
-        color: var(--ief-texto) !important;
-    }
-    [data-testid="stMarkdownContainer"] p,
-    [data-testid="stMarkdownContainer"] li,
-    [data-testid="stWidgetLabel"] p,
-    [data-testid="stExpander"] summary,
-    [data-testid="stCaptionContainer"],
-    [data-testid="stCaptionContainer"] p {
-        color: var(--ief-texto-secundario) !important;
-        opacity: 1 !important;
-    }
-    [data-testid="stExpander"] {
-        background: #ffffff !important;
-        border: 1px solid #477a3e !important;
-        border-radius: 0.35rem !important;
-    }
-    [data-testid="stExpander"] summary {
-        color: #111111 !important;
-        font-weight: 700 !important;
-    }
-    [data-testid="stMarkdownContainer"] h1,
-    [data-testid="stMarkdownContainer"] h2,
-    [data-testid="stMarkdownContainer"] h3,
-    [data-testid="stMarkdownContainer"] h4,
-    [data-testid="stWidgetLabel"] p,
-    label {
-        color: var(--ief-texto) !important;
-        opacity: 1 !important;
-    }
-    [data-testid="stMarkdownContainer"] strong {
-        color: #111111 !important;
-    }
-    /* Delimita visualmente o próprio controle: o tema do Streamlit pode
-       ocultar a borda do invólucro BaseWeb, por isso a linha também vai no input. */
-    [data-testid="stTextInput"] [data-baseweb="input"],
-    [data-testid="stNumberInput"] [data-baseweb="input"],
-    [data-testid="stDateInput"] [data-baseweb="input"] {
-        min-height: 2.35rem;
-        background: #ffffff !important;
-        border: 1px solid var(--ief-verde-contorno) !important;
-        border-radius: 0.25rem !important;
-        box-shadow: none !important;
-    }
-    [data-testid="stTextInput"] input,
-    [data-testid="stNumberInput"] input,
-    [data-testid="stDateInput"] input {
-        min-height: 2.35rem;
-        box-sizing: border-box !important;
-        background: #ffffff !important;
-        border: 1px solid var(--ief-verde-contorno) !important;
-        border-radius: 0.25rem !important;
-        box-shadow: none !important;
-    }
-    [data-testid="stTextInput"] [data-baseweb="input"]:focus-within,
-    [data-testid="stNumberInput"] [data-baseweb="input"]:focus-within,
-    [data-testid="stDateInput"] [data-baseweb="input"]:focus-within,
-    [data-testid="stTextInput"] input:focus,
-    [data-testid="stNumberInput"] input:focus,
-    [data-testid="stDateInput"] input:focus {
-        border: 2px solid var(--ief-verde-escuro) !important;
-        outline: none !important;
-    }
-    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
-        min-height: 2.35rem;
-        box-sizing: border-box !important;
-        background: #ffffff !important;
-        border: 1px solid var(--ief-verde-contorno) !important;
-        border-radius: 0.25rem !important;
-        box-shadow: none !important;
-    }
-    [data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within {
-        border: 2px solid var(--ief-verde-escuro) !important;
-    }
-    [data-testid="stForm"] {
-        padding: 0.75rem;
-        background: #ffffff !important;
-        border: 1px solid #477a3e !important;
-        border-radius: 0.35rem !important;
-    }
-    [data-testid="stTextArea"] [data-baseweb="textarea"] {
-        min-height: 6rem !important;
-        background: #ffffff !important;
-        border: 1px solid #477a3e !important;
-        border-radius: 0.3rem !important;
-        box-shadow: none !important;
-    }
-    [data-testid="stTextArea"] textarea {
-        display: block !important;
-        width: 100% !important;
-        min-height: 6rem !important;
-        box-sizing: border-box !important;
-        padding: 0.65rem 0.75rem !important;
-        color: var(--ief-texto) !important;
-        background: #ffffff !important;
-        border: 1px solid #477a3e !important;
-        border-radius: 0.3rem !important;
-        box-shadow: none !important;
-        opacity: 1 !important;
-    }
-    [data-testid="stTextArea"] textarea:focus {
-        border: 2px solid var(--ief-verde-escuro) !important;
-        outline: none !important;
-    }
-    [data-testid="stTextInput"] input,
-    [data-testid="stNumberInput"] input,
-    [data-testid="stDateInput"] input,
-    [data-testid="stTextArea"] textarea {
-        color: var(--ief-texto) !important;
-        background: #ffffff !important;
-        opacity: 1 !important;
-    }
-    [data-testid="stTextInput"] input::placeholder,
-    [data-testid="stTextArea"] textarea::placeholder {
-        color: #59675b !important;
-        opacity: 1 !important;
-    }
-    .acesso-marca {
-        margin-bottom: 1.5rem;
-        color: var(--ief-verde-escuro);
-        text-align: center;
-    }
-    .acesso-marca .folha {
-        display: block;
-        margin-bottom: 0.45rem;
-        color: var(--ief-verde-medio);
-        font-size: 2rem;
-    }
-    .acesso-marca h1 {
-        margin: 0;
-        font-size: 1.55rem;
-        font-weight: 700;
-    }
-    .acesso-marca p {
-        margin: 0.45rem 0 0;
-        color: #526257;
-    }
-    .acesso-ajuda {
-        margin-top: 1rem;
-        color: #42564a;
-        font-size: 0.92rem;
-        line-height: 1.55;
-    }
-    .acesso-ajuda a {
-        color: var(--ief-verde-escuro) !important;
-        font-weight: 600;
-    }
-    div.stButton > button[kind="primary"] {
-        border-color: var(--ief-verde-medio) !important;
-        background: var(--ief-verde-medio) !important;
-        color: #ffffff !important;
-        font-weight: 650;
-    }
-    div.stButton > button[kind="primary"]:hover {
-        border-color: var(--ief-verde-escuro) !important;
-        background: var(--ief-verde-escuro) !important;
-        color: #ffffff !important;
-    }
-    div.stButton > button[kind="primary"]:disabled {
-        border-color: #cbd9c8 !important;
-        background: #e8efe5 !important;
-        color: #4c5d4e !important;
-        opacity: 1 !important;
-        cursor: not-allowed;
-    }
-    .aviso-demo {
-        margin: 0.75rem 0 1rem;
-        padding: 0.8rem 1rem;
-        border: 1px solid #9fba95;
-        border-left: 5px solid var(--ief-verde-medio);
-        border-radius: 0.45rem;
-        background: #e4efdf;
-        color: #29452e;
-        line-height: 1.5;
-    }
-    .aviso-demo strong {
-        color: #234b2e;
-    }
-    /* Mantém rótulos e controles na mesma linha em qualquer largura. */
-    [data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        align-items: center;
-    }
-    [data-testid="column"] {
-        min-width: 0 !important;
-    }
-    .atalhos-rolagem {
-        position: fixed;
-        right: 1rem;
-        top: 50%;
-        transform: translateY(-50%);
-        display: flex;
-        flex-direction: column;
-        gap: 0.55rem;
-        z-index: 999;
-    }
-    .atalhos-rolagem a {
-        width: 2.7rem;
-        height: 2.7rem;
-        display: grid;
-        place-items: center;
-        border-radius: 999px;
-        background: #174a72;
-        color: #fff !important;
-        font-size: 1.35rem;
-        font-weight: 700;
-        text-decoration: none !important;
-        box-shadow: 0 2px 8px #0003;
-    }
-    .atalhos-rolagem a:hover {
-        background: #0d3554;
-    }
-    .linha-parametro {
-        border: 0;
-        border-top: 1px solid #477a3e;
-        margin: 0.15rem 0 0.7rem;
-    }
-    /* A tabela controla o próprio fundo e as bordas, sem o canvas do dataframe. */
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) {
-        padding: 0 !important;
-        background: transparent !important;
-        border: 0 !important;
-        box-shadow: none !important;
-    }
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) > div,
-    .st-key-resultados_grade {
-        background: transparent !important;
-        color: var(--ief-texto) !important;
-    }
-    .tabela-planilha-rolagem {
-        width: 100%;
-        max-height: 650px;
-        overflow: auto;
-        background: #ffffff !important;
-        border: 2px solid var(--ief-verde-escuro);
-        border-radius: 0.4rem;
-        box-sizing: border-box;
-    }
-    table.tabela-planilha {
-        width: max-content;
-        min-width: 100%;
-        border-collapse: collapse !important;
-        background: #ffffff !important;
-        color: var(--ief-texto) !important;
-    }
-    .tabela-planilha th,
-    .tabela-planilha td {
-        min-width: 6rem;
-        padding: 0.55rem 0.65rem;
-        border: 1px solid #477a3e !important;
-        background: #ffffff !important;
-        color: #344238 !important;
-        text-align: left;
-        white-space: nowrap;
-    }
-    .tabela-planilha th {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background: #ffffff !important;
-        color: #111111 !important;
-        font-weight: 700;
-    }
-    .tabela-planilha td.celula-alterada {
-        background: #eaf4df !important;
-        color: #234b2e !important;
-        font-weight: 600;
-    }
-    /* Verde suave destaca somente o campo cujo valor difere da ficha aberta. */
-    [class*="st-key-campo_alterado_"] input,
-    [class*="st-key-campo_alterado_"] textarea,
-    [class*="st-key-campo_alterado_"] [data-baseweb="input"],
-    [class*="st-key-campo_alterado_"] [data-baseweb="select"] > div {
-        background: #eaf4df !important;
-        border-color: #477a3e !important;
-        box-shadow: 0 0 0 2px #477a3e24 !important;
-    }
-    /* Exclusão: botões compactos, sem ocupar a largura das colunas. */
-    .st-key-excluir_ficha button,
-    .st-key-acao_confirmar_exclusao button,
-    .st-key-cancelar_exclusao button {
-        width: auto !important;
-        min-height: 1.85rem !important;
-        padding: 0.25rem 0.65rem !important;
-        font-size: 0.82rem !important;
-        line-height: 1.2 !important;
-        white-space: nowrap;
-    }
-
-    .aviso-alteracoes {
-        margin: 0.75rem 0;
-        padding: 0.75rem 1rem;
-        color: #234b2e;
-        background: #eaf4df;
-        border: 1px solid #8eae7d;
-        border-left: 4px solid #477a3e;
-        border-radius: 0.4rem;
-    }
-    .rotulo-form-linha {
-        color: #111111;
-        font-weight: 600;
-        line-height: 1.35;
-        text-align: right;
-    }
-    .rodape-institucional {
-        margin-top: 3rem;
-        color: #fff;
-        background: #83a398;
-        border-radius: 0.25rem 0.25rem 0 0;
-        overflow: hidden;
-        font-size: 0.82rem;
-    }
-    .rodape-principal,
-    .rodape-inferior {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        padding: 1.1rem 1.25rem;
-    }
-    .rodape-marca {
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
-        line-height: 1.35;
-    }
-    .rodape-marca strong {
-        font-size: 1.7rem;
-        letter-spacing: 0.08em;
-    }
-    .rodape-links {
-        text-align: right;
-    }
-    .rodape-institucional a {
-        color: #fff !important;
-        text-decoration: underline;
-        text-underline-offset: 0.15em;
-    }
-    .rodape-inferior {
-        background: #6f9085;
-        font-size: 0.72rem;
-    }
-    @media (max-width: 640px) {
-        [data-testid="stMainBlockContainer"] {
-            padding-left: 0.75rem;
-            padding-right: 0.75rem;
-            margin-top: 0.5rem;
-            border-radius: 0.6rem;
-        }
-        [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
-            width: 100%;
-            min-height: 0;
-            margin: 0;
-            padding: 0;
-            border: 0 !important;
-        }
-        .st-key-cartao_acesso {
-            width: calc(100vw - 2rem) !important;
-            max-width: 360px !important;
-        }
-        [data-testid="stHorizontalBlock"] {
-            gap: 0.5rem;
-        }
-        [data-testid="stHorizontalBlock"]:has(.rotulo-form-linha) {
-            flex-wrap: wrap !important;
-            row-gap: 0.1rem;
-        }
-        [data-testid="stHorizontalBlock"]:has(.rotulo-form-linha)
-        > [data-testid="column"] {
-            flex: 1 1 100% !important;
-            width: 100% !important;
-        }
-        .rotulo-form-linha {
-            text-align: left;
-        }
-        [data-testid="stTextInput"],
-        [data-testid="stNumberInput"],
-        [data-testid="stSelectbox"],
-        [data-testid="stDateInput"],
-        [data-testid="stTextArea"] {
-            min-width: 0 !important;
-        }
-        .atalhos-rolagem {
-            right: 0.35rem;
-        }
-        .atalhos-rolagem a {
-            width: 2.3rem;
-            height: 2.3rem;
-        }
-        .rodape-principal,
-        .rodape-inferior {
-            align-items: flex-start;
-            flex-direction: column;
-            padding: 0.9rem 0.75rem;
-        }
-        .rodape-links {
-            text-align: left;
-        }
-    }
-    </style>
-    """,
+    f"<style>{ESTILOS.read_text(encoding='utf-8')}</style>",
     unsafe_allow_html=True,
 )
 
 
-def segredo(chave: str, padrao: object = None) -> Any:
+def segredo(chave: str, padrao: Any = None) -> Any:
     """Lê configuração sem exigir arquivo de segredos na demonstração."""
     try:
         return st.secrets.get(chave, padrao)
@@ -527,7 +56,7 @@ def segredo(chave: str, padrao: object = None) -> Any:
 
 
 def conectar(modo: str) -> Repositorio:
-    """Mantém a demonstração na sessão e compartilha só a conexão Sheets.
+    """Isola a demonstração na sessão e compartilha conexões persistentes.
 
     Não usar cache global aqui: ele faria navegadores diferentes receberem
     o mesmo repositório temporário, afetando consultas e exclusões.
@@ -546,7 +75,9 @@ def conectar(modo: str) -> Repositorio:
 
 @st.cache_resource
 def conectar_banco(url: str) -> RepositorioSQL:
-    """Compartilha conexões SQL; cada gravação possui transação atômica."""
+    """Abre o adaptador SQL somente no modo banco explicitamente configurado."""
+    from icms.repositorio_sql import RepositorioSQL
+
     return RepositorioSQL(url)
 
 
@@ -578,7 +109,10 @@ def exibir_backup_demonstracao(repositorio: Repositorio) -> None:
             data=exportador_csv(),
             file_name="backup_fichas_icms.csv",
             mime="text/csv",
-            help="Inclui conteúdo integral, situação, versão e histórico de cada ficha.",
+            help=(
+                "Inclui conteúdo integral, situação, versão "
+                "e histórico de cada ficha."
+            ),
         )
         arquivo_backup = st.file_uploader(
             "Restaurar fichas de um backup CSV",
@@ -689,7 +223,8 @@ def exibir_tela_acesso(
             """
             <div class="acesso-ajuda">
               <p>O acesso é restrito a contas previamente autorizadas.</p>
-              <p>As credenciais e a confirmação de e-mail são administradas pelo provedor institucional.</p>
+              <p>As credenciais e a confirmação de e-mail são administradas
+              pelo provedor institucional.</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -702,16 +237,20 @@ def exibir_tela_acesso(
             st.link_button("Solicitar acesso ou suporte", endereco_suporte)
         elif not endereco_recuperacao.startswith("https://"):
             st.caption(
-                "Para recuperar a conta ou solicitar acesso, procure o suporte institucional."
+                "Para recuperar a conta ou solicitar acesso, "
+                "procure o suporte institucional."
             )
         if not autenticacao_configurada:
             st.caption(
-                "O acesso institucional será liberado após a configuração da autenticação. "
-                "A demonstração aceita somente dados fictícios e não grava na base oficial."
+                "O acesso institucional será liberado após configurar a "
+                "autenticação. A demonstração aceita somente dados fictícios "
+                "e não grava na base oficial."
             )
 
 
-def abrir(ficha: dict, versao: int = 0, situacao: str = "") -> None:
+def abrir(
+    ficha: dict[str, Any], versao: int = 0, situacao: str = ""
+) -> None:
     """Abre uma ficha em um novo conjunto de campos da sessão."""
     ficha_aberta = deepcopy(ficha)
     for codigo, nome in PARAMETROS:
@@ -845,197 +384,6 @@ def inteiro_em_linha(
         )
 
 
-def mapa_parametros_resultado() -> dict[str, str]:
-    """Relaciona os três fatores visíveis aos totais usados no cálculo."""
-    mapa = {
-        "11.1": "11.1",
-        "11.2": "11.1",
-        "11.3": "11.1",
-    }
-    mapa.update(dict(segredo("totais_resultado", {})))
-    return {codigo: mapa[codigo] for codigo in ("11.1", "11.2", "11.3")}
-
-
-def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
-    """Monta o relatório a partir das fichas concluídas, sem segunda base."""
-    mapa = mapa_parametros_resultado()
-    linhas = []
-    for registro in registros:
-        if registro["status"] != "Concluída":
-            continue
-        ficha = registro["ficha"]
-        calculo = calcular(ficha)
-        linha = {
-            "Nº SEI": ficha["processo"],
-            "DATA RECEBIDA": date.fromisoformat(ficha["recebimento"]),
-            "REMETENTE - UCs": ficha["unidade"],
-            "Esfera": ficha["esfera"],
-            "URFBio": ficha["urfbio"],
-            "RESPONSÁVEL": ficha["responsavel"],
-        }
-        for codigo, origem in mapa.items():
-            linha[f"PARÂM {codigo}"] = calculo["totais"].get(origem)
-        for posicao in range(13):
-            municipio = ficha["municipios"][posicao]
-            nome = municipio["nome"].strip()
-            linha[f"Município{posicao + 1}"] = nome if nome not in ("", "-") else "-"
-            nota = next(
-                (
-                    municipio_calculado
-                    for municipio_calculado in calculo["municipios"]
-                    if municipio_calculado["Município"] == nome
-                ),
-                None,
-            )
-            linha[f"Nota{posicao + 1}"] = (
-                float(nota["FQ"].replace(",", ".")) if nota else None
-            )
-        linhas.append(linha)
-    return pd.DataFrame(linhas)
-
-
-def quadro_final_ficha(ficha: dict) -> pd.DataFrame:
-    """Monta a parte inferior da ficha para os 13 municípios."""
-    total_validado = sum(
-        ponto.get("validado") or 0 for ponto in ficha["parametros"].values()
-    )
-    linhas = []
-    for posicao, municipio in enumerate(ficha["municipios"], 1):
-        nome = municipio["nome"].strip()
-        if not nome or nome == "-":
-            linhas.append(
-                {
-                    "Posição": f"Município {posicao}",
-                    "Município": "-",
-                    "SOMA PARÂMETROS": "-",
-                    "PONTUAÇÃO FINAL FQ": "-",
-                }
-            )
-            continue
-        soma = total_validado + sum(municipio.get(codigo) or 0 for codigo in MUNICIPAIS)
-        linhas.append(
-            {
-                "Posição": f"Município {posicao}",
-                "Município": nome,
-                "SOMA PARÂMETROS": str(soma),
-                "PONTUAÇÃO FINAL FQ": formatar_fq(soma, ficha["pontuacao_categoria"]),
-            }
-        )
-    return pd.DataFrame(linhas)
-
-
-def renderizar_tabela(
-    quadro: pd.DataFrame,
-    destaques_por_processo: dict[str, set[str]] | None = None,
-) -> str:
-    """Renderiza grade HTML branca e rolável, sem linhas vazias do Streamlit."""
-    colunas = list(quadro.columns)
-    cabecalho = "".join(
-        f'<th scope="col">{html.escape(str(coluna))}</th>' for coluna in colunas
-    )
-    linhas = []
-    for _, linha in quadro.iterrows():
-        processo = str(linha.get("Nº SEI", ""))
-        colunas_alteradas = (
-            destaques_por_processo.get(processo, set())
-            if destaques_por_processo
-            else set()
-        )
-        celulas = []
-        for coluna in colunas:
-            valor = linha[coluna]
-            if pd.isna(valor):
-                texto = ""
-            elif coluna == "DATA RECEBIDA" and hasattr(valor, "strftime"):
-                texto = valor.strftime("%m/%d/%Y")
-            elif coluna.startswith("Nota") and isinstance(valor, Real):
-                texto = f"{valor:.{CASAS_DECIMAIS_FQ}f}"
-            elif isinstance(valor, Real) and not isinstance(valor, bool):
-                texto = str(int(valor)) if float(valor).is_integer() else str(valor)
-            else:
-                texto = str(valor)
-            classe = ' class="celula-alterada"' if coluna in colunas_alteradas else ""
-            celulas.append(f"<td{classe}>{html.escape(texto)}</td>")
-        linhas.append(f"<tr>{''.join(celulas)}</tr>")
-    return (
-        '<div class="tabela-planilha-rolagem" role="region" '
-        'aria-label="Tabela de dados; use as barras de rolagem para navegar" '
-        'tabindex="0"><table class="tabela-planilha">'
-        f"<thead><tr>{cabecalho}</tr></thead>"
-        f"<tbody>{''.join(linhas)}</tbody></table></div>"
-    )
-
-
-def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
-    """Relaciona campos alterados da ficha às colunas visíveis no resultado."""
-    colunas: set[str] = set()
-    mapa = mapa_parametros_resultado()
-    campos_diretos = {
-        "unidade": "REMETENTE - UCs",
-        "recebimento": "DATA RECEBIDA",
-        "esfera": "Esfera",
-        "urfbio": "URFBio",
-        "responsavel": "RESPONSÁVEL",
-    }
-    for caminho in alteracoes:
-        if caminho in campos_diretos:
-            colunas.add(campos_diretos[caminho])
-        elif caminho == "pontuacao_categoria":
-            colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
-        elif caminho.startswith("parametros."):
-            # Os identificadores 1.1, 1.2, 5.1 etc. contêm ponto; separamos
-            # somente o prefixo e o nome do campo, preservando o código inteiro.
-            codigo_e_campo = caminho.removeprefix("parametros.").rsplit(".", 1)
-            partes = ["parametros", *codigo_e_campo]
-            if len(partes) == 3 and partes[2] == "validado":
-                # Os pontos validados ficam na ficha e repercutem nas notas FQ.
-                colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
-        elif caminho.startswith("municipios[") and "]." in caminho:
-            posicao_texto, campo = caminho[len("municipios[") :].split("].", 1)
-            if not posicao_texto.isdigit():
-                continue
-            posicao = int(posicao_texto)
-            if not 1 <= posicao <= 13:
-                continue
-            if campo == "nome":
-                colunas.update((f"Município{posicao}", f"Nota{posicao}"))
-            elif campo in MUNICIPAIS:
-                colunas.add(f"Nota{posicao}")
-                # Um mesmo total pode alimentar mais de um fator no relatório.
-                colunas.update(
-                    f"PARÂM {codigo}"
-                    for codigo, origem in mapa.items()
-                    if origem == campo
-                )
-    return colunas
-
-
-def proteger_csv(quadro: pd.DataFrame) -> bytes:
-    """Exporta CSV sem permitir fórmulas em campos de texto no Excel."""
-    quadro = quadro.copy()
-    for coluna in quadro.columns:
-        if coluna == "DATA RECEBIDA":
-            quadro[coluna] = quadro[coluna].map(
-                lambda valor_csv: valor_csv.strftime("%m/%d/%Y")
-            )
-        else:
-            quadro[coluna] = quadro[coluna].map(
-                lambda valor_csv: (
-                    "'" + valor_csv
-                    if isinstance(valor_csv, str)
-                    and valor_csv.lstrip().startswith(("=", "+", "-", "@"))
-                    and valor_csv != "-"
-                    else valor_csv
-                )
-            )
-    return quadro.to_csv(
-        index=False,
-        sep=";",
-        decimal=",",
-        float_format=f"%.{CASAS_DECIMAIS_FQ}f",
-    ).encode("utf-8-sig")
-
-
 def diferencas_ficha(
     ficha_original: dict[str, Any], ficha_atual: dict[str, Any]
 ) -> list[str]:
@@ -1095,6 +443,7 @@ if modo == "demonstracao":
         "não são gravados na base oficial e desaparecem ao encerrar a sessão.</div>",
         unsafe_allow_html=True,
     )
+# As setas acompanham a borda externa do formulário, inclusive em widescreen.
 st.markdown(
     '<div id="inicio"></div><nav class="atalhos-rolagem" '
     'aria-label="Navegação vertical"><a href="#inicio" title="Ir ao início da página" '
@@ -1118,12 +467,16 @@ if modo == "demonstracao":
 elif modo == "banco":
     if repositorio.engine.dialect.name == "sqlite":
         st.warning(
-            "Armazenamento SQLite local: recuperar após reiniciar o navegador é possível "
+            "Armazenamento SQLite local: é possível recuperar após "
+            "reiniciar o navegador enquanto o arquivo existir. "
             "enquanto o arquivo do banco existir. No Streamlit Community Cloud o disco "
             "NÃO é persistente: use PostgreSQL externo para operação durável."
         )
     else:
-        st.caption("Banco PostgreSQL configurado. Alterações em edição recebem uma cópia automática.")
+        st.caption(
+            "Banco PostgreSQL configurado. Alterações em edição "
+            "recebem uma cópia automática."
+        )
 if "ficha" not in st.session_state:
     abrir(nova_ficha())
 if "ficha_original" not in st.session_state:
@@ -1151,8 +504,10 @@ modulo = st.radio(
 if st.session_state.get("confirmar_saida_modulo"):
     st.warning(
         "A ficha tem alterações ainda não confirmadas. Sair do formulário "
-        "não atualiza a ficha oficial. Em modo banco, uma cópia automática "
-        "pode ser recuperada ao voltar."
+        "não atualiza a ficha oficial. No modo banco configurado, as "
+        "alterações já enviadas ao servidor ficam em cópia separada e podem "
+        "ser recuperadas com a mesma conta, se a ficha oficial não mudou. "
+        "Na demonstração, alterações não salvas podem ser perdidas."
     )
     with st.container(horizontal=True, gap="small"):
         if st.button("Continuar editando", key="continuar_edicao"):
@@ -1179,11 +534,13 @@ if modulo == "Ficha":
             ]
             if recuperaveis:
                 with st.expander(
-                    f"Edições automáticas disponíveis para recuperação ({len(recuperaveis)})",
+                    "Edições automáticas disponíveis para recuperação "
+                    f"({len(recuperaveis)})",
                     expanded=True,
                 ):
                     st.caption(
-                        "Estas cópias não atualizam a ficha oficial nem aparecem no relatório. "
+                        "Estas cópias não atualizam a ficha oficial "
+                        "nem aparecem no relatório. "
                         "Verifique os dados e escolha Salvar/Atualizar após recuperar."
                     )
                     for indice, copia in enumerate(recuperaveis):
@@ -1194,10 +551,14 @@ if modulo == "Ficha":
                         col_recuperar, col_descartar = st.columns([1, 1])
                         with col_recuperar:
                             if st.button("Recuperar edição", key=f"recuperar_{indice}"):
-                                if st.session_state.ficha != st.session_state.ficha_original:
+                                if (
+                                    st.session_state.ficha
+                                    != st.session_state.ficha_original
+                                ):
                                     st.error(
-                                        "A ficha atual já tem alterações. Salve ou descarte "
-                                        "as alterações desta sessão antes de recuperar outra edição."
+                                        "A ficha atual já tem alterações. Salve ou "
+                                        "descarte as alterações desta sessão antes "
+                                        "de recuperar outra edição."
                                     )
                                 else:
                                     atual = (
@@ -1209,15 +570,23 @@ if modulo == "Ficha":
                                         atual and atual["status"] != copia["status"]
                                     ):
                                         st.error(
-                                            "A ficha oficial mudou ou foi excluída desde esta edição. "
-                                            "Recuperação bloqueada para não sobrescrever dados de terceiros."
+                                            "A ficha oficial mudou ou foi excluída "
+                                            "desde esta edição. A recuperação foi "
+                                            "bloqueada para proteger outras alterações."
                                         )
                                     else:
-                                        abrir(copia["original"], copia["versao"], copia["status"])
-                                        st.session_state.ficha = deepcopy(copia["ficha"])
+                                        abrir(
+                                            copia["original"],
+                                            copia["versao"],
+                                            copia["status"],
+                                        )
+                                        st.session_state.ficha = deepcopy(
+                                            copia["ficha"]
+                                        )
                                         st.session_state.geracao += 1
                                         st.session_state.aviso = (
-                                            "Edição automática recuperada. Revise e confirme a gravação."
+                                            "Edição automática recuperada. "
+                                            "Revise e confirme a gravação."
                                         )
                                         st.rerun()
                         with col_descartar:
@@ -1250,7 +619,10 @@ if modulo == "Ficha":
                 ficha_nova = nova_ficha()
                 ficha_nova["processo"] = processo_consultado
                 abrir(ficha_nova)
-                st.session_state.aviso = "Processo não localizado. Uma ficha nova foi aberta com o SEI informado."
+                st.session_state.aviso = (
+                    "Processo não localizado. Uma ficha nova foi "
+                    "aberta com o SEI informado."
+                )
                 st.rerun()
         except ValueError as erro:
             st.error(str(erro))
@@ -1271,8 +643,8 @@ if modulo == "Ficha":
                 "Descartar alterações e abrir ficha localizada", type="primary"
             ):
                 if modo == "banco" and pode_editar:
-                    repositorio.excluir_edicao(autor, str(
-                        st.session_state.ficha.get("processo", "")).strip() or "__nova__"
+                    repositorio.excluir_edicao(
+                        autor, chave_edicao(st.session_state.ficha)
                     )
                 registro = consulta_pendente["registro"]
                 if registro:
@@ -1281,7 +653,10 @@ if modulo == "Ficha":
                     ficha_nova = nova_ficha()
                     ficha_nova["processo"] = consulta_pendente["processo"]
                     abrir(ficha_nova)
-                    st.session_state.aviso = "Processo não localizado. Uma ficha nova foi aberta com o SEI informado."
+                    st.session_state.aviso = (
+                    "Processo não localizado. Uma ficha nova foi "
+                    "aberta com o SEI informado."
+                )
                 st.session_state.pop("consulta_pendente", None)
                 st.rerun()
         with manter_atual:
@@ -1301,7 +676,7 @@ if modulo == "Ficha":
                 options=range(len(rascunhos)),
                 format_func=lambda indice: (
                     f"{rascunhos[indice]['ficha']['processo']} · "
-                    f"{rascunhos[indice]['ficha']['unidade'] or 'Unidade não informada'}"
+                    f"{rascunhos[indice]['ficha']['unidade'] or 'Sem unidade'}"
                 ),
                 key="rascunho_indice",
             )
@@ -1630,7 +1005,9 @@ if modulo == "Ficha":
                 st.session_state.pop("autosalvo_chave", None)
                 st.session_state.pop("ultimo_autosalvamento", None)
             except Exception:  # noqa: BLE001
-                registrador_log.exception("Falha ao limpar edição automática revertida.")
+                registrador_log.exception(
+                    "Falha ao limpar edição automática revertida."
+                )
                 st.warning("Não foi possível limpar a cópia automática antiga.")
     campos_alterados = diferencas_ficha(st.session_state.ficha_original, ficha)
     if tem_alteracoes:
@@ -1644,7 +1021,9 @@ if modulo == "Ficha":
             for campo_alterado in campos_alterados:
                 st.markdown(f"- {campo_alterado}")
     if tem_alteracoes:
-        if st.button("Descartar alterações desta sessão", key="descartar_edicao_sessao"):
+        if st.button(
+            "Descartar alterações desta sessão", key="descartar_edicao_sessao"
+        ):
             if modo == "banco" and pode_editar:
                 repositorio.excluir_edicao(
                     autor, str(ficha.get("processo", "")).strip() or "__nova__"
@@ -1760,7 +1139,8 @@ if modulo == "Ficha":
         except Exception:  # noqa: BLE001
             registrador_log.exception("Falha ao salvar ou confirmar uma ficha.")
             st.error(
-                "A gravação não pôde ser confirmada. Consulte o processo antes de reenviar."
+                "A gravação não pôde ser confirmada. "
+                "Consulte o processo antes de reenviar."
             )
     if versao > 0:
         if st.button(
@@ -1776,7 +1156,8 @@ if modulo == "Ficha":
         if st.session_state.get("confirmar_exclusao"):
             st.warning(
                 f"Confirme a exclusão da ficha do processo {ficha['processo']}. "
-                "A operação remove a ficha da consulta e registra o evento no histórico."
+                "A operação remove a ficha da consulta "
+                "e registra o evento no histórico."
             )
             # Controles pequenos, adjacentes e alinhados na mesma linha.
             with st.container(
@@ -1812,7 +1193,8 @@ if modulo == "Ficha":
                     except Exception:  # noqa: BLE001
                         registrador_log.exception("Falha ao excluir uma ficha.")
                         st.error(
-                            "A exclusão não foi confirmada. Consulte novamente antes de repetir."
+                            "A exclusão não foi confirmada. "
+                            "Consulte novamente antes de repetir."
                         )
                 if st.button("Cancelar exclusão", key="cancelar_exclusao"):
                     st.session_state.confirmar_exclusao = False
@@ -1824,8 +1206,10 @@ else:
         f"{CASAS_DECIMAIS_FQ} casas decimais."
     )
     st.caption(
-        "No relatório, o total do bloco 10 alimenta o fator 10; o total do bloco 11 "
-        "alimenta os fatores 11.1, 11.2 e 11.3, conforme definido para E44 e E60."
+        "PARÂM 1.1 a 9: pontos validados dos parâmetros gerais. PARÂM 10: "
+        "total do bloco municipal 10. PARÂM 11.1 a 11.3: totais conforme o "
+        "mapeamento configurado (padrão atual: bloco interno 11.1). "
+        "O mapeamento de E44/E60 ainda precisa de homologação."
     )
     filtro = st.text_input("Filtrar por processo ou unidade")
     try:
@@ -1853,10 +1237,11 @@ else:
                 processo_mais_recente = concluidas[indice_mais_recente]["ficha"][
                     "processo"
                 ]
-        quadro = resultado_consolidado(concluidas)
+        quadro = resultado_consolidado(concluidas, segredo("totais_resultado", {}))
         if quadro.empty:
             st.info(
-                "Não há fichas concluídas para exibir. Os rascunhos ficam no módulo Ficha."
+                "Não há fichas concluídas para exibir. "
+                "Os rascunhos ficam no módulo Ficha."
             )
         else:
             if filtro:
@@ -1880,7 +1265,8 @@ else:
                 )
             destaques_por_processo = {
                 registro["ficha"]["processo"]: colunas_resultado_alteradas(
-                    registro.get("alteracoes_ultima_versao", {})
+                    registro.get("alteracoes_ultima_versao", {}),
+                    segredo("totais_resultado", {}),
                 )
                 for registro in concluidas
             }
@@ -1890,7 +1276,8 @@ else:
             st.caption(
                 "'Último cadastro' marca a ficha concluída gravada mais recentemente; "
                 "rascunhos não participam deste indicador. Use a barra da grade para "
-                "percorrer as colunas e o controle de tela cheia para ampliar a consulta."
+                "percorrer as colunas e o controle de tela cheia "
+                "para ampliar a consulta."
             )
             if any(destaques_por_processo.values()):
                 st.caption(

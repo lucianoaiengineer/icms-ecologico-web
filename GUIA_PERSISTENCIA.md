@@ -60,7 +60,7 @@ server_metadata_url = "https://PROVEDOR/.well-known/openid-configuration"
 
 ## 5. Testes verificados e pendências
 
-No ambiente de preparação, **32 testes de Python foram executados e aprovados**: 26 originais de regras/repositório e 6 novos testes SQL. Os 18 testes de interface do projeto não puderam ser reexecutados, porque o Streamlit não estava instalado na execução local e o acesso ao índice de pacotes estava indisponível. Também **não foi realizado teste contra PostgreSQL real**.
+No ambiente de preparação, **47 testes de Python foram executados e aprovados**: 26 originais de regras/repositório, 6 testes SQL, 12 de relatórios e 3 verificações estáticas. Os 18 testes de interface do projeto não puderam ser reexecutados, porque o Streamlit não estava instalado na execução local e o acesso ao índice de pacotes estava indisponível. Também **não foi realizado teste contra PostgreSQL real**.
 
 **Para execução em ambiente com dependências instaladas:**
 
@@ -72,11 +72,13 @@ A homologação deve comprovar: (a) autenticação e isolamento entre usuários;
 
 ## 6. Arquivos para atualização
 
-- `app.py`: formulário e aviso de saída, recuperação de edições e seleção do modo `banco`.
+- `app.py`: formulário e aviso de saída, recuperação de edições e seleção do modo `banco`; importa o SQL apenas no modo correspondente.
 - `icms/repositorio_sql.py`: novo módulo SQL.
+- `icms/relatorios.py` e `icms/edicoes.py`: lógica de relatório/CSV e identificação de edições.
+- `assets/estilos.css`: estilos separados e atalhos próximos ao contêiner em widescreen.
 - `requirements.txt`: novas dependências SQLAlchemy e psycopg.
 - `.gitignore`: bloqueia a publicação acidental de bancos locais e arquivos transacionais SQLite.
-- `tests/test_persistencia_sql.py`: regressões SQL.
+- `tests/test_persistencia_sql.py`, `tests/test_relatorios.py` e `tests/test_estrutura.py`: regressões SQL, relatório e estrutura.
 - `README.md`: documentação e tabela de estrutura prevista após a atualização.
 
-Os demais arquivos incluídos no ZIP mantêm a versão de referência para facilitar reprodução de testes e avaliação, sem exigir exclusão de arquivos do repositório.
+O pacote de publicação inclui também `icms/regras.py`, `icms/repositorio.py`, os testes originais, `.streamlit/config.toml` e `pyproject.toml`. Preserve `CONFIGURACAO_ACESSO_E_RESULTADOS.md`, que já existe no GitHub e não precisa ser substituído. **Não publique somente `app.py`**: novos módulos, CSS e `requirements.txt` precisam estar presentes juntos.
