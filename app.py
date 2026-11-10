@@ -389,6 +389,18 @@ st.markdown(
         border-color: #477a3e !important;
         box-shadow: 0 0 0 2px #477a3e24 !important;
     }
+    /* Exclusão: botões compactos, sem ocupar a largura das colunas. */
+    .st-key-excluir_ficha button,
+    .st-key-acao_confirmar_exclusao button,
+    .st-key-cancelar_exclusao button {
+        width: auto !important;
+        min-height: 1.85rem !important;
+        padding: 0.25rem 0.65rem !important;
+        font-size: 0.82rem !important;
+        line-height: 1.2 !important;
+        white-space: nowrap;
+    }
+
     .aviso-alteracoes {
         margin: 0.75rem 0;
         padding: 0.75rem 1rem;
@@ -513,9 +525,12 @@ def segredo(chave: str, padrao: object = None) -> Any:
         return padrao
 
 
-@st.cache_resource
 def conectar(modo: str) -> Repositorio:
-    """Isola demonstrações por navegador e compartilha só a conexão Sheets."""
+    """Mantém a demonstração na sessão e compartilha só a conexão Sheets.
+
+    Não usar cache global aqui: ele faria navegadores diferentes receberem
+    o mesmo repositório temporário, afetando consultas e exclusões.
+    """
     if modo == "demonstracao":
         if "repositorio_demonstracao" not in st.session_state:
             st.session_state.repositorio_demonstracao = Repositorio()
@@ -1547,6 +1562,7 @@ if modulo == "Ficha":
     if versao > 0:
         if st.button(
             "Excluir ficha",
+            key="excluir_ficha",
             disabled=not pode_editar or tem_alteracoes,
         ):
             st.session_state.confirmar_exclusao = True
@@ -1559,11 +1575,17 @@ if modulo == "Ficha":
                 f"Confirme a exclusão da ficha do processo {ficha['processo']}. "
                 "A operação remove a ficha da consulta e registra o evento no histórico."
             )
-            confirmar, cancelar = st.columns(2)
-            with confirmar:
+            # Controles pequenos, adjacentes e alinhados na mesma linha.
+            with st.container(
+                horizontal=True,
+                horizontal_alignment="left",
+                gap="small",
+                key="acoes_confirmacao_exclusao",
+            ):
                 if st.button(
                     "Confirmar exclusão",
                     type="primary",
+                    key="acao_confirmar_exclusao",
                     disabled=not pode_editar or tem_alteracoes,
                 ):
                     try:
@@ -1572,11 +1594,13 @@ if modulo == "Ficha":
                             st.session_state.versao,
                             autor,
                         )
-                        st.session_state.confirmar_exclusao = False
                         abrir(nova_ficha())
-                        st.session_state.modulo_pendente = "Ficha"
+                        # Exibe imediatamente a lista atualizada de concluídas;
+                        # o relatório é refeito a partir da base, sem cache.
+                        st.session_state.modulo_pendente = "Resultados"
                         st.session_state.aviso = (
-                            "Ficha excluída. O evento foi registrado no histórico."
+                            "Ficha excluída. Ela não aparece mais nos Resultados. "
+                            "A exclusão foi registrada no histórico."
                         )
                         st.rerun()
                     except (Conflito, ValueError) as erro:
@@ -1587,8 +1611,7 @@ if modulo == "Ficha":
                         st.error(
                             "A exclusão não foi confirmada. Consulte novamente antes de repetir."
                         )
-            with cancelar:
-                if st.button("Cancelar exclusão"):
+                if st.button("Cancelar exclusão", key="cancelar_exclusao"):
                     st.session_state.confirmar_exclusao = False
                     st.rerun()
 else:
