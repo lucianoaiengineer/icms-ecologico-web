@@ -1,6 +1,6 @@
 # ICMS Ecológico
 
-**Sistema web de gestão de fichas e cálculo do Fator de Qualidade (FQ)**
+**Aplicação web de gestão de fichas e cálculo do Fator de Qualidade (FQ)**
 
 Aplicação desenvolvida em **Python e Streamlit** para organizar a análise de fichas por processo SEI, registrar pontuações municipais e reunir os resultados em um único lugar.
 
