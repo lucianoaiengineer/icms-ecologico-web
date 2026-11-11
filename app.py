@@ -462,12 +462,15 @@ def padronizar_municipio_digitado(chave: str) -> None:
 
 
 def mudar_municipios(ficha: dict[str, Any], prefixo: str, excluir: int | None) -> None:
-    """Altera a lista preservando pontuações e redefinindo chaves visuais."""
+    """Altera a lista preservando pontuações e mantendo ao menos um registro."""
     capturar_campos_municipais(ficha, prefixo)
     if excluir is None:
         ficha["municipios"].append(nova_linha_municipal())
     else:
-        del ficha["municipios"][excluir]
+        if len(ficha["municipios"]) <= 1:
+            ficha["municipios"] = [nova_linha_municipal()]
+        else:
+            del ficha["municipios"][excluir]
     st.session_state.ficha = deepcopy(ficha)
     st.session_state.geracao += 1
     st.rerun()
@@ -571,11 +574,7 @@ if st.session_state.get("confirmar_saida_modulo"):
             st.rerun()
 
 if modulo == "Ficha":
-    st.markdown(
-        '<h1 class="icms-titulo-pagina"><span aria-hidden="true">▤</span>'
-        ' Ficha</h1>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<h1 class="icms-titulo-pagina">Ficha</h1>', unsafe_allow_html=True)
     st.caption(
         "Informe o processo SEI para abrir uma ficha existente ou iniciar uma nova. "
         "A ficha encontrada abre neste mesmo módulo para edição."
@@ -847,11 +846,7 @@ if modulo == "Ficha":
             ).isoformat()
     # Apresentação fiel à referência: cabeçalho compacto e linhas editáveis.
     with st.container(key="parametros_gerais_cartao"):
-        st.markdown(
-            '<h2 class="icms-titulo-secao">'
-            '<span aria-hidden="true">☷</span> Parâmetros</h2>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<h2 class="icms-titulo-secao">Parâmetros</h2>', unsafe_allow_html=True)
         proporcao_colunas = [3.25, 1.4, 4.35, 1.45]
         with st.container(key="cabecalho_parametros_gerais"):
             col_rotulo, col_gestor, col_just, col_validado = st.columns(
@@ -949,8 +944,7 @@ if modulo == "Ficha":
                         )
 
     st.markdown(
-        '<h2 class="icms-titulo-municipios">'
-        '<span aria-hidden="true">♣</span> Parâmetros por municípios</h2>',
+        '<h2 class="icms-titulo-municipios">Parâmetros por municípios</h2>',
         unsafe_allow_html=True,
     )
     # Uma única lista de municípios é compartilhada pelos quatro painéis.
@@ -1094,6 +1088,7 @@ if modulo == "Ficha":
                                     "Remover",
                                     key=f"{prefixo}_remover_municipio_{posicao}",
                                     help=f"Remover registro {posicao}",
+                                    disabled=len(ficha["municipios"]) == 1,
                                 ):
                                     mudar_municipios(ficha, prefixo, posicao - 1)
                 if codigo == "10" and pode_editar:
