@@ -529,56 +529,33 @@ table.tabela-planilha {
     border-radius: 0.3rem;
 }
 .icms-titulo-pagina {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    margin: 0.8rem 0 1rem !important;
-    color: #152e42 !important;
+    display: block;
+    margin: 0.6rem 0 1rem !important;
+    color: #1f2937 !important;
     font-size: clamp(1.65rem, 2.7vw, 2.05rem) !important;
     font-weight: 800 !important;
     letter-spacing: -0.025em;
-}
-.icms-titulo-pagina span {
-    color: #195b3a;
-    font-size: 1.85rem;
-    line-height: 1;
+    line-height: 1.15;
 }
 .icms-titulo-secao,
 .icms-titulo-municipios {
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
+    display: block;
     margin: 0 0 0.7rem !important;
     font-size: 1.42rem !important;
-    color: #103d2b !important;
-    line-height: 1.35;
+    color: #1f2937 !important;
+    line-height: 1.25;
     font-weight: 800 !important;
 }
-.icms-titulo-secao span {
-    display: inline-grid;
-    place-items: center;
-    background: #e5f3e7;
-    border-radius: 0.45rem;
-    width: 2.4rem;
-    height: 2.4rem;
-    color: #286e43;
-    font-size: 1.5rem;
-}
 .icms-titulo-municipios {
-    margin: 1.5rem 0 0.9rem !important;
-    color: #132b41 !important;
-}
-.icms-titulo-municipios span {
-    font-size: 1.5rem;
-    color: #2f934d;
+    margin: 1.35rem 0 0.85rem !important;
 }
 .icms-ajuda-municipios {
     margin: 0 0 1rem;
-    border: 1px solid #91bce8;
+    border: 1px solid #cfd8e3;
     border-radius: 0.7rem;
-    background: #f0f7ff;
+    background: #f7f9fc;
     padding: 0.75rem 1rem;
-    color: #16314d;
+    color: #334155;
     font-size: 0.95rem;
     line-height: 1.45;
 }
@@ -595,10 +572,10 @@ table.tabela-planilha {
 /* Cartão dos 14 parâmetros, com textos e campos alinhados. */
 .st-key-parametros_gerais_cartao {
     padding: 1rem 1.15rem 0.75rem !important;
-    border: 1px solid #d8e2dd;
+    border: 1px solid #dbe2e8;
     border-radius: 0.9rem;
     background: #fff;
-    box-shadow: 0 3px 13px #173d3120;
+    box-shadow: 0 3px 12px #0f172a0f;
 }
 .st-key-parametros_gerais_cartao [data-testid="stCaptionContainer"] {
     margin-bottom: 0.2rem;
@@ -608,7 +585,7 @@ table.tabela-planilha {
     margin: 0.4rem 0 0.15rem;
     padding: 0.35rem 0.65rem;
     border-radius: 0.45rem;
-    background: #e5f2e8;
+    background: #f3f5f7;
 }
 [class*="st-key-cabecalho_parametros_gerais"] [data-testid="stMarkdownContainer"] p,
 [class*="st-key-cabecalho_municipal_"] [data-testid="stMarkdownContainer"] p {
@@ -671,21 +648,21 @@ table.tabela-planilha {
 [class*="st-key-bloco_municipal_"] [data-testid="stExpander"] {
     overflow: hidden;
     margin-bottom: 0.85rem;
-    border: 1px solid #9bc9ac !important;
+    border: 1px solid #d7dde3 !important;
     border-radius: 0.8rem !important;
     background: #fff !important;
-    box-shadow: 0 2px 9px #1d53301b;
+    box-shadow: 0 2px 9px #0f172a12;
 }
 [class*="st-key-bloco_municipal_"] [data-testid="stExpander"] summary {
     padding: 0.55rem 1rem;
     min-height: 2.6rem;
-    color: #12492a !important;
-    background: linear-gradient(90deg, #dceee1, #edf7ee) !important;
-    font-size: 1.09rem !important;
-    font-weight: 800 !important;
+    color: #334155 !important;
+    background: linear-gradient(90deg, #f6f7f8, #fbfcfc) !important;
+    font-size: 1.04rem !important;
+    font-weight: 700 !important;
 }
 [class*="st-key-bloco_municipal_"] [data-testid="stExpander"] summary:hover {
-    background: #d6e9da !important;
+    background: #f1f4f6 !important;
 }
 [class*="st-key-bloco_municipal_"] [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
     padding: 0.4rem 1rem 0.7rem !important;
@@ -725,15 +702,15 @@ table.tabela-planilha {
     padding: 0.35rem 0.15rem 0;
 }
 [class*="st-key-"][class*="_adicionar_municipio"] button {
-    color: #1e663b !important;
-    background: #ecf7ed !important;
-    border: 1px solid #5ba873 !important;
+    color: #1f2937 !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
     border-radius: 0.45rem;
     font-weight: 700;
     white-space: nowrap;
 }
 [class*="st-key-"][class*="_adicionar_municipio"] button:hover {
-    background: #dbefdf !important;
+    background: #f1f5f9 !important;
 }
 .st-key-acoes_adicionar_municipio [data-testid="stCaptionContainer"] {
     color: #44607b !important;
@@ -827,4 +804,24 @@ table.tabela-planilha {
     .st-key-cabecalho_visual_aplicacao {
         margin-top: 0.35rem !important;
     }
+}
+
+
+/* Ajustes finais de legibilidade: menos verde, mais neutro, e títulos sem sobreposição. */
+[data-testid="stMainBlockContainer"] {
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 8px 28px #0f172a12 !important;
+}
+[class*="st-key-bloco_municipal_"] [data-testid="stExpanderDetails"] {
+    background: #ffffff !important;
+}
+[class*="st-key-cabecalho_municipal_"] [data-testid="stMarkdownContainer"] p {
+    color: #1f2937 !important;
+    font-size: 0.79rem !important;
+}
+[class*="st-key-linha_municipal_"] {
+    border-bottom: 1px solid #edf2f7;
+}
+[class*="st-key-linha_parametro_"] {
+    border-bottom: 1px solid #edf2f7;
 }
