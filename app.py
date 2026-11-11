@@ -483,12 +483,13 @@ elif modo not in ("demonstracao", "banco"):
 autor, pode_editar = identificar(modo)
 # O cabeçalho aparece no alto, antes de todas as seções e controles.
 CABECALHO_APROVADO = Path(__file__).resolve().parent / "assets" / "cabecalho_aprovado.png"
-if CABECALHO_APROVADO.is_file():
-    st.image(str(CABECALHO_APROVADO), width="stretch")
-else:
-    # Falta do recurso visual não deve impedir acesso às fichas.
-    registrador_log.error("Cabeçalho visual ausente: %s", CABECALHO_APROVADO)
-    st.markdown("### ICMS Ecológico · Ficha")
+with st.container(key="cabecalho_visual_aplicacao"):
+    if CABECALHO_APROVADO.is_file():
+        st.image(str(CABECALHO_APROVADO), width="stretch")
+    else:
+        # Falta do recurso visual não deve impedir acesso às fichas.
+        registrador_log.error("Cabeçalho visual ausente: %s", CABECALHO_APROVADO)
+        st.markdown("### ICMS Ecológico · Ficha")
 if modo == "demonstracao":
     st.markdown(
         '<div class="aviso-demo"><strong>Modo demonstração:</strong> use somente '
@@ -591,7 +592,7 @@ if modulo == "Ficha":
                 with st.expander(
                     "Edições automáticas disponíveis para recuperação "
                     f"({len(recuperaveis)})",
-                    expanded=True,
+                    expanded=False,
                 ):
                     st.caption(
                         "Estas cópias não atualizam a ficha oficial "
@@ -952,15 +953,6 @@ if modulo == "Ficha":
         '<span aria-hidden="true">♣</span> Parâmetros por municípios</h2>',
         unsafe_allow_html=True,
     )
-    st.markdown(
-        '<div class="icms-ajuda-municipios">'
-        '<span aria-hidden="true">ⓘ</span> '
-        'Cadastre os municípios no bloco <strong>Zona de Amortecimento</strong>. '
-        'Os nomes serão apresentados automaticamente nos demais blocos, '
-        'sem precisar digitá-los novamente. Para incluir outro município, '
-        'selecione <strong>Adicionar registro</strong>.</div>',
-        unsafe_allow_html=True,
-    )
     # Uma única lista de municípios é compartilhada pelos quatro painéis.
     icones_municipais = {
         "10": ":material/location_on:",
@@ -973,7 +965,7 @@ if modulo == "Ficha":
         with st.container(key=f"bloco_municipal_{codigo.replace('.', '_')}"):
             with st.expander(
                 NOMES_MUNICIPAIS[codigo],
-                expanded=True,
+                expanded=False,
                 icon=icones_municipais[codigo],
             ):
                 with st.container(
@@ -1358,84 +1350,69 @@ if modulo == "Ficha":
 else:
     st.subheader("Resultados consolidados")
     st.caption(
-        f"Somente fichas concluídas. Notas exibidas com "
-        f"{CASAS_DECIMAIS_FQ} casas decimais."
+        "Consulte as fichas concluídas agrupadas por processo SEI. "
+        "A identificação e os parâmetros gerais aparecem uma única vez; "
+        f"os municípios vinculados ficam detalhados abaixo, com FQ exibido em {CASAS_DECIMAIS_FQ} casas decimais."
     )
-    st.caption(
-        "O resumo apresenta uma linha por ficha; o detalhamento, uma linha "
-        "por município cadastrado, com os quatro pontos validados e o FQ. "
-        "Não são geradas posições municipais vazias."
-    )
-    filtro = st.text_input("Filtrar por processo ou unidade")
+    filtro = st.text_input("Filtrar por processo, unidade ou município")
     try:
         registros = repositorio.listar()
         concluidas = [
             registro for registro in registros if registro["status"] == "Concluída"
         ]
-        processo_mais_recente = None
-        if concluidas:
-            datas_gravacao = [
-                pd.to_datetime(registro.get("atualizado_em"), utc=True, errors="coerce")
-                for registro in concluidas
-            ]
-            datas_validas = [
-                (indice, data_gravacao)
-                for indice, data_gravacao in enumerate(datas_gravacao)
-                if not pd.isna(data_gravacao)
-            ]
-            indice_mais_recente = (
-                max(datas_validas, key=lambda registro_data: registro_data[1])[0]
-                if datas_validas
-                else None
-            )
-            if indice_mais_recente is not None:
-                processo_mais_recente = concluidas[indice_mais_recente]["ficha"][
-                    "processo"
-                ]
         quadro_resumo = resumo_fichas(concluidas)
-        quadro = resultado_consolidado(concluidas)
-        if quadro.empty:
+        quadro_municipios = resultado_consolidado(concluidas)
+        if quadro_resumo.empty:
             st.info(
                 "Não há fichas concluídas para exibir. "
                 "Os rascunhos ficam no módulo Ficha."
             )
         else:
             if filtro:
-                selecao = quadro["Nº SEI"].str.contains(filtro, regex=False, case=False)
-                selecao |= quadro["REMETENTE - UCs"].str.contains(
+                filtro_resumo = quadro_resumo["Nº SEI"].astype(str).str.contains(
                     filtro, regex=False, case=False
                 )
-                selecao |= quadro["Município"].str.contains(
+                filtro_resumo |= quadro_resumo["REMETENTE - UCs"].astype(str).str.contains(
                     filtro, regex=False, case=False
                 )
-                quadro = quadro[selecao]
-                filtro_resumo = quadro_resumo["Nº SEI"].isin(quadro["Nº SEI"])
-                filtro_resumo |= quadro_resumo["REMETENTE - UCs"].str.contains(
-                    filtro, regex=False, case=False
-                )
+                if not quadro_municipios.empty:
+                    filtro_resumo |= quadro_resumo["Nº SEI"].isin(
+                        quadro_municipios.loc[
+                            quadro_municipios["Município"].astype(str).str.contains(
+                                filtro, regex=False, case=False
+                            ),
+                            "Nº SEI",
+                        ]
+                    )
                 quadro_resumo = quadro_resumo[filtro_resumo]
-            st.markdown("#### Resumo das fichas")
-            st.markdown(renderizar_tabela(quadro_resumo), unsafe_allow_html=True)
-            st.download_button(
-                "Baixar CSV — fichas",
-                proteger_csv(quadro_resumo),
-                "resumo_fichas_icms.csv",
-                "text/csv",
+                if not quadro_municipios.empty:
+                    quadro_municipios = quadro_municipios[
+                        quadro_municipios["Nº SEI"].isin(quadro_resumo["Nº SEI"])
+                    ]
+
+            st.markdown(
+                f'<div class="resumo-resultados">{len(quadro_resumo)} ficha(s) concluída(s) encontrada(s).</div>',
+                unsafe_allow_html=True,
             )
-            st.markdown("#### Resultados por município")
-            quadro_tela = quadro.copy()
-            if processo_mais_recente:
-                quadro_tela.insert(
-                    1,
-                    "Indicador",
-                    quadro_tela["Nº SEI"].map(
-                        lambda processo: (
-                            "Último cadastro"
-                            if processo == processo_mais_recente
-                            else ""
-                        )
-                    ),
+
+            col_csv_fichas, col_csv_municipios = st.columns([1, 1], gap="small")
+            with col_csv_fichas:
+                st.download_button(
+                    "Baixar CSV — fichas",
+                    proteger_csv(quadro_resumo),
+                    "resumo_fichas_icms.csv",
+                    "text/csv",
+                    use_container_width=True,
                 )
+            with col_csv_municipios:
+                st.download_button(
+                    "Baixar CSV — municípios",
+                    proteger_csv(quadro_municipios),
+                    "resultado_fq_municipios.csv",
+                    "text/csv",
+                    use_container_width=True,
+                )
+
             destaques_por_processo = {
                 registro["ficha"]["processo"]: colunas_resultado_alteradas(
                     registro.get("alteracoes_ultima_versao", {}),
@@ -1443,28 +1420,63 @@ else:
                 )
                 for registro in concluidas
             }
-            tabela_quadro = renderizar_tabela(quadro_tela, destaques_por_processo)
-            with st.container(key="resultados_grade"):
-                st.markdown(tabela_quadro, unsafe_allow_html=True)
-            st.caption(
-                "'Último cadastro' marca a ficha concluída gravada mais recentemente; "
-                "rascunhos não participam deste indicador. Use a barra da grade para "
-                "percorrer as colunas e o controle de tela cheia "
-                "para ampliar a consulta."
-            )
-            if any(destaques_por_processo.values()):
-                st.caption(
-                    "Células em verde claro indicam dados alterados na última "
-                    "atualização salva da ficha. Os destaques permanecem até "
-                    "a próxima atualização salva da própria ficha."
+
+            for _, linha_resumo in quadro_resumo.sort_values(by=["DATA RECEBIDA", "Nº SEI"], ascending=[False, True]).iterrows():
+                processo = linha_resumo["Nº SEI"]
+                registro = next(
+                    registro
+                    for registro in concluidas
+                    if registro["ficha"]["processo"] == processo
                 )
-            st.download_button(
-                "Baixar CSV — municípios",
-                proteger_csv(quadro),
-                "resultado_fq_municipios.csv",
-                "text/csv",
-            )
-    # A consulta agrega dados locais e remotos; erros ficam no log do servidor.
+                ficha = registro["ficha"]
+                parametros_gerais = pd.DataFrame(
+                    [
+                        {
+                            "Parâmetro": f"{codigo} · {nome}",
+                            "Pontos validados": ficha["parametros"][codigo]["validado"],
+                        }
+                        for codigo, nome in PARAMETROS
+                    ]
+                )
+                municipios_processo = quadro_municipios.loc[
+                    quadro_municipios["Nº SEI"] == processo,
+                    ["Município", "PARÂM 10", "PARÂM 11.1", "PARÂM 11.2", "PARÂM 11.3", "SOMA PARÂMETROS", "FQ"],
+                ].copy()
+                titulo = (
+                    f"{processo} · {linha_resumo['REMETENTE - UCs']} "
+                    f"· {int(linha_resumo['Municípios cadastrados'])} município(s)"
+                )
+                with st.expander(titulo, expanded=False):
+                    col_id, col_param = st.columns([1.1, 1.4], gap="large")
+                    with col_id:
+                        identificacao = pd.DataFrame(
+                            [
+                                {"Campo": "Nº SEI", "Valor": linha_resumo["Nº SEI"]},
+                                {"Campo": "Data recebida", "Valor": linha_resumo["DATA RECEBIDA"]},
+                                {"Campo": "Remetente - UCs", "Valor": linha_resumo["REMETENTE - UCs"]},
+                                {"Campo": "Esfera", "Valor": linha_resumo["Esfera"]},
+                                {"Campo": "URFBio", "Valor": linha_resumo["URFBio"]},
+                                {"Campo": "Responsável", "Valor": linha_resumo["RESPONSÁVEL"]},
+                                {"Campo": "Municípios cadastrados", "Valor": linha_resumo["Municípios cadastrados"]},
+                            ]
+                        )
+                        st.markdown("##### Identificação")
+                        st.markdown(renderizar_tabela(identificacao), unsafe_allow_html=True)
+                    with col_param:
+                        st.markdown("##### Parâmetros gerais")
+                        st.markdown(
+                            renderizar_tabela(
+                                parametros_gerais,
+                                {processo: destaques_por_processo.get(processo, set())},
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                    st.markdown("##### Municípios vinculados")
+                    st.markdown(renderizar_tabela(municipios_processo), unsafe_allow_html=True)
+                    if processo == st.session_state.get("ficha_original", {}).get("processo") and any(destaques_por_processo.get(processo, set())):
+                        st.caption(
+                            "Células em verde claro indicam dados alterados na última atualização salva desta ficha."
+                        )
     except Exception:  # noqa: BLE001
         registrador_log.exception("Falha ao montar a tabela consolidada.")
         st.error("Não foi possível montar o resultado. Confira as fichas e a conexão.")
