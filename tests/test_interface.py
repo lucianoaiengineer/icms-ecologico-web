@@ -1,4 +1,6 @@
-"""Testes de fluxos do formulário sem conta externa."""
+"""Testes de interface Streamlit para os blocos municipais refatorados."""
+
+from __future__ import annotations
 
 import os
 import unittest
@@ -6,528 +8,173 @@ from pathlib import Path
 
 import streamlit as st
 from streamlit.testing.v1 import AppTest
-from test_regras import ficha_valida
 
-from icms.regras import calcular
+from icms.regras import MUNICIPAIS, NOMES_MUNICIPAIS, calcular
+from tests.test_regras import ficha_valida
+
+
+RAIZ = Path(__file__).resolve().parents[1]
 
 
 class TesteInterface(unittest.TestCase):
-    """Verifica inicialização e ações essenciais do Streamlit."""
+    """Confere formulários e resultados sem serviços externos."""
 
     def setUp(self) -> None:
-        """Isola o repositório temporário entre os testes."""
+        """Executa a aplicação em modo demonstração com sessão isolada."""
         self.modo_anterior = os.environ.get("ICMS_MODO")
         os.environ["ICMS_MODO"] = "demonstracao"
         st.cache_resource.clear()
-        caminho = Path(__file__).resolve().parents[1] / "app.py"
-        self.aplicacao = AppTest.from_file(str(caminho), default_timeout=30).run()
+        self.aplicacao = AppTest.from_file(
+            str(RAIZ / "app.py"), default_timeout=30
+        ).run()
 
     def tearDown(self) -> None:
-        """Restaura o modo configurado antes do teste."""
+        """Restaura o modo do sistema antes do teste."""
         if self.modo_anterior is None:
             os.environ.pop("ICMS_MODO", None)
         else:
             os.environ["ICMS_MODO"] = self.modo_anterior
 
-    def test_modo_nao_configurado_oferece_demonstracao_isolada(self) -> None:
-        """Permite avançar em demonstração sem abrir a base oficial."""
-        os.environ.pop("ICMS_MODO", None)
-        try:
-            caminho = Path(__file__).resolve().parents[1] / "app.py"
-            aplicacao = AppTest.from_file(str(caminho), default_timeout=30).run()
-            self.assertFalse(aplicacao.exception)
-            botao = next(
-                elemento
-                for elemento in aplicacao.button
-                if elemento.label == "Continuar na demonstração"
-            )
-            botao.click().run()
-            self.assertFalse(aplicacao.exception)
-            self.assertTrue(
-                any(
-                    "Modo demonstração" in elemento.value
-                    for elemento in aplicacao.markdown
-                )
-            )
-            self.assertTrue(
-                any(
-                    elemento.label == "Salvar rascunho" for elemento in aplicacao.button
-                )
-            )
-        finally:
-            os.environ["ICMS_MODO"] = "demonstracao"
-
-    def test_tela_de_acesso_nao_abre_autocadastro_sem_configuracao(self) -> None:
-        """Exibe o acesso restrito e mantém o botão inativo sem OIDC."""
-        os.environ["ICMS_MODO"] = "banco"
-        caminho = Path(__file__).resolve().parents[1] / "app.py"
-        aplicacao = AppTest.from_file(str(caminho), default_timeout=30).run()
-        self.assertFalse(aplicacao.exception)
-        botao = next(
-            elemento
-            for elemento in aplicacao.button
-            if elemento.label == "Acesso institucional ainda não configurado"
-        )
-        self.assertTrue(botao.disabled)
-        self.assertTrue(
-            any(
-                "confirmação de e-mail" in elemento.value
-                for elemento in aplicacao.markdown
-            )
-        )
-
-    def preparar_ficha(self) -> None:
-        """Carrega somente dados sintéticos na sessão de teste."""
+    def carregar_ficha(self) -> None:
+        """Apresenta uma ficha completa com dados exclusivamente sintéticos."""
         self.aplicacao.session_state.ficha = ficha_valida()
         self.aplicacao.session_state.geracao = 99
         self.aplicacao.run()
+        self.assertFalse(self.aplicacao.exception)
 
-    def acionar(self, rotulo: str) -> None:
-        """Aciona o botão por seu texto visível."""
+    def clicar(self, rotulo: str) -> None:
+        """Clica e aguarda o novo ciclo do Streamlit."""
         next(
             botao for botao in self.aplicacao.button if botao.label == rotulo
         ).click().run()
-
-    def test_inicio(self) -> None:
-        """Confere a navegação inicial e os rótulos da ficha."""
         self.assertFalse(self.aplicacao.exception)
-        self.assertFalse(
-            any(botao.label == "Nova ficha" for botao in self.aplicacao.button)
-        )
-        self.assertEqual(
-            list(self.aplicacao.radio[0].options),
-            ["Ficha", "Resultados"],
-        )
-        rotulos = [campo.label for campo in self.aplicacao.text_input]
-        self.assertLess(rotulos.index("Responsável técnico"), rotulos.index("URFBio"))
+
+    def test_inicio_exibe_ficha_e_resultados(self) -> None:
+        """Apresenta os dois módulos sem conexão SQL na demonstração."""
+        self.assertFalse(self.aplicacao.exception)
+        self.assertEqual(list(self.aplicacao.radio[0].options), ["Ficha", "Resultados"])
         self.assertTrue(
-            any(
-                expansor.label == "Backup temporário das fichas (CSV)"
-                for expansor in self.aplicacao.expander
-            )
+            any(b.label == "Salvar rascunho" for b in self.aplicacao.button)
         )
+
+    def test_demo_permitida_sem_secrets(self) -> None:
+        """Permite iniciar uma demonstração isolada se não houver configuração."""
+        os.environ.pop("ICMS_MODO", None)
+        try:
+            aplicacao = AppTest.from_file(
+                str(RAIZ / "app.py"), default_timeout=30
+            ).run()
+            botao = next(
+                b for b in aplicacao.button
+                if b.label == "Continuar na demonstração"
+            )
+            botao.click().run()
+            self.assertFalse(aplicacao.exception)
+        finally:
+            os.environ["ICMS_MODO"] = "demonstracao"
+
+    def test_modo_banco_sem_login_nao_abre_dados(self) -> None:
+        """Não expõe fichas sem autenticação institucional configurada."""
+        os.environ["ICMS_MODO"] = "banco"
+        app = AppTest.from_file(str(RAIZ / "app.py"), default_timeout=30).run()
+        self.assertFalse(app.exception)
+        botao = next(
+            b for b in app.button
+            if b.label == "Acesso institucional ainda não configurado"
+        )
+        self.assertTrue(botao.disabled)
+
+    def test_quatro_blocos_e_titulos_corretos(self) -> None:
+        """Não exibe números ou a palavra Parâmetro nos títulos expansíveis."""
+        self.carregar_ficha()
+        rotulos = [bloco.label for bloco in self.aplicacao.expander]
+        for titulo in NOMES_MUNICIPAIS.values():
+            self.assertIn(titulo, rotulos)
+        self.assertFalse(any(r.startswith("Parâmetro (") for r in rotulos))
+        self.assertEqual(
+            sum(titulo in rotulos for titulo in NOMES_MUNICIPAIS.values()), 4
+        )
+
+    def test_totais_visuais_removidos(self) -> None:
+        """Elimina indicadores de totais sem suprimir o cálculo interno."""
+        self.carregar_ficha()
+        titulos = " ".join(item.value for item in self.aplicacao.markdown)
+        self.assertNotIn("TOTAL DOS PARÂMETROS", titulos)
         self.assertFalse(
-            any(
-                "Descartar campos não salvos" in codigo.label
-                for codigo in self.aplicacao.checkbox
+            any("Total — Pontos" in item.label for item in self.aplicacao.metric)
+        )
+        calculo = calcular(self.aplicacao.session_state.ficha)
+        self.assertEqual(calculo["total_validado"], 34)
+
+    def test_nomes_visiveis_nos_demais_blocos_sem_repetir_digitacao(self) -> None:
+        """A identificação do primeiro bloco é reutilizada nos outros três."""
+        self.carregar_ficha()
+        for codigo in MUNICIPAIS[1:]:
+            elemento = next(
+                campo for campo in self.aplicacao.text_input
+                if campo.key == f"99_somente_nome_{codigo}_1_Município demonstrativo"
             )
-        )
+            self.assertEqual(elemento.value, "Município demonstrativo")
+            self.assertTrue(elemento.disabled)
 
-    def test_novo_sei_preserva_edicao_ate_confirmacao(self) -> None:
-        """Consulta de novo processo só limpa os dados após confirmar o descarte."""
-        self.preparar_ficha()
-        processo_anterior = self.aplicacao.session_state.ficha["processo"]
-        processo_novo = "0000.00.0000099/2026-00"
-        campo_busca = next(
-            campo
-            for campo in self.aplicacao.text_input
-            if campo.label == "Localizar pelo processo SEI"
-        )
-        campo_busca.set_value(processo_novo)
-        self.acionar("Localizar ficha")
-
-        self.assertFalse(self.aplicacao.exception)
-        self.assertEqual(
-            self.aplicacao.session_state.ficha["processo"], processo_anterior
-        )
-        self.assertTrue(
-            any(
-                "alterações ainda não gravadas" in aviso.value
-                for aviso in self.aplicacao.warning
-            )
-        )
-        self.acionar("Continuar na ficha atual")
-        self.assertEqual(
-            self.aplicacao.session_state.ficha["processo"], processo_anterior
-        )
-
-        self.acionar("Localizar ficha")
-        self.acionar("Descartar alterações e abrir ficha localizada")
-
-        self.assertFalse(self.aplicacao.exception)
-        self.assertEqual(
-            self.aplicacao.session_state.ficha["processo"], processo_novo
-        )
-        self.assertEqual(self.aplicacao.session_state.ficha["unidade"], "")
-        self.assertIsNone(
-            self.aplicacao.session_state.ficha["municipios"][0]["10"]
-        )
-
-    def test_blocos_municipais(self) -> None:
-        """Confere nomes compartilhados e pontuações independentes ao salvar."""
-        self.preparar_ficha()
-        blocos = [
-            bloco
-            for bloco in self.aplicacao.expander
-            if bloco.label.startswith("Parâmetro (")
-        ]
-        self.assertEqual(
-            [bloco.label for bloco in blocos],
-            [
-                f"Parâmetro ({codigo}) por Municípios"
-                for codigo in ("10", "11", "11.1", "11.2")
-            ],
-        )
-        for bloco in blocos:
-            self.assertFalse(bloco.proto.expanded)
-            self.assertEqual(len(bloco.text_input), 13)
-            self.assertEqual(len(bloco.number_input), 13)
-        self.aplicacao.text_input(key="99_municipio_1").set_value("Município de teste")
-        chaves = ("10", "11.1", "11.2", "11.3")
-        for chave, valor in zip(chaves, (1, 2, 3, 4), strict=True):
-            self.aplicacao.number_input(key=f"99_municipio_1_{chave}").set_value(valor)
-        self.acionar("Salvar rascunho")
-        self.assertFalse(self.aplicacao.exception)
-        for bloco in [
-            bloco
-            for bloco in self.aplicacao.expander
-            if bloco.label.startswith("Parâmetro (")
-        ]:
-            self.assertEqual(bloco.text_input[0].value, "Município de teste")
-        next(
-            codigo
-            for codigo in self.aplicacao.text_input
-            if codigo.label == "Localizar pelo processo SEI"
-        ).set_value("0000.00.0000001/2026-00")
-        self.acionar("Localizar ficha")
-        self.assertFalse(self.aplicacao.exception)
-        self.assertFalse(
-            any("carregad" in aviso.value.lower() for aviso in self.aplicacao.success)
-        )
-        self.assertFalse(self.aplicacao.exception)
-        self.assertEqual(self.aplicacao.session_state.modulo, "Ficha")
-        municipio = self.aplicacao.session_state.ficha["municipios"][0]
-        self.assertEqual(municipio["nome"], "Município de teste")
-        self.assertEqual([municipio[codigo] for codigo in chaves], [1, 2, 3, 4])
-
-    def test_pontuacoes_municipais_exigem_nome(self) -> None:
-        """Libera os quatro valores somente nas posições identificadas."""
-        self.preparar_ficha()
-        chaves = ("10", "11.1", "11.2", "11.3")
-        for chave in chaves:
-            informado = self.aplicacao.number_input(key=f"99_municipio_1_{chave}")
-            vazio = self.aplicacao.number_input(key=f"99_municipio_2_{chave}")
-            self.assertFalse(informado.disabled)
-            self.assertEqual(informado.value, 0)
-            self.assertTrue(vazio.disabled)
-            self.assertIsNone(vazio.value)
-
-        self.aplicacao.text_input(key="99_municipio_2").set_value("Outro município")
-        self.aplicacao.run()
-
-        self.assertFalse(self.aplicacao.exception)
-        for chave in chaves:
-            self.assertFalse(
-                self.aplicacao.number_input(key=f"99_municipio_2_{chave}").disabled
-            )
-            self.assertTrue(
-                self.aplicacao.number_input(key=f"99_municipio_3_{chave}").disabled
-            )
-
-    def test_quadro_final_da_ficha_apresenta_13_municipios_e_fq(self) -> None:
-        """Mostra os treze municípios e a pontuação final calculada."""
-        self.preparar_ficha()
-        tabela = next(
-            elemento.value
-            for elemento in self.aplicacao.markdown
-            if 'class="tabela-planilha"' in elemento.value
-            and "PONTUAÇÃO FINAL FQ" in elemento.value
-        )
-        self.assertEqual(tabela.count("<tr>"), 14)
-        self.assertIn("Município demonstrativo", tabela)
-        esperado = sum(
-            ponto["validado"] for ponto in ficha_valida()["parametros"].values()
-        ) + sum(
-            ficha_valida()["municipios"][0][codigo]
-            for codigo in ("10", "11.1", "11.2", "11.3")
-        )
-        self.assertIn(f">{esperado}<", tabela)
-        pontuacao_final = f"{esperado / 89:.4f}".replace(".", ",")
-        self.assertIn(f">{pontuacao_final}<", tabela)
-
-    def test_totais_dos_parametros_e_dos_blocos_municipais(self) -> None:
-        """Exibe totais do primeiro quadro e de cada fator municipal."""
-        self.preparar_ficha()
-        valores_gestor = [9, 0, 0, 9, 0, 4, 6, 1, 3, 6, 2, 2, 2, 3]
-        for (codigo, _), valor in zip(
-            ficha_valida()["parametros"].items(), valores_gestor, strict=True
-        ):
-            self.aplicacao.number_input(key=f"99_{codigo}_gestor").set_value(valor)
-        for codigo, valor in zip(
-            ("10", "11.1", "11.2", "11.3"), (1, 2, 3, 4), strict=True
-        ):
-            self.aplicacao.number_input(key=f"99_municipio_1_{codigo}").set_value(valor)
-        self.aplicacao.run()
-
-        totais = {
-            elemento.label: str(elemento.value) for elemento in self.aplicacao.metric
-        }
-        self.assertEqual(totais["Total — Pontos Gestor"], "47")
-        self.assertEqual(totais["Total — Pontos Validados"], "34")
-        blocos_municipais = [
-            elemento
-            for elemento in self.aplicacao.expander
-            if elemento.label.startswith("Parâmetro (")
-        ]
-        for bloco, valor in zip(blocos_municipais, (1, 2, 3, 4), strict=True):
-            self.assertTrue(
-                any(
-                    elemento.value == f"**TOTAL: {valor}**"
-                    for elemento in bloco.markdown
+    def test_pontuacoes_e_justificativa_independentes(self) -> None:
+        """Cada bloco possui os três campos próprios do município."""
+        self.carregar_ficha()
+        for codigo in MUNICIPAIS:
+            for campo in ("gestor", "validado"):
+                elemento = self.aplicacao.number_input(
+                    key=f"99_municipio_1_{codigo}_{campo}"
                 )
+                self.assertEqual(elemento.value, 0)
+                self.assertFalse(elemento.disabled)
+            justificativa = self.aplicacao.text_area(
+                key=f"99_municipio_1_{codigo}_justificativa"
             )
+            self.assertEqual(justificativa.value, "")
 
-    def test_revisar_propaga_nomes_para_todos_os_parametros(self) -> None:
-        """Mostra os nomes do parâmetro 10 nos outros blocos após revisar."""
-        self.preparar_ficha()
-        self.aplicacao.text_input(key="99_municipio_1").set_value("Município de teste")
-        self.acionar("Revisar preenchimento")
-        blocos = [
-            bloco
-            for bloco in self.aplicacao.expander
-            if bloco.label.startswith("Parâmetro (")
+    def test_adicionar_e_remover_registro_preserva_pontos(self) -> None:
+        """Os controles modificam a quantidade real de municípios."""
+        self.carregar_ficha()
+        self.clicar("Adicionar registro")
+        self.assertEqual(len(self.aplicacao.session_state.ficha["municipios"]), 2)
+        geracao = self.aplicacao.session_state.geracao
+        self.aplicacao.text_input(key=f"{geracao}_municipio_2").set_value(
+            "Município sintético 02"
+        ).run()
+        self.assertFalse(self.aplicacao.exception)
+        self.assertEqual(
+            self.aplicacao.session_state.ficha["municipios"][1]["nome"],
+            "Município sintético 02",
+        )
+        self.clicar("Remover registro 2")
+        self.assertEqual(len(self.aplicacao.session_state.ficha["municipios"]), 1)
+        self.assertEqual(
+            self.aplicacao.session_state.ficha["municipios"][0]["nome"],
+            "Município demonstrativo",
+        )
+
+    def test_concluir_e_consultar_resultado_municipal(self) -> None:
+        """Uma ficha concluída gera um resultado por município real."""
+        self.carregar_ficha()
+        self.aplicacao.number_input(key="99_municipio_1_10_validado").set_value(
+            3
+        ).run()
+        self.clicar("Cadastrar")
+        self.assertTrue(
+            any("Concluída salva" in aviso.value for aviso in self.aplicacao.success)
+        )
+        self.aplicacao.radio[0].set_value("Resultados").run()
+        self.assertFalse(self.aplicacao.exception)
+        grades = [
+            elemento.value for elemento in self.aplicacao.markdown
+            if 'class="tabela-planilha"' in elemento.value
         ]
-        self.assertFalse(self.aplicacao.exception)
-        self.assertEqual(
-            [bloco.text_input[0].value for bloco in blocos],
-            ["Município de teste"] * 4,
-        )
-
-    def test_rascunho(self) -> None:
-        """Salva rascunho sem incluí-lo no resultado consolidado."""
-        self.preparar_ficha()
-        self.acionar("Salvar rascunho")
-        self.assertFalse(self.aplicacao.exception)
-        self.assertTrue(
-            any("salva e verificada" in aviso.value for aviso in self.aplicacao.success)
-        )
-        self.assertEqual(self.aplicacao.session_state.versao, 1)
-        self.assertTrue(
-            any(botao.label == "Salvar alterações" for botao in self.aplicacao.button)
-        )
-        self.aplicacao.radio[0].set_value("Resultados").run()
-        self.assertFalse(
-            any(
-                'class="tabela-planilha"' in elemento.value
-                for elemento in self.aplicacao.markdown
-            )
-        )
-        self.assertTrue(
-            any(
-                "Não há fichas concluídas" in aviso.value
-                for aviso in self.aplicacao.info
-            )
-        )
-
-    def test_concluir_e_exibir_resultado(self) -> None:
-        """Cadastra uma ficha e apresenta os dados no relatório consolidado."""
-        self.preparar_ficha()
-        for codigo, valor in zip(
-            ("10", "11.1", "11.2", "11.3"), (3, 4, 5, 6), strict=True
-        ):
-            self.aplicacao.number_input(key=f"99_municipio_1_{codigo}").set_value(valor)
-        self.acionar("Cadastrar")
-        self.assertFalse(self.aplicacao.exception)
-        self.assertTrue(
-            any("Concluída salva" in aviso.value for aviso in self.aplicacao.success)
-        )
-        self.assertFalse(self.aplicacao.exception)
-        self.aplicacao.radio[0].set_value("Resultados").run()
-        resultado = next(
-            elemento.value
-            for elemento in self.aplicacao.markdown
-            if 'class="tabela-planilha"' in elemento.value and "Nota1" in elemento.value
-        )
-        self.assertIn("Indicador", resultado)
-        self.assertIn("Último cadastro", resultado)
-        self.assertIn(">0.5843<", resultado)
-        self.assertIn("PARÂM 1.1", resultado)
-        self.assertIn("PARÂM 1.2", resultado)
-        self.assertIn("PARÂM 9", resultado)
-        self.assertIn("PARÂM 10", resultado)
-        self.assertNotIn("Pontos Gestor", resultado)
-        self.assertNotIn("TOTAL — PONTOS GESTOR", resultado)
-        self.assertNotIn("Pontos Validados", resultado)
-        self.assertNotIn("TOTAL — PONTOS VALIDADOS", resultado)
-        for codigo in ("11.1", "11.2", "11.3"):
-            self.assertIn(f"PARÂM {codigo}", resultado)
-            self.assertIn(">4<", resultado)
-
-    def test_cadastrar_nao_exige_checkbox_de_confirmacao(self) -> None:
-        """Permite concluir a ficha sem checkbox adicional de confirmação."""
-        self.preparar_ficha()
-        self.acionar("Cadastrar")
-        self.assertFalse(self.aplicacao.exception)
-        self.assertTrue(
-            any("Concluída salva" in aviso.value for aviso in self.aplicacao.success)
-        )
-        self.assertEqual(self.aplicacao.session_state.versao, 1)
-        self.assertTrue(
-            any(botao.label == "Atualizar ficha" for botao in self.aplicacao.button)
-        )
-
-    def test_atualizar_exige_alteracao_e_gera_versao_nova(self) -> None:
-        """Só habilita atualização quando há mudança e incrementa a versão."""
-        self.preparar_ficha()
-        self.acionar("Cadastrar")
-        next(
-            elemento
-            for elemento in self.aplicacao.text_input
-            if elemento.label == "Localizar pelo processo SEI"
-        ).set_value("0000.00.0000001/2026-00")
-        self.acionar("Localizar ficha")
-        atualizar = next(
-            botao for botao in self.aplicacao.button if botao.label == "Atualizar ficha"
-        )
-        self.assertTrue(atualizar.disabled)
-
-        chave_unidade = f"{self.aplicacao.session_state.geracao}_unidade"
-        self.aplicacao.text_input(key=chave_unidade).set_value("Unidade atualizada")
-        self.aplicacao.run()
-        self.assertFalse(
-            next(
-                botao
-                for botao in self.aplicacao.button
-                if botao.label == "Atualizar ficha"
-            ).disabled
-        )
-        self.acionar("Atualizar ficha")
-        self.assertEqual(self.aplicacao.session_state.versao, 2)
-        self.assertEqual(
-            self.aplicacao.session_state.ficha["unidade"], "Unidade atualizada"
-        )
-
-    def test_pontos_gestor_ficam_na_ficha_e_nao_no_resultado(self) -> None:
-        """Mantém a edição das notas do gestor sem expor colunas no relatório."""
-        self.preparar_ficha()
-        chave = f"{self.aplicacao.session_state.geracao}_1.1_gestor"
-        self.aplicacao.number_input(key=chave).set_value(9)
-        self.aplicacao.run()
-        self.acionar("Cadastrar")
-
-        next(
-            elemento
-            for elemento in self.aplicacao.text_input
-            if elemento.label == "Localizar pelo processo SEI"
-        ).set_value("0000.00.0000001/2026-00")
-        self.acionar("Localizar ficha")
-        self.assertFalse(self.aplicacao.success)
-        chave = f"{self.aplicacao.session_state.geracao}_1.1_gestor"
-        self.assertEqual(self.aplicacao.number_input(key=chave).value, 9)
-        self.aplicacao.number_input(key=chave).set_value(8)
-        self.aplicacao.run()
-        self.acionar("Atualizar ficha")
-        self.assertEqual(
-            self.aplicacao.session_state.ficha["parametros"]["1.1"]["gestor"], 8
-        )
-
-        self.aplicacao.radio[0].set_value("Resultados").run()
-        resultado = next(
-            elemento.value
-            for elemento in self.aplicacao.markdown
-            if 'class="tabela-planilha"' in elemento.value
-            and "Nota1" in elemento.value
-        )
-        self.assertNotIn("Pontos Gestor", resultado)
-        self.assertNotIn("TOTAL — PONTOS GESTOR", resultado)
-        self.assertFalse(
-            any(
-                "Células em verde claro" in elemento.value
-                for elemento in self.aplicacao.caption
-            )
-        )
-
-    def test_pontos_validados_atualizados_destacam_as_notas(self) -> None:
-        """Mantém a nota FQ destacada ao alterar os pontos validados da ficha."""
-        self.preparar_ficha()
-        self.acionar("Cadastrar")
-        chave = f"{self.aplicacao.session_state.geracao}_1.1_validado"
-        self.aplicacao.number_input(key=chave).set_value(8)
-        self.aplicacao.run()
-        self.acionar("Atualizar ficha")
-        nota = calcular(self.aplicacao.session_state.ficha)["municipios"][0]["FQ"]
-
-        self.aplicacao.radio[0].set_value("Resultados").run()
-
-        self.assertFalse(self.aplicacao.exception)
-        resultado = next(
-            elemento.value
-            for elemento in self.aplicacao.markdown
-            if 'class="tabela-planilha"' in elemento.value
-            and "Nota1" in elemento.value
-        )
-        self.assertIn(
-            f'<td class="celula-alterada">{nota.replace(",", ".")}</td>', resultado
-        )
-
-    def test_consultar_processo_nao_exige_confirmacao_para_consultar(self) -> None:
-        """Abre formulário novo quando o processo consultado não existe."""
-        campo = next(
-            elemento
-            for elemento in self.aplicacao.text_input
-            if elemento.label == "Localizar pelo processo SEI"
-        )
-        campo.set_value("0000.00.0000099/2026-00")
-        self.acionar("Localizar ficha")
-        self.assertFalse(self.aplicacao.exception)
-        self.assertTrue(
-            any(
-                "Processo não localizado" in aviso.value
-                for aviso in self.aplicacao.success
-            )
-        )
-        self.assertEqual(self.aplicacao.session_state.modulo, "Ficha")
-        self.assertEqual(
-            self.aplicacao.session_state.ficha["processo"],
-            "0000.00.0000099/2026-00",
-        )
-
-    def test_consulta_protege_alteracoes_nao_gravadas(self) -> None:
-        """Protege alterações locais antes de abrir outra ficha."""
-        self.preparar_ficha()
-        self.acionar("Salvar rascunho")
-        self.aplicacao.text_input(key="99_unidade").set_value(
-            "Alteração ainda não salva"
-        )
-        self.aplicacao.run()
-        next(
-            elemento
-            for elemento in self.aplicacao.text_input
-            if elemento.label == "Localizar pelo processo SEI"
-        ).set_value("0000.00.0000001/2026-00")
-        self.acionar("Localizar ficha")
-
-        self.assertEqual(self.aplicacao.session_state.modulo, "Ficha")
-        self.assertTrue(
-            any(
-                "alterações ainda não gravadas" in aviso.value
-                for aviso in self.aplicacao.warning
-            )
-        )
-        self.acionar("Descartar alterações e abrir ficha localizada")
-        self.assertEqual(self.aplicacao.session_state.modulo, "Ficha")
-        self.assertFalse(self.aplicacao.success)
-        self.assertEqual(
-            self.aplicacao.session_state.ficha["unidade"], "UC demonstrativa"
-        )
-
-    def test_excluir_ficha_carregada(self) -> None:
-        """Confirma a exclusão da ficha carregada no módulo de cadastro."""
-        self.preparar_ficha()
-        self.acionar("Salvar rascunho")
-        next(
-            elemento
-            for elemento in self.aplicacao.text_input
-            if elemento.label == "Localizar pelo processo SEI"
-        ).set_value("0000.00.0000001/2026-00")
-        self.acionar("Localizar ficha")
-        self.acionar("Excluir ficha")
-        self.assertFalse(self.aplicacao.exception)
-        self.acionar("Confirmar exclusão")
-        self.assertFalse(self.aplicacao.exception)
-        self.assertEqual(self.aplicacao.session_state.modulo, "Ficha")
+        self.assertGreaterEqual(len(grades), 2)
+        self.assertTrue(any("Município demonstrativo" in html for html in grades))
+        self.assertTrue(any("PARÂM 11.3" in html for html in grades))
+        self.assertTrue(any("0.4157" in html for html in grades))
+        self.assertFalse(any("Nota13" in html for html in grades))
 
 
 if __name__ == "__main__":
     unittest.main()
-

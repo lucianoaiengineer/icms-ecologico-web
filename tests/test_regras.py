@@ -10,6 +10,7 @@ from icms.regras import (
     formatar_fq,
     normalizar_processo,
     nova_ficha,
+    nova_linha_municipal,
     preparar,
     validar,
 )
@@ -23,10 +24,9 @@ def ficha_valida() -> dict:
     valores = [6, 0, 0, 9, 0, 0, 0, 0, 2, 6, 2, 2, 2, 5]
     for pontos, valor in zip(ficha["parametros"].values(), valores, strict=True):
         pontos.update(gestor=valor, validado=valor)
-    ficha["municipios"][0].update(
-        nome="Município demonstrativo",
-        **{"10": 0, "11.1": 0, "11.2": 0, "11.3": 0},
-    )
+    ficha["municipios"][0]["nome"] = "Município demonstrativo"
+    for codigo in MUNICIPAIS:
+        ficha["municipios"][0][codigo].update(gestor=0, validado=0)
     return ficha
 
 
@@ -45,10 +45,10 @@ class TesteRegras(unittest.TestCase):
     def test_valor_de_outro_municipio_nao_altera_primeiro(self) -> None:
         """Garante que as notas municipais sejam calculadas separadamente."""
         ficha = ficha_valida()
-        ficha["municipios"][1].update(
-            nome="Outro município",
-            **{"10": 9, "11.1": 9, "11.2": 9, "11.3": 9},
-        )
+        novo = nova_linha_municipal("Outro município")
+        for codigo in MUNICIPAIS:
+            novo[codigo].update(gestor=9, validado=9)
+        ficha["municipios"].append(novo)
         calculo = calcular(ficha)
         self.assertEqual(calculo["municipios"][0]["Soma"], 34)
         self.assertEqual(calculo["municipios"][1]["Soma"], 70)
@@ -71,7 +71,7 @@ class TesteRegras(unittest.TestCase):
     def test_vazio_nao_equivale_a_zero(self) -> None:
         """Mantém campos ausentes distintos de pontos informados como zero."""
         ficha = ficha_valida()
-        ficha["municipios"][0]["10"] = None
+        ficha["municipios"][0]["10"]["validado"] = None
         self.assertFalse(validar(ficha))
         self.assertTrue(validar(ficha, concluir=True))
 
@@ -85,10 +85,11 @@ class TesteRegras(unittest.TestCase):
                             nome=nome, codigo=codigo, valor=valor, concluir=concluir
                         ):
                             ficha = ficha_valida()
-                            ficha["municipios"][5].update(nome=nome)
-                            ficha["municipios"][5][codigo] = valor
+                            novo = nova_linha_municipal(nome)
+                            novo[codigo]["validado"] = valor
+                            ficha["municipios"].append(novo)
                             self.assertIn(
-                                "Município 6: há pontos sem nome de município.",
+                                "Município 2: há dados sem nome de município.",
                                 validar(ficha, concluir=concluir),
                             )
 
@@ -105,18 +106,22 @@ class TesteRegras(unittest.TestCase):
 
                 self.assertIsNotNone(salvo)
                 for codigo in MUNICIPAIS:
-                    self.assertEqual(salvo["ficha"]["municipios"][0][codigo], 0)
-                    self.assertIsNone(salvo["ficha"]["municipios"][1][codigo])
+                    self.assertEqual(
+                        salvo["ficha"]["municipios"][0][codigo]["validado"], 0
+                    )
+                self.assertEqual(len(salvo["ficha"]["municipios"]), 1)
 
     def test_gravacao_bloqueia_zero_sem_municipio(self) -> None:
         """A persistência rejeita a ficha, sem criar registro ou histórico."""
         for status in ("Rascunho", "Concluída"):
             with self.subTest(status=status):
                 ficha = ficha_valida()
-                ficha["municipios"][5]["10"] = 0
+                novo = nova_linha_municipal()
+                novo["10"]["validado"] = 0
+                ficha["municipios"].append(novo)
                 repositorio = Repositorio()
 
-                with self.assertRaisesRegex(ValueError, "pontos sem nome"):
+                with self.assertRaisesRegex(ValueError, "dados sem nome"):
                     repositorio.gravar(ficha, 0, status, "usuario")
 
                 self.assertFalse(repositorio.listar())
@@ -125,7 +130,7 @@ class TesteRegras(unittest.TestCase):
     def test_municipio_duplicado(self) -> None:
         """Impede que o mesmo município apareça em duas posições."""
         ficha = ficha_valida()
-        ficha["municipios"][1] = deepcopy(ficha["municipios"][0])
+        ficha["municipios"].append(deepcopy(ficha["municipios"][0]))
         self.assertTrue(validar(ficha))
 
     def test_normalizacao_preserva_zeros(self) -> None:
@@ -214,15 +219,15 @@ class TesteRegras(unittest.TestCase):
         ficha = ficha_valida()
         repositorio.gravar(ficha, 0, "Rascunho", "usuario")
         ficha["unidade"] = "Unidade alterada"
-        ficha["municipios"][0]["10"] = 3
+        ficha["municipios"][0]["10"]["validado"] = 3
         repositorio.gravar(ficha, 1, "Rascunho", "usuario")
 
         alteracoes = repositorio.historico[-1]["alteracoes"]
         self.assertEqual(
             set(alteracoes),
-            {"unidade", "municipios[1].10"},
+            {"unidade", "municipios[1].10.validado"},
         )
-        self.assertEqual(alteracoes["municipios[1].10"]["depois"], 3)
+        self.assertEqual(alteracoes["municipios[1].10.validado"]["depois"], 3)
 
     def test_listagem_expoe_alteracoes_da_versao_atual(self) -> None:
         """Permite realçar no resultado os campos da última atualização salva."""
@@ -230,14 +235,14 @@ class TesteRegras(unittest.TestCase):
         ficha = ficha_valida()
         repositorio.gravar(ficha, 0, "Concluída", "usuario")
         ficha["unidade"] = "Unidade atualizada"
-        ficha["municipios"][0]["10"] = 3
+        ficha["municipios"][0]["10"]["validado"] = 3
 
         repositorio.gravar(ficha, 1, "Concluída", "usuario")
 
         registro = repositorio.listar()[0]
         self.assertEqual(
             set(registro["alteracoes_ultima_versao"]),
-            {"unidade", "municipios[1].10"},
+            {"unidade", "municipios[1].10.validado"},
         )
 
     def test_backup_csv_restaura_fichas_versoes_e_historico(self) -> None:
