@@ -54,6 +54,11 @@ def normalizar_processo(valor: str) -> str:
     )
 
 
+def normalizar_nome_municipio(nome: str) -> str:
+    """Reduz espaços e usa minúsculas, preservando os acentos do município."""
+    return re.sub(r"\s+", " ", str(nome or "").strip()).lower()
+
+
 def nova_linha_municipal(nome: str = "") -> dict[str, Any]:
     """Cria uma única linha compartilhada pelos quatro blocos expansíveis."""
     return {
@@ -172,9 +177,10 @@ def validar(ficha: dict[str, Any], concluir: bool = False) -> list[str]:
         nome = str(municipio.get("nome") or "").strip()
         identificado = bool(nome and nome != "-")
         if identificado:
-            if nome.casefold() in nomes:
+            chave_nome = normalizar_nome_municipio(nome)
+            if chave_nome in nomes:
                 erros.append(f"Município repetido na posição {posicao}.")
-            nomes.add(nome.casefold())
+            nomes.add(chave_nome)
         for codigo in MUNICIPAIS:
             dados = municipio.get(codigo)
             if not isinstance(dados, dict):
