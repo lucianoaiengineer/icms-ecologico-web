@@ -1,6 +1,6 @@
 # ICMS Ecológico
 
-**Aplicação web de gestão de fichas e cálculo do Fator de Qualidade (FQ)**
+**Sistema web de gestão de fichas e cálculo do Fator de Qualidade (FQ)**
 
 Aplicação desenvolvida em **Python e Streamlit** para organizar a análise de fichas por processo SEI, registrar pontuações municipais e reunir os resultados em um único lugar.
 
@@ -25,7 +25,7 @@ A consulta localiza registros **dentro da própria aplicação**. Não há conex
 
 **1. Localize o processo.** Informe o SEI no campo de busca. Se a ficha existir, seus dados serão apresentados; se não existir, o formulário será iniciado com o número informado.
 
-**2. Preencha os dados.** Registre as informações gerais e as pontuações. Os nomes dos municípios são informados uma única vez e reutilizados nos quatro blocos municipais.
+**2. Preencha os dados.** Registre as informações gerais e as pontuações. Em **Parâmetros por municípios**, abra **Zona de Amortecimento** para cadastrar nomes e use **Adicionar registro** quando necessário. Os nomes aparecem automaticamente nos outros blocos: **RH ou Recurso Material**, **Empréstimo de Sede** e **Recursos Financeiro**. Cada município possui pontos do gestor, justificativa e pontos validados por bloco.
 
 **3. Revise e grave.** Use **Revisar preenchimento** para conferir os dados sem gravá-los. Escolha **Salvar rascunho**, **Cadastrar** ou **Atualizar ficha**, conforme a situação.
 
@@ -37,10 +37,10 @@ A consulta localiza registros **dentro da própria aplicação**. Não há conex
 | --- | --- |
 | **Processo SEI** | Identificação com 19 algarismos, normalizada no formato `0000.00.0000000/0000-00`. |
 | **Parâmetros gerais** | 14 parâmetros, com pontos do gestor, justificativa e pontos validados. |
-| **Municípios** | Até 13 posições, cada uma com quatro pontuações municipais. |
+| **Municípios** | Registros dinâmicos: um cadastro de nomes compartilhado por quatro blocos expansíveis. |
 | **Pontuações** | Inteiros de **0 a 9**. Zero é um valor válido quando existe nome de município. |
 | **Posição sem município** | Não permite pontuação, nem mesmo zero. |
-| **Conclusão** | Exige os dados obrigatórios, os 14 conjuntos de pontos e ao menos um município com quatro valores. |
+| **Conclusão** | Exige os dados obrigatórios, os 14 conjuntos gerais e ao menos um município com pontos do gestor e validados nos quatro blocos. Dados históricos são adaptados sem atribuir pontos do gestor inexistentes. |
 | **Versões** | Uma ficha concluída é atualizada como concluída. Gravações idênticas não geram nova versão. |
 
 ### Cálculo do FQ
@@ -56,20 +56,22 @@ FQ = Soma / pontuação da categoria
 
 O resultado é arredondado para **quatro casas decimais**, com `Decimal` e `ROUND_HALF_UP`. Os pontos do gestor não entram nessa soma; a nota de um município não depende da nota dos demais.
 
-### Relatório de resultados
+### Relatórios de resultados
 
-O relatório e o CSV apresentam **50 colunas**, organizadas em quatro grupos:
+O módulo **Resultados** oferece duas visões, sem posições municipais vazias:
 
-| Grupo | Quantidade | Conteúdo |
-| --- | ---: | --- |
-| Identificação | 6 | Processo SEI, recebimento, unidade e demais dados de identificação. |
-| Parâmetros | 18 | `PARÂM 1.1` até `PARÂM 9`, `PARÂM 10` e `PARÂM 11.1` a `11.3`. |
-| Municípios | 13 | `Município1` a `Município13`. |
-| Notas | 13 | `Nota1` a `Nota13`, com o FQ correspondente. |
+| Visão | Conteúdo |
+| --- | --- |
+| **Resumo das fichas** | Uma linha por processo SEI concluído, com identificação, número de municípios, versão e última gravação (9 colunas). |
+| **Resultados por município** | Uma linha por município cadastrado, com 6 identificadores, 14 pontos validados gerais, nome, 4 pontos validados municipais, soma e FQ (**27 colunas**). |
 
-Os 14 parâmetros gerais vêm dos **pontos validados**, não dos pontos do gestor. O `PARÂM 10` apresenta o total municipal da chave interna `10`.
+Cada visão possui um CSV próprio, com a mesma estrutura da grade exibida. Fichas em rascunho e fichas excluídas não entram em nenhuma das duas exportações.
 
-**Validação ainda necessária:** o mapeamento dos três fatores finais (`11.1`, `11.2` e `11.3`) deve ser confirmado pela área responsável com as referências de cálculo institucionais. O padrão implementado utiliza o mesmo total interno para essas três colunas; isso **não deve ser confundido com aprovação da regra de negócio**.
+O formulário não apresenta mais a seção **TOTAL DOS PARÂMETROS** nem os indicadores de totais do gestor e dos pontos validados. Os cálculos internos necessários ao FQ permanecem intactos.
+
+**Compatibilidade de fichas anteriores:** cada pontuação municipal antiga é aproveitada como *ponto validado*, preservando o cálculo. O ponto do gestor e a justificativa, inexistentes no modelo antigo, permanecem em branco; não são inventados. As 13 posições anteriores são reduzidas aos registros efetivamente preenchidos, sem descartar dados de uma posição inválida silenciosamente. O backup CSV antigo pode ser importado, sujeito à validação.
+
+**Pendente de homologação:** a correspondência histórica das referências E44/E60 ainda depende de confirmação formal. A nova apresentação detalhada utiliza diretamente as quatro chaves existentes (`10`, `11.1`, `11.2`, `11.3`) para cada município.
 
 ---
 

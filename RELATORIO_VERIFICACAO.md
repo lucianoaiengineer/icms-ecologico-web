@@ -1,42 +1,30 @@
-# Relatório de verificação — ICMS Ecológico
+# Relatório de verificação — Refatoração municipal
 
-**Revisão preparada:** 10/11/2026  
-**Referência de origem:** branch `main` do repositório `lucianoaiengineer/icms-ecologico-web`, conferida nesta data.  
-**Objetivo desta revisão:** simplificar os modos de armazenamento, retirar o adaptador descontinuado e revisar a documentação pública.
+**Data:** 11/11/2026  
+**Origem:** repositório público `lucianoaiengineer/icms-ecologico-web`, branch `main`, commit `bdf3128d73f926eb645cedf0eae5750e47a7ab04`.  
+**Situação:** pacote local para revisão e publicação manual. O GitHub não foi modificado.
 
-## Alterações conferidas
+## Alterações
 
-- O ponto de entrada `app.py` seleciona somente `demonstracao` ou `banco`.
-- `icms/repositorio.py` conserva apenas o repositório de memória, seu histórico e o backup da demonstração.
-- `icms/repositorio_sql.py` permanece responsável pelas transações SQL e edições recuperáveis.
-- `requirements.txt` contém somente as dependências utilizadas pelos modos disponíveis.
-- O teste de interface com acesso não configurado agora cobre o modo `banco`.
-- `README.md`, `CONFIGURACAO_ACESSO_E_RESULTADOS.md`, `GUIA_PERSISTENCIA.md` e `PADROES_E_PUBLICACAO.md` foram revisados para o funcionamento atual.
-- `assets/estilos.css`, os relatórios de 50 colunas e as regras de cálculo foram preservados.
+- Remoção da seção **TOTAL DOS PARÂMETROS** e dos indicadores correspondentes do formulário.
+- Preservação do título **Parâmetros por municípios** com explicação breve.
+- Quatro blocos expansíveis: **Zona de Amortecimento**, **RH ou Recurso Material**, **Empréstimo de Sede** e **Recursos Financeiro**.
+- Cada bloco registra pontos do gestor, justificativa e pontos validados, com um único cadastro de nomes de municípios.
+- **Adicionar registro** e **Remover registro** no primeiro bloco, propagando a lista aos outros três.
+- Substituição das 13 posições fixas por registros efetivamente cadastrados.
+- Preservação da fórmula de FQ: os 14 pontos gerais validados mais os quatro pontos municipais validados, divididos pela categoria, com `ROUND_HALF_UP` a quatro casas.
+- Resultados em duas visões, com exportação CSV separada: resumo por ficha (9 colunas) e resultados por município (27 colunas).
+- Conversão controlada de fichas antigas de 13 posições e pontuações simples, sem inventar pontos do gestor.
+- Nenhuma instalação ou implantação nova de banco de dados.
 
-## Resultados locais
+## Verificação local
 
-| Verificação | Resultado |
-| --- | --- |
-| Regras e repositório temporário | **26 testes aprovados** |
-| Persistência SQL | **6 testes aprovados** |
-| Relatório e CSV | **12 testes aprovados** |
-| Estrutura e modos permitidos | **5 testes aprovados** |
-| Compilação estática dos módulos Python | **Aprovada** |
+Foram executados **56 testes automatizados**, todos aprovados, cobrindo validações, FQ, atualização, histórico, exclusão, backup CSV, persistência SQL em SQLite de teste, relatórios dinâmicos e adaptação de fichas antigas. Os testes de interface baseados em `streamlit.testing` não foram executados neste ambiente, pois o pacote Streamlit não está instalado; sua execução é obrigatória antes da publicação.
 
-**Total efetivamente executado nesta revisão: 49 testes, sem falhas.**
-
-## O que ainda não foi comprovado
-
-- Os testes de interface Streamlit não foram executados neste ambiente, pois o pacote Streamlit não está instalado.
-- A autenticação com o provedor institucional e a conexão a PostgreSQL real não foram verificadas.
-- Não foram realizados testes visuais de navegador, implantação na nuvem ou restauração institucional de backup.
-- Ruff e verificação completa de tipagem não foram executados nesta revisão.
-
-Os testes automatizados realizados **não equivalem à homologação de produção**.
+Não foram testados em ambiente real: Streamlit no navegador, PostgreSQL remoto, serviços de autenticação, publicação no GitHub e recuperação de backup institucional.
 
 ## Publicação
 
-Os arquivos deste pacote precisam ser publicados nas pastas correspondentes. Isso inclui `assets/estilos.css`, os módulos `icms/` e o `requirements.txt` atualizado. Não substitua apenas `app.py`.
+Substituir **todos** os arquivos alterados em suas pastas originais. Não publicar somente `app.py`: `icms/regras.py`, `icms/relatorios.py`, documentação e testes precisam corresponder à nova versão.
 
-As atualizações descritas neste relatório foram preparadas localmente; **não foram aplicadas automaticamente ao GitHub ou à aplicação hospedada**.
+Efetue uma cópia das fichas atuais antes da publicação e verifique a abertura de fichas antigas após a atualização.

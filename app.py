@@ -18,7 +18,9 @@ from icms.regras import (
     CASAS_DECIMAIS_FQ,
     MUNICIPAIS,
     PARAMETROS,
-    ROTULOS_MUNICIPAIS,
+    NOMES_MUNICIPAIS,
+    nova_linha_municipal,
+    normalizar_municipios,
     calcular,
     normalizar_processo,
     nova_ficha,
@@ -28,6 +30,7 @@ from icms.relatorios import (
     colunas_resultado_alteradas,
     proteger_csv,
     quadro_final_ficha,
+    resumo_fichas,
     renderizar_tabela,
     resultado_consolidado,
 )
@@ -245,7 +248,9 @@ def abrir(
     ficha: dict[str, Any], versao: int = 0, situacao: str = ""
 ) -> None:
     """Abre uma ficha em um novo conjunto de campos da sessão."""
-    ficha_aberta = deepcopy(ficha)
+    ficha_aberta = normalizar_municipios(ficha)
+    if not ficha_aberta["municipios"]:
+        ficha_aberta["municipios"] = [nova_linha_municipal()]
     for codigo, nome in PARAMETROS:
         ficha_aberta["parametros"].setdefault(codigo, {}).setdefault(
             "rotulo", f"{codigo} · {nome}"
@@ -409,16 +414,57 @@ def diferencas_ficha(
         ):
             if antigo.get(campo) != dados.get(campo):
                 alterados.append(f"Parâmetro {codigo} · {rotulo}")
-    for posicao, municipio in enumerate(ficha_atual["municipios"], 1):
-        antigo = ficha_original["municipios"][posicao - 1]
+    anteriores = ficha_original.get("municipios", [])
+    atuais = ficha_atual.get("municipios", [])
+    for indice in range(max(len(anteriores), len(atuais))):
+        posicao = indice + 1
+        antigo = anteriores[indice] if indice < len(anteriores) else {}
+        municipio = atuais[indice] if indice < len(atuais) else {}
         if antigo.get("nome") != municipio.get("nome"):
             alterados.append(f"Município {posicao} · Nome")
         for codigo in MUNICIPAIS:
-            if antigo.get(codigo) != municipio.get(codigo):
-                alterados.append(
-                    f"Município {posicao} · Parâmetro {ROTULOS_MUNICIPAIS[codigo]}"
-                )
+            antigo_pontos = antigo.get(codigo) or {}
+            novos_pontos = municipio.get(codigo) or {}
+            if not isinstance(antigo_pontos, dict):
+                antigo_pontos = {"validado": antigo_pontos}
+            if not isinstance(novos_pontos, dict):
+                novos_pontos = {"validado": novos_pontos}
+            for campo, rotulo in (
+                ("gestor", "Pontos Gestor"),
+                ("justificativa", "Justificativa"),
+                ("validado", "Pontos Validados"),
+            ):
+                if antigo_pontos.get(campo) != novos_pontos.get(campo):
+                    alterados.append(
+                        f"Município {posicao} · {NOMES_MUNICIPAIS[codigo]} "
+                        f"· {rotulo}"
+                    )
     return alterados
+
+
+def capturar_campos_municipais(ficha: dict[str, Any], prefixo: str) -> None:
+    """Preserva entradas de blocos fechados ao incluir/excluir uma linha."""
+    for posicao, municipio in enumerate(ficha["municipios"], 1):
+        chave_nome = f"{prefixo}_municipio_{posicao}"
+        if chave_nome in st.session_state:
+            municipio["nome"] = st.session_state[chave_nome]
+        for codigo in MUNICIPAIS:
+            for campo in ("gestor", "justificativa", "validado"):
+                chave = f"{prefixo}_municipio_{posicao}_{codigo}_{campo}"
+                if chave in st.session_state:
+                    municipio[codigo][campo] = st.session_state[chave]
+
+
+def mudar_municipios(ficha: dict[str, Any], prefixo: str, excluir: int | None) -> None:
+    """Altera a lista preservando pontuações e redefinindo chaves visuais."""
+    capturar_campos_municipais(ficha, prefixo)
+    if excluir is None:
+        ficha["municipios"].append(nova_linha_municipal())
+    else:
+        del ficha["municipios"][excluir]
+    st.session_state.ficha = deepcopy(ficha)
+    st.session_state.geracao += 1
+    st.rerun()
 
 
 modo_configurado = segredo("modo", os.environ.get("ICMS_MODO", ""))
@@ -573,9 +619,14 @@ if modulo == "Ficha":
                                             copia["versao"],
                                             copia["status"],
                                         )
-                                        st.session_state.ficha = deepcopy(
+                                        recuperada = normalizar_municipios(
                                             copia["ficha"]
                                         )
+                                        if not recuperada["municipios"]:
+                                            recuperada["municipios"] = [
+                                                nova_linha_municipal()
+                                            ]
+                                        st.session_state.ficha = recuperada
                                         st.session_state.geracao += 1
                                         st.session_state.aviso = (
                                             "Edição automática recuperada. "
@@ -873,95 +924,120 @@ if modulo == "Ficha":
                     label_visibility="collapsed",
                 )
         st.markdown('<hr class="linha-parametro">', unsafe_allow_html=True)
-    total_gestor = sum(pontos["gestor"] or 0 for pontos in ficha["parametros"].values())
-    total_validado = sum(
-        pontos["validado"] or 0 for pontos in ficha["parametros"].values()
-    )
-    st.markdown("**TOTAL DOS PARÂMETROS**")
-    coluna_total_gestor, coluna_total_validado = st.columns(2)
-    with coluna_total_gestor:
-        st.metric("Total — Pontos Gestor", total_gestor)
-    with coluna_total_validado:
-        st.metric("Total — Pontos Validados", total_validado)
     st.markdown("#### Parâmetros por municípios")
     st.caption(
-        "Preencha os nomes no bloco 10. Os outros três blocos utilizam "
-        "os mesmos municípios, na mesma ordem. Cada bloco tem seus próprios "
-        "valores de 0 a 9, inclusive zero. Informe o município antes de preencher "
-        "os valores. Os totais e o resumo são atualizados enquanto você preenche."
+        "Cadastre os municípios no bloco Zona de Amortecimento. "
+        "Os nomes serão apresentados automaticamente nos demais blocos, "
+        "sem precisar digitá-los novamente. Para incluir outro município, "
+        "selecione Adicionar registro."
     )
+    # Uma linha é um município; os quatro blocos compartilham a mesma lista.
     for codigo in MUNICIPAIS:
-        rotulo = ROTULOS_MUNICIPAIS[codigo]
-        with st.expander(f"Parâmetro ({rotulo}) por Municípios", expanded=False):
-            cabecalho_posicao, cabecalho_municipio, cabecalho_valor = st.columns(
-                [1.1, 2.2, 1]
+        with st.expander(NOMES_MUNICIPAIS[codigo], expanded=False):
+            cab_nome, cab_gestor, cab_just, cab_validado = st.columns(
+                [2.5, 1.1, 3.3, 1.1], vertical_alignment="top"
             )
-            with cabecalho_posicao:
-                st.caption("Posição")
-            with cabecalho_municipio:
+            with cab_nome:
                 st.caption("Município")
-            with cabecalho_valor:
-                st.caption("Valor")
+            with cab_gestor:
+                st.caption("Pontos Gestor")
+            with cab_just:
+                st.caption("Justificativa/Observação")
+            with cab_validado:
+                st.caption("Pontos Validados")
+            if not ficha["municipios"]:
+                st.info(
+                    "Nenhum município cadastrado. "
+                    "Adicione um registro no primeiro bloco."
+                )
             for posicao, municipio in enumerate(ficha["municipios"], 1):
-                municipio_original = st.session_state.ficha_original["municipios"][
-                    posicao - 1
-                ]
-                coluna_posicao, coluna_nome, coluna_valor = st.columns([1.1, 2.2, 1])
-                with coluna_posicao:
-                    st.markdown(f"**Município {posicao}**")
+                originais = st.session_state.ficha_original.get("municipios", [])
+                original = originais[posicao - 1] if posicao <= len(originais) else {}
+                original_pontos = original.get(codigo) or {}
+                if not isinstance(original_pontos, dict):
+                    original_pontos = {"validado": original_pontos}
+                coluna_nome, coluna_gestor, coluna_just, coluna_validado = st.columns(
+                    [2.5, 1.1, 3.3, 1.1], vertical_alignment="top"
+                )
                 with coluna_nome:
                     if codigo == "10":
                         chave_nome = f"{prefixo}_municipio_{posicao}"
-                        with st.container(
-                            key=chave_container_campo(
-                                chave_nome, municipio_original["nome"]
-                            )
-                        ):
+                        with st.container(key=chave_container_campo(
+                            chave_nome, original.get("nome", "")
+                        )):
                             municipio["nome"] = st.text_input(
                                 f"Nome do município {posicao}",
                                 value=municipio["nome"],
-                                placeholder="Digite o nome do município",
                                 key=chave_nome,
+                                placeholder="Nome do município",
                                 disabled=not pode_editar,
                                 label_visibility="collapsed",
                             )
                     else:
-                        # A identificação vem do primeiro bloco e não se duplica.
                         st.text_input(
                             f"Nome do município {posicao}",
                             value=municipio["nome"],
-                            key=(
-                                f"{prefixo}_nome_{codigo}_{posicao}_{municipio['nome']}"
-                            ),
+                            key=f"{prefixo}_somente_nome_{codigo}_{posicao}"
+                            f"_{municipio['nome']}",
                             disabled=True,
                             label_visibility="collapsed",
                         )
-                # A pontuação só pode ser editada após identificar o município.
-                municipio_identificado = municipio["nome"].strip() not in ("", "-")
-                with coluna_valor:
-                    chave_valor = f"{prefixo}_municipio_{posicao}_{codigo}"
-                    with st.container(
-                        key=chave_container_campo(
-                            chave_valor, municipio_original[codigo]
-                        )
-                    ):
-                        municipio[codigo] = st.number_input(
-                            f"Valor do parâmetro ({rotulo}) para o município {posicao}",
-                            min_value=0,
-                            max_value=9,
-                            value=municipio[codigo],
-                            step=1,
-                            key=chave_valor,
-                            disabled=not pode_editar or not municipio_identificado,
+                identificado = municipio["nome"].strip() not in ("", "-")
+                pontos = municipio[codigo]
+                for coluna, campo, rotulo in (
+                    (coluna_gestor, "gestor", "Pontos Gestor"),
+                    (coluna_validado, "validado", "Pontos Validados"),
+                ):
+                    with coluna:
+                        chave = f"{prefixo}_municipio_{posicao}_{codigo}_{campo}"
+                        with st.container(key=chave_container_campo(
+                            chave, original_pontos.get(campo)
+                        )):
+                            pontos[campo] = st.number_input(
+                                f"{rotulo} de {NOMES_MUNICIPAIS[codigo]} "
+                                f"para o município {posicao}",
+                                min_value=0,
+                                max_value=9,
+                                value=pontos[campo],
+                                step=1,
+                                key=chave,
+                                disabled=not pode_editar or not identificado,
+                                label_visibility="collapsed",
+                            )
+                with coluna_just:
+                    chave_just = (
+                        f"{prefixo}_municipio_{posicao}_{codigo}_justificativa"
+                    )
+                    with st.container(key=chave_container_campo(
+                        chave_just, original_pontos.get("justificativa", "")
+                    )):
+                        pontos["justificativa"] = st.text_area(
+                            f"Justificativa de {NOMES_MUNICIPAIS[codigo]} "
+                            f"para o município {posicao}",
+                            value=pontos["justificativa"],
+                            key=chave_just,
+                            height=74,
+                            disabled=not pode_editar or not identificado,
                             label_visibility="collapsed",
                         )
-            # Soma o bloco; entradas vazias continuam ausentes na ficha.
-            total_bloco = sum(
-                municipio[codigo] or 0 for municipio in ficha["municipios"]
-            )
-            _, _, total_valor = st.columns([1.1, 2.2, 1])
-            with total_valor:
-                st.markdown(f"**TOTAL: {total_bloco}**")
+                if codigo == "10" and pode_editar:
+                    if st.button(
+                        f"Remover registro {posicao}",
+                        key=f"{prefixo}_remover_municipio_{posicao}",
+                    ):
+                        mudar_municipios(ficha, prefixo, posicao - 1)
+                st.markdown('<hr class="linha-parametro">', unsafe_allow_html=True)
+            if codigo == "10" and pode_editar:
+                sem_nome = any(
+                    not municipio["nome"].strip() or municipio["nome"].strip() == "-"
+                    for municipio in ficha["municipios"]
+                )
+                if st.button(
+                    "Adicionar registro",
+                    key=f"{prefixo}_adicionar_municipio",
+                    disabled=sem_nome,
+                ):
+                    mudar_municipios(ficha, prefixo, None)
     # A cópia automática não é a ficha oficial. Somente Salvar/Atualizar
     # modifica o registro e o relatório do sistema.
     st.session_state.ficha = deepcopy(ficha)
@@ -1066,7 +1142,6 @@ if modulo == "Ficha":
         st.markdown("#### Revisão do preenchimento")
         try:
             calculo = calcular(ficha)
-            st.metric("Total validado", calculo["total_validado"])
             st.markdown(
                 renderizar_tabela(
                     pd.DataFrame(calculo["municipios"])[["Município", "Soma", "FQ"]]
@@ -1199,10 +1274,9 @@ else:
         f"{CASAS_DECIMAIS_FQ} casas decimais."
     )
     st.caption(
-        "PARÂM 1.1 a 9: pontos validados dos parâmetros gerais. PARÂM 10: "
-        "total do bloco municipal 10. PARÂM 11.1 a 11.3: totais conforme o "
-        "mapeamento configurado (padrão atual: bloco interno 11.1). "
-        "O mapeamento de E44/E60 ainda precisa de homologação."
+        "O resumo apresenta uma linha por ficha; o detalhamento, uma linha "
+        "por município cadastrado, com os quatro pontos validados e o FQ. "
+        "Não são geradas posições municipais vazias."
     )
     filtro = st.text_input("Filtrar por processo ou unidade")
     try:
@@ -1230,7 +1304,8 @@ else:
                 processo_mais_recente = concluidas[indice_mais_recente]["ficha"][
                     "processo"
                 ]
-        quadro = resultado_consolidado(concluidas, segredo("totais_resultado", {}))
+        quadro_resumo = resumo_fichas(concluidas)
+        quadro = resultado_consolidado(concluidas)
         if quadro.empty:
             st.info(
                 "Não há fichas concluídas para exibir. "
@@ -1242,7 +1317,24 @@ else:
                 selecao |= quadro["REMETENTE - UCs"].str.contains(
                     filtro, regex=False, case=False
                 )
+                selecao |= quadro["Município"].str.contains(
+                    filtro, regex=False, case=False
+                )
                 quadro = quadro[selecao]
+                filtro_resumo = quadro_resumo["Nº SEI"].isin(quadro["Nº SEI"])
+                filtro_resumo |= quadro_resumo["REMETENTE - UCs"].str.contains(
+                    filtro, regex=False, case=False
+                )
+                quadro_resumo = quadro_resumo[filtro_resumo]
+            st.markdown("#### Resumo das fichas")
+            st.markdown(renderizar_tabela(quadro_resumo), unsafe_allow_html=True)
+            st.download_button(
+                "Baixar CSV — fichas",
+                proteger_csv(quadro_resumo),
+                "resumo_fichas_icms.csv",
+                "text/csv",
+            )
+            st.markdown("#### Resultados por município")
             quadro_tela = quadro.copy()
             if processo_mais_recente:
                 quadro_tela.insert(
@@ -1279,9 +1371,9 @@ else:
                     "a próxima atualização salva da própria ficha."
                 )
             st.download_button(
-                "Baixar CSV",
+                "Baixar CSV — municípios",
                 proteger_csv(quadro),
-                "resultado_fq.csv",
+                "resultado_fq_municipios.csv",
                 "text/csv",
             )
     # A consulta agrega dados locais e remotos; erros ficam no log do servidor.

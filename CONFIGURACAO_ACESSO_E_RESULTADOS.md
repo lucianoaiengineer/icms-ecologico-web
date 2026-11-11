@@ -37,7 +37,7 @@ server_metadata_url = "https://PROVEDOR/.well-known/openid-configuration"
 
 O módulo **Resultados** utiliza somente **fichas concluídas** do repositório selecionado. Rascunhos e cópias automáticas de edição não entram nesse relatório.
 
-A grade apresenta **50 colunas**, com identificação, parâmetros de 1.1 a 11.3, municípios e notas. Os filtros permitem localizar processos ou unidades; o CSV exporta os mesmos campos do resultado, sem estilos visuais.
+Há duas grades: **Resumo das fichas**, com uma linha por processo concluído (9 colunas), e **Resultados por município**, com uma linha por município cadastrado (27 colunas). Os filtros permitem localizar processos, unidades e municípios; cada grade possui seu próprio CSV. Não são criadas colunas para posições municipais vazias. A fórmula do FQ utiliza apenas os pontos validados dos 14 parâmetros gerais e dos quatro blocos do município.
 
 A exclusão confirmada remove a ficha do conjunto ativo consultado e do CSV gerado depois da operação. O histórico de exclusão continua registrado.
 
