@@ -28,8 +28,8 @@ class TesteEstrutura(unittest.TestCase):
     def test_atalhos_referenciados_ao_formulario(self) -> None:
         """A fórmula não usa a borda da janela como referência em widescreen."""
         css = (RAIZ / "assets" / "estilos.css").read_text(encoding="utf-8")
-        self.assertIn("--icms-largura-formulario: 980px", css)
-        self.assertIn("--icms-metade-formulario: 490px", css)
+        self.assertIn("--icms-largura-formulario: 1160px", css)
+        self.assertIn("--icms-metade-formulario: 580px", css)
         self.assertIn("calc(50vw - var(--icms-metade-formulario)", css)
         self.assertIn("--icms-atalho-distancia: 14px", css)
         self.assertIn("@media (max-width: 1100px)", css)

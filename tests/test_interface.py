@@ -144,9 +144,13 @@ class TesteInterface(unittest.TestCase):
         self.assertFalse(self.aplicacao.exception)
         self.assertEqual(
             self.aplicacao.session_state.ficha["municipios"][1]["nome"],
-            "Município sintético 02",
+            "município sintético 02",
         )
-        self.clicar("Remover registro 2")
+        next(
+            botao for botao in self.aplicacao.button
+            if botao.key == f"{geracao}_remover_municipio_2"
+        ).click().run()
+        self.assertFalse(self.aplicacao.exception)
         self.assertEqual(len(self.aplicacao.session_state.ficha["municipios"]), 1)
         self.assertEqual(
             self.aplicacao.session_state.ficha["municipios"][0]["nome"],
