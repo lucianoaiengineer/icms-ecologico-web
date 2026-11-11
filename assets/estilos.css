@@ -6,8 +6,8 @@
     --ief-texto: #24352a;
     --ief-texto-secundario: #46574a;
     /* Largura de referência única para formulário e atalhos flutuantes. */
-    --icms-largura-formulario: 980px;
-    --icms-metade-formulario: 490px;
+    --icms-largura-formulario: 1160px;
+    --icms-metade-formulario: 580px;
     --icms-atalho-largura: 2.7rem;
     --icms-atalho-distancia: 14px;
     --ief-terra: #8b6b3e;
@@ -499,3 +499,261 @@ table.tabela-planilha {
     }
 }
 
+
+
+/* -----------------------------------------------------------------------
+   ICMS Ecológico — ficha visual aprovada em 11/11/2026
+   Mantém controles nativos do Streamlit para salvar e validar as fichas.
+   ----------------------------------------------------------------------- */
+[data-testid="stAppViewContainer"] {
+    background: #f7faf9 !important;
+}
+[data-testid="stHeader"] {
+    background: #eff7f5 !important;
+}
+[data-testid="stHeader"] [data-testid="stToolbar"] button,
+[data-testid="stHeader"] [data-testid="stToolbar"] svg {
+    color: #163e2b !important;
+    stroke: #163e2b !important;
+}
+[data-testid="stMainBlockContainer"] {
+    margin-top: 0.35rem;
+    padding-top: 0.55rem;
+    background: #ffffff !important;
+    border: 1px solid #dce5e1 !important;
+    border-radius: 0.65rem;
+    box-shadow: 0 8px 28px #254c3810;
+}
+[data-testid="stImage"] img[src*="cabecalho_aprovado"] {
+    width: 100%;
+    border-radius: 0.3rem;
+}
+.icms-titulo-pagina {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin: 0.8rem 0 1rem !important;
+    color: #152e42 !important;
+    font-size: clamp(1.65rem, 2.7vw, 2.05rem) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em;
+}
+.icms-titulo-pagina span {
+    color: #195b3a;
+    font-size: 1.85rem;
+    line-height: 1;
+}
+.icms-titulo-secao,
+.icms-titulo-municipios {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 0 0 0.7rem !important;
+    font-size: 1.42rem !important;
+    color: #103d2b !important;
+    line-height: 1.35;
+    font-weight: 800 !important;
+}
+.icms-titulo-secao span {
+    display: inline-grid;
+    place-items: center;
+    background: #e5f3e7;
+    border-radius: 0.45rem;
+    width: 2.4rem;
+    height: 2.4rem;
+    color: #286e43;
+    font-size: 1.5rem;
+}
+.icms-titulo-municipios {
+    margin: 1.5rem 0 0.9rem !important;
+    color: #132b41 !important;
+}
+.icms-titulo-municipios span {
+    font-size: 1.5rem;
+    color: #2f934d;
+}
+.icms-ajuda-municipios {
+    margin: 0 0 1rem;
+    border: 1px solid #91bce8;
+    border-radius: 0.7rem;
+    background: #f0f7ff;
+    padding: 0.75rem 1rem;
+    color: #16314d;
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+.icms-ajuda-municipios span {
+    color: #1471bb;
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-right: 0.45rem;
+}
+.icms-ajuda-municipios strong {
+    color: #132e4a !important;
+}
+
+/* Cartão dos 14 parâmetros, com textos e campos alinhados. */
+.st-key-parametros_gerais_cartao {
+    padding: 1rem 1.15rem 0.75rem !important;
+    border: 1px solid #d8e2dd;
+    border-radius: 0.9rem;
+    background: #fff;
+    box-shadow: 0 3px 13px #173d3120;
+}
+.st-key-parametros_gerais_cartao [data-testid="stCaptionContainer"] {
+    margin-bottom: 0.2rem;
+    font-size: 0.84rem;
+}
+[class*="st-key-cabecalho_parametros_gerais"] {
+    margin: 0.4rem 0 0.15rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.45rem;
+    background: #e5f2e8;
+}
+[class*="st-key-cabecalho_parametros_gerais"] [data-testid="stMarkdownContainer"] p,
+[class*="st-key-cabecalho_municipal_"] [data-testid="stMarkdownContainer"] p {
+    margin: 0 !important;
+    color: #183528 !important;
+    font-size: 0.8rem !important;
+    line-height: 1.25;
+}
+[class*="st-key-linha_parametro_"] {
+    padding: 0.29rem 0.55rem 0.2rem;
+    border-bottom: 1px solid #e4e9e6;
+}
+[class*="st-key-linha_parametro_"]:last-child {
+    border-bottom: 0;
+}
+/* Campo de rótulo mantém a possibilidade de edição, mas visualmente é
+   apresentado como texto, exatamente como na referência aprovada. */
+[class*="st-key-linha_parametro_"] [data-testid="stTextInput"] [data-baseweb="input"],
+[class*="st-key-linha_parametro_"] [data-testid="stTextInput"] input {
+    padding-left: 0.18rem !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    font-weight: 600;
+    font-size: 0.83rem;
+    color: #1b2831 !important;
+}
+[class*="st-key-linha_parametro_"] [data-testid="stTextInput"]:focus-within input {
+    background: #eff8f1 !important;
+    border: 1px solid #76ab80 !important;
+}
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input,
+[class*="st-key-linha_municipal_"] [data-testid="stNumberInput"] input {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+/* Corrige a altura excessiva dos campos de justificativa das duas seções.
+   O texto continua editável, rolável e redimensionável pelo usuário. */
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] [data-baseweb="textarea"],
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea,
+[class*="st-key-linha_municipal_"] [data-testid="stTextArea"] [data-baseweb="textarea"],
+[class*="st-key-linha_municipal_"] [data-testid="stTextArea"] textarea {
+    min-height: 2.6rem !important;
+    height: 3.25rem !important;
+    padding: 0.38rem 0.65rem !important;
+    background: #fff !important;
+    border: 1px solid #a8b9c5 !important;
+    font-size: 0.81rem;
+    line-height: 1.32;
+}
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input,
+[class*="st-key-linha_municipal_"] [data-testid="stNumberInput"] input,
+[class*="st-key-linha_municipal_"] [data-testid="stTextInput"] input {
+    min-height: 2.1rem !important;
+    border: 1px solid #b7c5ca !important;
+    border-radius: 0.35rem !important;
+    font-size: 0.84rem;
+}
+
+/* Quatro blocos expansíveis: uma folha de registros por município. */
+[class*="st-key-bloco_municipal_"] [data-testid="stExpander"] {
+    overflow: hidden;
+    margin-bottom: 0.85rem;
+    border: 1px solid #9bc9ac !important;
+    border-radius: 0.8rem !important;
+    background: #fff !important;
+    box-shadow: 0 2px 9px #1d53301b;
+}
+[class*="st-key-bloco_municipal_"] [data-testid="stExpander"] summary {
+    padding: 0.55rem 1rem;
+    min-height: 2.6rem;
+    color: #12492a !important;
+    background: linear-gradient(90deg, #dceee1, #edf7ee) !important;
+    font-size: 1.09rem !important;
+    font-weight: 800 !important;
+}
+[class*="st-key-bloco_municipal_"] [data-testid="stExpander"] summary:hover {
+    background: #d6e9da !important;
+}
+[class*="st-key-bloco_municipal_"] [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    padding: 0.4rem 1rem 0.7rem !important;
+}
+[class*="st-key-cabecalho_municipal_"] {
+    margin: 0.15rem 0 0.3rem;
+}
+[class*="st-key-linha_municipal_"] {
+    padding: 0.14rem 0 0.22rem;
+    border-bottom: 1px solid #e7e9e6;
+}
+[class*="st-key-linha_municipal_"]:last-child {
+    border-bottom: 0;
+}
+[class*="st-key-bloco_municipal_"] [data-testid="stTextInput"] input:disabled {
+    background: #ebeff2 !important;
+    color: #3f4b50 !important;
+    opacity: 1 !important;
+}
+/* Classe para as chaves individuais das ações de remoção. */
+[class*="st-key-"][class*="_remover_municipio_"] button {
+    color: #9a2925 !important;
+    background: #fff !important;
+    border: 1px solid #e4b1ac !important;
+    border-radius: 0.4rem;
+    padding: 0.35rem 0.55rem !important;
+    white-space: nowrap;
+    min-height: 2.1rem !important;
+}
+[class*="st-key-"][class*="_remover_municipio_"] button:hover {
+    color: #7f1716 !important;
+    border-color: #b4504c !important;
+    background: #fff6f4 !important;
+}
+.st-key-acoes_adicionar_municipio {
+    margin-top: 0.35rem;
+    padding: 0.35rem 0.15rem 0;
+}
+[class*="st-key-"][class*="_adicionar_municipio"] button {
+    color: #1e663b !important;
+    background: #ecf7ed !important;
+    border: 1px solid #5ba873 !important;
+    border-radius: 0.45rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+[class*="st-key-"][class*="_adicionar_municipio"] button:hover {
+    background: #dbefdf !important;
+}
+.st-key-acoes_adicionar_municipio [data-testid="stCaptionContainer"] {
+    color: #44607b !important;
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"],
+    [class*="st-key-cabecalho_parametros_gerais"] [data-testid="stHorizontalBlock"] {
+        min-width: 680px;
+    }
+    .st-key-parametros_gerais_cartao {
+        overflow-x: auto;
+    }
+    [class*="st-key-bloco_municipal_"] [data-testid="stExpanderDetails"] {
+        overflow-x: auto;
+    }
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"],
+    [class*="st-key-cabecalho_municipal_"] [data-testid="stHorizontalBlock"] {
+        min-width: 760px;
+    }
+}
