@@ -18,73 +18,112 @@ from icms.regras import (
     PARAMETROS,
     calcular,
     formatar_fq,
+    normalizar_municipios,
 )
 
 CODIGOS_PARAMETROS_GERAIS = frozenset(codigo for codigo, _ in PARAMETROS)
 
 
+COLUNAS_GERAIS = [
+    "Nº SEI", "DATA RECEBIDA", "REMETENTE - UCs", "Esfera", "URFBio",
+    "RESPONSÁVEL",
+]
+COLUNAS_PARAMETROS = [f"PARÂM {codigo}" for codigo, _ in PARAMETROS]
+COLUNAS_MUNICIPAIS = [f"PARÂM {codigo}" for codigo in MUNICIPAIS]
+COLUNAS_RESULTADOS = [
+    *COLUNAS_GERAIS,
+    *COLUNAS_PARAMETROS,
+    "Município",
+    *COLUNAS_MUNICIPAIS,
+    "SOMA PARÂMETROS",
+    "FQ",
+]
+COLUNAS_RESUMO = [
+    *COLUNAS_GERAIS,
+    "Municípios cadastrados",
+    "Versão",
+    "Última gravação",
+]
+
+
 def mapa_parametros_resultado(
     configuracao: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
-    """Relaciona os três fatores visíveis aos totais usados no cálculo."""
-    mapa = {
-        "11.1": "11.1",
-        "11.2": "11.1",
-        "11.3": "11.1",
-    }
+    """Mantém as chaves municipais legadas sem remapeamento visual indevido."""
+    mapa = {codigo: codigo for codigo in ("11.1", "11.2", "11.3")}
     if configuracao:
         mapa.update(configuracao)
-    return {codigo: mapa[codigo] for codigo in ("11.1", "11.2", "11.3")}
+    return mapa
+
+
+def _identificacao(ficha: dict[str, Any]) -> dict[str, Any]:
+    """Organiza os identificadores da ficha em uma ordem constante."""
+    return {
+        "Nº SEI": ficha["processo"],
+        "DATA RECEBIDA": date.fromisoformat(ficha["recebimento"]),
+        "REMETENTE - UCs": ficha["unidade"],
+        "Esfera": ficha["esfera"],
+        "URFBio": ficha["urfbio"],
+        "RESPONSÁVEL": ficha["responsavel"],
+    }
+
+
+def resumo_fichas(registros: list[dict[str, Any]]) -> pd.DataFrame:
+    """Cria uma linha por ficha concluída, inclusive com municípios variáveis."""
+    linhas = []
+    for registro in registros:
+        if registro["status"] != "Concluída":
+            continue
+        ficha = normalizar_municipios(registro["ficha"])
+        linha = _identificacao(ficha)
+        linha.update({
+            "Municípios cadastrados": sum(
+                bool(m["nome"].strip() and m["nome"].strip() != "-")
+                for m in ficha["municipios"]
+            ),
+            "Versão": registro["versao"],
+            "Última gravação": registro.get("atualizado_em", ""),
+        })
+        linhas.append(linha)
+    return pd.DataFrame(linhas, columns=COLUNAS_RESUMO)
 
 
 def resultado_consolidado(
     registros: list[dict[str, Any]],
     mapa: Mapping[str, str] | None = None,
 ) -> pd.DataFrame:
-    """Expõe os 18 parâmetros do FQ e as notas de fichas concluídas."""
-    mapa = mapa_parametros_resultado(mapa)
+    """Monta uma linha por município existente, nunca 13 pares fixos."""
     linhas: list[dict[str, Any]] = []
+    # A configuração anterior era sobre agregados artificiais do antigo
+    # relatório. A nota municipal é sempre formada pelas quatro chaves reais.
     for registro in registros:
         if registro["status"] != "Concluída":
             continue
-        ficha = registro["ficha"]
+        ficha = normalizar_municipios(registro["ficha"])
         calculo = calcular(ficha)
-        linha = {
-            "Nº SEI": ficha["processo"],
-            "DATA RECEBIDA": date.fromisoformat(ficha["recebimento"]),
-            "REMETENTE - UCs": ficha["unidade"],
-            "Esfera": ficha["esfera"],
-            "URFBio": ficha["urfbio"],
-            "RESPONSÁVEL": ficha["responsavel"],
+        calculados = iter(calculo["municipios"])
+        identificacao = _identificacao(ficha)
+        gerais = {
+            f"PARÂM {codigo}": ficha["parametros"][codigo]["validado"]
+            for codigo, _ in PARAMETROS
         }
-        # Os parâmetros gerais exibem os pontos validados (não os do gestor).
-        # A ordem acompanha a planilha de referência: 1.1 até 9, depois 10 a 11.3.
-        for codigo, _ in PARAMETROS:
-            linha[f"PARÂM {codigo}"] = ficha["parametros"][codigo]["validado"]
-        linha["PARÂM 10"] = calculo["totais"]["10"]
-        for codigo, origem in mapa.items():
-            linha[f"PARÂM {codigo}"] = calculo["totais"].get(origem)
-        for posicao in range(13):
-            municipio = ficha["municipios"][posicao]
+        for municipio in ficha["municipios"]:
             nome = municipio["nome"].strip()
-            linha[f"Município{posicao + 1}"] = nome if nome not in ("", "-") else "-"
-            nota = next(
-                (
-                    municipio_calculado
-                    for municipio_calculado in calculo["municipios"]
-                    if municipio_calculado["Município"] == nome
-                ),
-                None,
-            )
-            linha[f"Nota{posicao + 1}"] = (
-                float(nota["FQ"].replace(",", ".")) if nota else None
-            )
-        linhas.append(linha)
-    return pd.DataFrame(linhas)
+            if nome in ("", "-"):
+                continue
+            nota = next(calculados)
+            linha = {**identificacao, **gerais, "Município": nome}
+            for codigo in MUNICIPAIS:
+                linha[f"PARÂM {codigo}"] = municipio[codigo]["validado"]
+            linha["SOMA PARÂMETROS"] = nota["Soma"]
+            linha["FQ"] = nota["fq_numero"]
+            linhas.append(linha)
+    return pd.DataFrame(linhas, columns=COLUNAS_RESULTADOS)
 
 
 def quadro_final_ficha(ficha: dict[str, Any]) -> pd.DataFrame:
-    """Monta a parte inferior da ficha para os 13 municípios."""
+    """Exibe somente os municípios identificados da ficha atual."""
+    ficha = normalizar_municipios(ficha)
     total_validado = sum(
         ponto.get("validado") or 0 for ponto in ficha["parametros"].values()
     )
@@ -92,25 +131,18 @@ def quadro_final_ficha(ficha: dict[str, Any]) -> pd.DataFrame:
     for posicao, municipio in enumerate(ficha["municipios"], 1):
         nome = municipio["nome"].strip()
         if not nome or nome == "-":
-            linhas.append(
-                {
-                    "Posição": f"Município {posicao}",
-                    "Município": "-",
-                    "SOMA PARÂMETROS": "-",
-                    "PONTUAÇÃO FINAL FQ": "-",
-                }
-            )
             continue
-        soma = total_validado + sum(municipio.get(codigo) or 0 for codigo in MUNICIPAIS)
-        linhas.append(
-            {
-                "Posição": f"Município {posicao}",
-                "Município": nome,
-                "SOMA PARÂMETROS": str(soma),
-                "PONTUAÇÃO FINAL FQ": formatar_fq(soma, ficha["pontuacao_categoria"]),
-            }
+        soma = total_validado + sum(
+            municipio[codigo].get("validado") or 0 for codigo in MUNICIPAIS
         )
-    return pd.DataFrame(linhas)
+        linhas.append({
+            "Município": nome,
+            "SOMA PARÂMETROS": soma,
+            "PONTUAÇÃO FINAL FQ": formatar_fq(soma, ficha["pontuacao_categoria"]),
+        })
+    return pd.DataFrame(
+        linhas, columns=["Município", "SOMA PARÂMETROS", "PONTUAÇÃO FINAL FQ"]
+    )
 
 
 def renderizar_tabela(
@@ -137,7 +169,7 @@ def renderizar_tabela(
                 texto = ""
             elif coluna == "DATA RECEBIDA" and hasattr(valor, "strftime"):
                 texto = valor.strftime("%m/%d/%Y")
-            elif coluna.startswith("Nota") and isinstance(valor, Real):
+            elif coluna == "FQ" and isinstance(valor, Real):
                 texto = f"{valor:.{CASAS_DECIMAIS_FQ}f}"
             elif isinstance(valor, Real) and not isinstance(valor, bool):
                 texto = str(int(valor)) if float(valor).is_integer() else str(valor)
@@ -159,9 +191,8 @@ def colunas_resultado_alteradas(
     alteracoes: dict[str, Any],
     mapa: Mapping[str, str] | None = None,
 ) -> set[str]:
-    """Relaciona campos alterados da ficha às colunas visíveis no resultado."""
+    """Destaca o campo municipal alterado e o FQ correspondente."""
     colunas: set[str] = set()
-    mapa = mapa_parametros_resultado(mapa)
     campos_diretos = {
         "unidade": "REMETENTE - UCs",
         "recebimento": "DATA RECEBIDA",
@@ -173,37 +204,21 @@ def colunas_resultado_alteradas(
         if caminho in campos_diretos:
             colunas.add(campos_diretos[caminho])
         elif caminho == "pontuacao_categoria":
-            colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
+            colunas.add("FQ")
         elif caminho.startswith("parametros."):
-            # Os identificadores 1.1, 1.2, 5.1 etc. contêm ponto; separamos
-            # somente o prefixo e o nome do campo, preservando o código inteiro.
-            codigo_e_campo = caminho.removeprefix("parametros.").rsplit(".", 1)
-            partes = ["parametros", *codigo_e_campo]
-            if len(partes) == 3 and partes[2] == "validado":
-                # Uma pontuação validada afeta sua coluna e todas as notas FQ.
-                codigo = partes[1]
-                if codigo in CODIGOS_PARAMETROS_GERAIS:
-                    colunas.add(f"PARÂM {codigo}")
-                    colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
+            partes = caminho.removeprefix("parametros.").rsplit(".", 1)
+            if len(partes) == 2 and partes[1] == "validado":
+                if partes[0] in CODIGOS_PARAMETROS_GERAIS:
+                    colunas.update((f"PARÂM {partes[0]}", "FQ", "SOMA PARÂMETROS"))
         elif caminho.startswith("municipios[") and "]." in caminho:
-            posicao_texto, campo = caminho[len("municipios[") :].split("].", 1)
-            if not posicao_texto.isdigit():
-                continue
-            posicao = int(posicao_texto)
-            if not 1 <= posicao <= 13:
-                continue
+            _, campo = caminho.split("].", 1)
             if campo == "nome":
-                colunas.update((f"Município{posicao}", f"Nota{posicao}"))
-            elif campo in MUNICIPAIS:
-                colunas.add(f"Nota{posicao}")
-                if campo == "10":
-                    colunas.add("PARÂM 10")
-                # Um mesmo total pode alimentar mais de um fator no relatório.
-                colunas.update(
-                    f"PARÂM {codigo}"
-                    for codigo, origem in mapa.items()
-                    if origem == campo
-                )
+                colunas.add("Município")
+            else:
+                for codigo in MUNICIPAIS:
+                    if campo in (codigo, f"{codigo}.validado"):
+                        colunas.update((f"PARÂM {codigo}", "FQ", "SOMA PARÂMETROS"))
+                        break
     return colunas
 
 
