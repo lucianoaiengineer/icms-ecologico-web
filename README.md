@@ -25,7 +25,7 @@ A consulta localiza registros **dentro da própria aplicação**. Não há conex
 
 **1. Localize o processo.** Informe o SEI no campo de busca. Se a ficha existir, seus dados serão apresentados; se não existir, o formulário será iniciado com o número informado.
 
-**2. Preencha os dados.** Registre as informações gerais e as pontuações. Em **Parâmetros por municípios**, abra **Zona de Amortecimento** para cadastrar nomes e use **Adicionar registro** quando necessário. Os nomes aparecem automaticamente nos outros blocos: **RH ou Recurso Material**, **Empréstimo de Sede** e **Recursos Financeiro**. Cada município possui pontos do gestor, justificativa e pontos validados por bloco.
+**2. Preencha os dados.** Registre as informações gerais e as pontuações na tabela compacta, com justificativas ajustáveis. Em **Parâmetros por municípios**, abra **Zona de Amortecimento** para cadastrar nomes e use **Adicionar registro** quando necessário. Os nomes aparecem automaticamente nos outros blocos: **RH ou Recurso Material**, **Empréstimo de Sede** e **Recursos Financeiro**. Cada município possui pontos do gestor, justificativa e pontos validados por bloco.
 
 **3. Revise e grave.** Use **Revisar preenchimento** para conferir os dados sem gravá-los. Escolha **Salvar rascunho**, **Cadastrar** ou **Atualizar ficha**, conforme a situação.
 
@@ -37,7 +37,7 @@ A consulta localiza registros **dentro da própria aplicação**. Não há conex
 | --- | --- |
 | **Processo SEI** | Identificação com 19 algarismos, normalizada no formato `0000.00.0000000/0000-00`. |
 | **Parâmetros gerais** | 14 parâmetros, com pontos do gestor, justificativa e pontos validados. |
-| **Municípios** | Registros dinâmicos: um cadastro de nomes compartilhado por quatro blocos expansíveis. |
+| **Municípios** | Registros dinâmicos: um cadastro de nomes compartilhado por quatro blocos expansíveis. A interface normaliza novos nomes para minúsculas e elimina espaços excedentes ao concluir a edição. |
 | **Pontuações** | Inteiros de **0 a 9**. Zero é um valor válido quando existe nome de município. |
 | **Posição sem município** | Não permite pontuação, nem mesmo zero. |
 | **Conclusão** | Exige os dados obrigatórios, os 14 conjuntos gerais e ao menos um município com pontos do gestor e validados nos quatro blocos. Dados históricos são adaptados sem atribuir pontos do gestor inexistentes. |
@@ -118,7 +118,8 @@ Para preparar um ambiente persistente, consulte o [Guia de persistência](GUIA_P
 | Item | Por quê |
 | --- | --- |
 | [`app.py`](app.py) | Inicia a aplicação e coordena a interface, o acesso e as ações do formulário. |
-| [`assets/estilos.css`](assets/estilos.css) | Define a aparência, a adaptação a diferentes telas e os atalhos laterais de navegação. |
+| [`assets/estilos.css`](assets/estilos.css) | Define a aparência aprovada, campos compactos, quatro blocos expansíveis e atalhos laterais. |
+| [`assets/cabecalho_aprovado.png`](assets/cabecalho_aprovado.png) | Exibe a faixa ilustrada do cabeçalho, recortada da referência aprovada para a ficha. |
 | [`icms/regras.py`](icms/regras.py) | Contém validações, normalização do SEI e cálculo do FQ. |
 | [`icms/repositorio.py`](icms/repositorio.py) | Gerencia fichas temporárias, versões, histórico e backups da demonstração. |
 | [`icms/repositorio_sql.py`](icms/repositorio_sql.py) | Implementa o armazenamento SQL e a recuperação de edições interrompidas. |
@@ -132,6 +133,14 @@ Para preparar um ambiente persistente, consulte o [Guia de persistência](GUIA_P
 | [`CONFIGURACAO_ACESSO_E_RESULTADOS.md`](CONFIGURACAO_ACESSO_E_RESULTADOS.md) | Explica autenticação, perfis e consulta de resultados. |
 | [`GUIA_PERSISTENCIA.md`](GUIA_PERSISTENCIA.md) | Orienta a configuração e a homologação do armazenamento SQL. |
 | [`PADROES_E_PUBLICACAO.md`](PADROES_E_PUBLICACAO.md) | Relaciona os arquivos a publicar e as verificações técnicas. |
+
+## Layout visual da ficha
+
+A ficha utiliza a apresentação aprovada em **11/11/2026**: cabeçalho ilustrado, título **Ficha**, cartão de 14 parâmetros gerais em linhas compactas, aviso azul com instruções de uso e os quatro cartões verdes expansíveis dos parâmetros municipais. Os controles são campos nativos do Streamlit; a imagem é utilizada somente no cabeçalho. O arquivo de referência visual está em `docs/referencia_visual_ficha_aprovada.png`.
+
+Os novos nomes de municípios são convertidos para minúsculas, com um único espaço entre palavras e sem espaços externos. O nome informado no primeiro cartão é exibido nos demais sem repetição da digitação. Não foi introduzido um banco de dados novo nem modificada a fórmula do FQ.
+
+**Pendente fora desta atualização visual:** a regra global que proíbe um município em processos SEI diferentes requer uma verificação na origem compartilhada dos registros. O modo demonstração usa repositórios isolados por sessão, e o conjunto sintético legado contém municípios repetidos entre fichas; nenhuma validação entre sessões diferentes é prometida nesta entrega.
 
 ## Testes e homologação
 

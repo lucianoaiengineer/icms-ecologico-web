@@ -20,6 +20,7 @@ from icms.regras import (
     PARAMETROS,
     NOMES_MUNICIPAIS,
     nova_linha_municipal,
+    normalizar_nome_municipio,
     normalizar_municipios,
     calcular,
     normalizar_processo,
@@ -455,6 +456,11 @@ def capturar_campos_municipais(ficha: dict[str, Any], prefixo: str) -> None:
                     municipio[codigo][campo] = st.session_state[chave]
 
 
+def padronizar_municipio_digitado(chave: str) -> None:
+    """Normaliza o nome informado sem perder o valor do widget Streamlit."""
+    st.session_state[chave] = normalizar_nome_municipio(st.session_state[chave])
+
+
 def mudar_municipios(ficha: dict[str, Any], prefixo: str, excluir: int | None) -> None:
     """Altera a lista preservando pontuações e redefinindo chaves visuais."""
     capturar_campos_municipais(ficha, prefixo)
@@ -475,6 +481,14 @@ elif modo not in ("demonstracao", "banco"):
     exibir_tela_acesso(autenticacao_configurada=False, permitir_demo=True)
     st.stop()
 autor, pode_editar = identificar(modo)
+# O cabeçalho aparece no alto, antes de todas as seções e controles.
+CABECALHO_APROVADO = Path(__file__).resolve().parent / "assets" / "cabecalho_aprovado.png"
+if CABECALHO_APROVADO.is_file():
+    st.image(str(CABECALHO_APROVADO), width="stretch")
+else:
+    # Falta do recurso visual não deve impedir acesso às fichas.
+    registrador_log.error("Cabeçalho visual ausente: %s", CABECALHO_APROVADO)
+    st.markdown("### ICMS Ecológico · Ficha")
 if modo == "demonstracao":
     st.markdown(
         '<div class="aviso-demo"><strong>Modo demonstração:</strong> use somente '
@@ -490,8 +504,6 @@ st.markdown(
     'aria-label="Ir ao final">↓</a></nav>',
     unsafe_allow_html=True,
 )
-st.title("ICMS Ecológico")
-st.caption("Gestão de fichas do Fator de Qualidade")
 try:
     repositorio = conectar(modo)
 # Os adaptadores de persistência podem lançar erros específicos de conexão.
@@ -558,7 +570,11 @@ if st.session_state.get("confirmar_saida_modulo"):
             st.rerun()
 
 if modulo == "Ficha":
-    st.subheader("Ficha · inclusão, consulta e edição")
+    st.markdown(
+        '<h1 class="icms-titulo-pagina"><span aria-hidden="true">▤</span>'
+        ' Ficha</h1>',
+        unsafe_allow_html=True,
+    )
     st.caption(
         "Informe o processo SEI para abrir uma ficha existente ou iniciar uma nova. "
         "A ficha encontrada abre neste mesmo módulo para edição."
@@ -828,216 +844,288 @@ if modulo == "Ficha":
                 label_visibility="collapsed",
                 width=180,
             ).isoformat()
-    st.markdown("#### Pontuações e justificativas")
-    st.caption(
-        "Nos totais, campos vazios são considerados 0. Para concluir a ficha, "
-        "os campos obrigatórios ainda precisam ser preenchidos. "
-        "Pontuações individuais: 0 a 9."
-    )
-    proporcao_colunas = [2.2, 1.0, 3.3, 1.0]
-    (
-        cabecalho_parametro,
-        cabecalho_gestor,
-        cabecalho_justificativa,
-        cabecalho_validado,
-    ) = st.columns(proporcao_colunas, vertical_alignment="bottom")
-    with cabecalho_parametro:
-        st.markdown("**Parâmetro**")
-    with cabecalho_gestor:
-        st.markdown("**Pontos Gestor**")
-    with cabecalho_justificativa:
-        st.markdown("**Justificativa/Observação**")
-    with cabecalho_validado:
-        st.markdown("**Pontos Validados**")
-
-    for codigo, nome in PARAMETROS:
-        pontos = ficha["parametros"][codigo]
-        pontos_originais = st.session_state.ficha_original["parametros"].get(codigo, {})
-        (
-            coluna_parametro,
-            coluna_gestor,
-            coluna_justificativa,
-            coluna_validado,
-        ) = st.columns(proporcao_colunas, vertical_alignment="top")
-        with coluna_parametro:
-            chave_rotulo = f"{prefixo}_{codigo}_rotulo"
-            rotulo_padrao = f"{codigo} · {nome}"
-            with st.container(
-                key=chave_container_campo(
-                    chave_rotulo,
-                    pontos_originais.get("rotulo", rotulo_padrao),
-                )
-            ):
-                pontos["rotulo"] = st.text_input(
-                    f"{codigo} · Parâmetro",
-                    value=pontos.get("rotulo", rotulo_padrao),
-                    key=chave_rotulo,
-                    disabled=not pode_editar,
-                    label_visibility="collapsed",
-                )
-        with coluna_gestor:
-            chave_gestor = f"{prefixo}_{codigo}_gestor"
-            with st.container(
-                key=chave_container_campo(chave_gestor, pontos_originais.get("gestor"))
-            ):
-                pontos["gestor"] = st.number_input(
-                    f"{codigo} · Pontos Gestor",
-                    min_value=0,
-                    max_value=9,
-                    value=pontos["gestor"],
-                    step=1,
-                    key=chave_gestor,
-                    disabled=not pode_editar,
-                    label_visibility="collapsed",
-                )
-        with coluna_justificativa:
-            chave_justificativa = f"{prefixo}_{codigo}_justificativa"
-            with st.container(
-                key=chave_container_campo(
-                    chave_justificativa,
-                    pontos_originais.get("justificativa", ""),
-                )
-            ):
-                pontos["justificativa"] = st.text_area(
-                    f"{codigo} · Justificativa/Observação",
-                    value=pontos["justificativa"],
-                    key=chave_justificativa,
-                    height=96,
-                    disabled=not pode_editar,
-                    label_visibility="collapsed",
-                )
-        with coluna_validado:
-            chave_validado = f"{prefixo}_{codigo}_validado"
-            with st.container(
-                key=chave_container_campo(
-                    chave_validado, pontos_originais.get("validado")
-                )
-            ):
-                pontos["validado"] = st.number_input(
-                    f"{codigo} · Pontos Validados",
-                    min_value=0,
-                    max_value=9,
-                    value=pontos["validado"],
-                    step=1,
-                    key=chave_validado,
-                    disabled=not pode_editar,
-                    label_visibility="collapsed",
-                )
-        st.markdown('<hr class="linha-parametro">', unsafe_allow_html=True)
-    st.markdown("#### Parâmetros por municípios")
-    st.caption(
-        "Cadastre os municípios no bloco Zona de Amortecimento. "
-        "Os nomes serão apresentados automaticamente nos demais blocos, "
-        "sem precisar digitá-los novamente. Para incluir outro município, "
-        "selecione Adicionar registro."
-    )
-    # Uma linha é um município; os quatro blocos compartilham a mesma lista.
-    for codigo in MUNICIPAIS:
-        with st.expander(NOMES_MUNICIPAIS[codigo], expanded=False):
-            cab_nome, cab_gestor, cab_just, cab_validado = st.columns(
-                [2.5, 1.1, 3.3, 1.1], vertical_alignment="top"
+    # Apresentação fiel à referência: cabeçalho compacto e linhas editáveis.
+    with st.container(key="parametros_gerais_cartao"):
+        st.markdown(
+            '<h2 class="icms-titulo-secao">'
+            '<span aria-hidden="true">☷</span> Parâmetros</h2>',
+            unsafe_allow_html=True,
+        )
+        proporcao_colunas = [3.25, 1.4, 4.35, 1.45]
+        with st.container(key="cabecalho_parametros_gerais"):
+            col_rotulo, col_gestor, col_just, col_validado = st.columns(
+                proporcao_colunas, gap="small", vertical_alignment="center"
             )
-            with cab_nome:
-                st.caption("Município")
-            with cab_gestor:
-                st.caption("Pontos Gestor")
-            with cab_just:
-                st.caption("Justificativa/Observação")
-            with cab_validado:
-                st.caption("Pontos Validados")
-            if not ficha["municipios"]:
-                st.info(
-                    "Nenhum município cadastrado. "
-                    "Adicione um registro no primeiro bloco."
+            for coluna, titulo in (
+                (col_rotulo, "Parâmetro"),
+                (col_gestor, "Pontos do gestor"),
+                (col_just, "Justificativa"),
+                (col_validado, "Pontos validados"),
+            ):
+                with coluna:
+                    st.markdown(f"**{titulo}**")
+        for codigo, nome in PARAMETROS:
+            pontos = ficha["parametros"][codigo]
+            pontos_originais = st.session_state.ficha_original["parametros"].get(
+                codigo, {}
+            )
+            with st.container(key=f"linha_parametro_{codigo.replace('.', '_')}"):
+                (
+                    coluna_parametro,
+                    coluna_gestor,
+                    coluna_justificativa,
+                    coluna_validado,
+                ) = st.columns(
+                    proporcao_colunas, gap="small", vertical_alignment="center"
                 )
-            for posicao, municipio in enumerate(ficha["municipios"], 1):
-                originais = st.session_state.ficha_original.get("municipios", [])
-                original = originais[posicao - 1] if posicao <= len(originais) else {}
-                original_pontos = original.get(codigo) or {}
-                if not isinstance(original_pontos, dict):
-                    original_pontos = {"validado": original_pontos}
-                coluna_nome, coluna_gestor, coluna_just, coluna_validado = st.columns(
-                    [2.5, 1.1, 3.3, 1.1], vertical_alignment="top"
-                )
-                with coluna_nome:
-                    if codigo == "10":
-                        chave_nome = f"{prefixo}_municipio_{posicao}"
-                        with st.container(key=chave_container_campo(
-                            chave_nome, original.get("nome", "")
-                        )):
-                            municipio["nome"] = st.text_input(
-                                f"Nome do município {posicao}",
-                                value=municipio["nome"],
-                                key=chave_nome,
-                                placeholder="Nome do município",
-                                disabled=not pode_editar,
-                                label_visibility="collapsed",
-                            )
-                    else:
-                        st.text_input(
-                            f"Nome do município {posicao}",
-                            value=municipio["nome"],
-                            key=f"{prefixo}_somente_nome_{codigo}_{posicao}"
-                            f"_{municipio['nome']}",
-                            disabled=True,
-                            label_visibility="collapsed",
+                with coluna_parametro:
+                    chave_rotulo = f"{prefixo}_{codigo}_rotulo"
+                    rotulo_padrao = f"{codigo} · {nome}"
+                    with st.container(
+                        key=chave_container_campo(
+                            chave_rotulo,
+                            pontos_originais.get("rotulo", rotulo_padrao),
                         )
-                identificado = municipio["nome"].strip() not in ("", "-")
-                pontos = municipio[codigo]
-                for coluna, campo, rotulo in (
-                    (coluna_gestor, "gestor", "Pontos Gestor"),
-                    (coluna_validado, "validado", "Pontos Validados"),
-                ):
-                    with coluna:
-                        chave = f"{prefixo}_municipio_{posicao}_{codigo}_{campo}"
-                        with st.container(key=chave_container_campo(
-                            chave, original_pontos.get(campo)
-                        )):
-                            pontos[campo] = st.number_input(
-                                f"{rotulo} de {NOMES_MUNICIPAIS[codigo]} "
-                                f"para o município {posicao}",
-                                min_value=0,
-                                max_value=9,
-                                value=pontos[campo],
-                                step=1,
-                                key=chave,
-                                disabled=not pode_editar or not identificado,
-                                label_visibility="collapsed",
-                            )
-                with coluna_just:
-                    chave_just = (
-                        f"{prefixo}_municipio_{posicao}_{codigo}_justificativa"
-                    )
-                    with st.container(key=chave_container_campo(
-                        chave_just, original_pontos.get("justificativa", "")
-                    )):
-                        pontos["justificativa"] = st.text_area(
-                            f"Justificativa de {NOMES_MUNICIPAIS[codigo]} "
-                            f"para o município {posicao}",
-                            value=pontos["justificativa"],
-                            key=chave_just,
-                            height=74,
-                            disabled=not pode_editar or not identificado,
-                            label_visibility="collapsed",
-                        )
-                if codigo == "10" and pode_editar:
-                    if st.button(
-                        f"Remover registro {posicao}",
-                        key=f"{prefixo}_remover_municipio_{posicao}",
                     ):
-                        mudar_municipios(ficha, prefixo, posicao - 1)
-                st.markdown('<hr class="linha-parametro">', unsafe_allow_html=True)
-            if codigo == "10" and pode_editar:
-                sem_nome = any(
-                    not municipio["nome"].strip() or municipio["nome"].strip() == "-"
-                    for municipio in ficha["municipios"]
-                )
-                if st.button(
-                    "Adicionar registro",
-                    key=f"{prefixo}_adicionar_municipio",
-                    disabled=sem_nome,
+                        # A edição do título existente é preservada; o CSS
+                        # apresenta o controle como texto de uma linha.
+                        pontos["rotulo"] = st.text_input(
+                            f"{codigo} · Parâmetro",
+                            value=pontos.get("rotulo", rotulo_padrao),
+                            key=chave_rotulo,
+                            disabled=not pode_editar,
+                            label_visibility="collapsed",
+                        )
+                with coluna_gestor:
+                    chave_gestor = f"{prefixo}_{codigo}_gestor"
+                    with st.container(
+                        key=chave_container_campo(
+                            chave_gestor, pontos_originais.get("gestor")
+                        )
+                    ):
+                        pontos["gestor"] = st.number_input(
+                            f"{codigo} · Pontos Gestor",
+                            min_value=0,
+                            max_value=9,
+                            value=pontos["gestor"],
+                            step=1,
+                            key=chave_gestor,
+                            disabled=not pode_editar,
+                            label_visibility="collapsed",
+                        )
+                with coluna_justificativa:
+                    chave_justificativa = f"{prefixo}_{codigo}_justificativa"
+                    with st.container(
+                        key=chave_container_campo(
+                            chave_justificativa,
+                            pontos_originais.get("justificativa", ""),
+                        )
+                    ):
+                        pontos["justificativa"] = st.text_area(
+                            f"{codigo} · Justificativa/Observação",
+                            value=pontos["justificativa"],
+                            key=chave_justificativa,
+                            height=68,
+                            disabled=not pode_editar,
+                            label_visibility="collapsed",
+                        )
+                with coluna_validado:
+                    chave_validado = f"{prefixo}_{codigo}_validado"
+                    with st.container(
+                        key=chave_container_campo(
+                            chave_validado, pontos_originais.get("validado")
+                        )
+                    ):
+                        pontos["validado"] = st.number_input(
+                            f"{codigo} · Pontos Validados",
+                            min_value=0,
+                            max_value=9,
+                            value=pontos["validado"],
+                            step=1,
+                            key=chave_validado,
+                            disabled=not pode_editar,
+                            label_visibility="collapsed",
+                        )
+
+    st.markdown(
+        '<h2 class="icms-titulo-municipios">'
+        '<span aria-hidden="true">♣</span> Parâmetros por municípios</h2>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="icms-ajuda-municipios">'
+        '<span aria-hidden="true">ⓘ</span> '
+        'Cadastre os municípios no bloco <strong>Zona de Amortecimento</strong>. '
+        'Os nomes serão apresentados automaticamente nos demais blocos, '
+        'sem precisar digitá-los novamente. Para incluir outro município, '
+        'selecione <strong>Adicionar registro</strong>.</div>',
+        unsafe_allow_html=True,
+    )
+    # Uma única lista de municípios é compartilhada pelos quatro painéis.
+    icones_municipais = {
+        "10": ":material/location_on:",
+        "11.1": ":material/layers:",
+        "11.2": ":material/account_balance:",
+        "11.3": ":material/payments:",
+    }
+    proporcao_municipal = [2.6, 1.25, 4.0, 1.3, 1.05]
+    for codigo in MUNICIPAIS:
+        with st.container(key=f"bloco_municipal_{codigo.replace('.', '_')}"):
+            with st.expander(
+                NOMES_MUNICIPAIS[codigo],
+                expanded=True,
+                icon=icones_municipais[codigo],
+            ):
+                with st.container(
+                    key=f"cabecalho_municipal_{codigo.replace('.', '_')}"
                 ):
-                    mudar_municipios(ficha, prefixo, None)
+                    col_nome, col_gestor, col_just, col_validado, col_acao = (
+                        st.columns(
+                            proporcao_municipal,
+                            gap="small",
+                            vertical_alignment="center",
+                        )
+                    )
+                    for coluna, rotulo in (
+                        (col_nome, "Município"),
+                        (col_gestor, "Pontos do gestor"),
+                        (col_just, "Justificativa"),
+                        (col_validado, "Pontos validados"),
+                    ):
+                        with coluna:
+                            st.markdown(f"**{rotulo}**")
+                if not ficha["municipios"]:
+                    st.info(
+                        "Nenhum município cadastrado. "
+                        "Adicione um registro no primeiro bloco."
+                    )
+                for posicao, municipio in enumerate(ficha["municipios"], 1):
+                    originais = st.session_state.ficha_original.get(
+                        "municipios", []
+                    )
+                    original = (
+                        originais[posicao - 1] if posicao <= len(originais) else {}
+                    )
+                    original_pontos = original.get(codigo) or {}
+                    if not isinstance(original_pontos, dict):
+                        original_pontos = {"validado": original_pontos}
+                    with st.container(key=f"linha_municipal_{codigo.replace('.', '_')}_{posicao}"):
+                        (
+                            coluna_nome,
+                            coluna_gestor,
+                            coluna_just,
+                            coluna_validado,
+                            coluna_acao,
+                        ) = st.columns(
+                            proporcao_municipal,
+                            gap="small",
+                            vertical_alignment="center",
+                        )
+                        with coluna_nome:
+                            if codigo == "10":
+                                chave_nome = f"{prefixo}_municipio_{posicao}"
+                                with st.container(
+                                    key=chave_container_campo(
+                                        chave_nome, original.get("nome", "")
+                                    )
+                                ):
+                                    municipio["nome"] = st.text_input(
+                                        f"Nome do município {posicao}",
+                                        value=municipio["nome"],
+                                        key=chave_nome,
+                                        placeholder="Nome do município",
+                                        disabled=not pode_editar,
+                                        on_change=padronizar_municipio_digitado,
+                                        args=(chave_nome,),
+                                        label_visibility="collapsed",
+                                    )
+                            else:
+                                st.text_input(
+                                    f"Nome do município {posicao}",
+                                    value=municipio["nome"],
+                                    key=(
+                                        f"{prefixo}_somente_nome_{codigo}_{posicao}"
+                                        f"_{municipio['nome']}"
+                                    ),
+                                    disabled=True,
+                                    label_visibility="collapsed",
+                                )
+                        identificado = municipio["nome"].strip() not in ("", "-")
+                        pontos = municipio[codigo]
+                        for coluna, campo, rotulo in (
+                            (coluna_gestor, "gestor", "Pontos Gestor"),
+                            (coluna_validado, "validado", "Pontos Validados"),
+                        ):
+                            with coluna:
+                                chave = (
+                                    f"{prefixo}_municipio_{posicao}_{codigo}_{campo}"
+                                )
+                                with st.container(
+                                    key=chave_container_campo(
+                                        chave, original_pontos.get(campo)
+                                    )
+                                ):
+                                    pontos[campo] = st.number_input(
+                                        f"{rotulo} de {NOMES_MUNICIPAIS[codigo]} "
+                                        f"para o município {posicao}",
+                                        min_value=0,
+                                        max_value=9,
+                                        value=pontos[campo],
+                                        step=1,
+                                        key=chave,
+                                        disabled=not pode_editar or not identificado,
+                                        label_visibility="collapsed",
+                                    )
+                        with coluna_just:
+                            chave_just = (
+                                f"{prefixo}_municipio_{posicao}_{codigo}"
+                                "_justificativa"
+                            )
+                            with st.container(
+                                key=chave_container_campo(
+                                    chave_just,
+                                    original_pontos.get("justificativa", ""),
+                                )
+                            ):
+                                pontos["justificativa"] = st.text_area(
+                                    f"Justificativa de {NOMES_MUNICIPAIS[codigo]} "
+                                    f"para o município {posicao}",
+                                    value=pontos["justificativa"],
+                                    key=chave_just,
+                                    height=68,
+                                    disabled=not pode_editar or not identificado,
+                                    label_visibility="collapsed",
+                                )
+                        with coluna_acao:
+                            if codigo == "10" and pode_editar:
+                                if st.button(
+                                    "Remover",
+                                    key=f"{prefixo}_remover_municipio_{posicao}",
+                                    help=f"Remover registro {posicao}",
+                                ):
+                                    mudar_municipios(ficha, prefixo, posicao - 1)
+                if codigo == "10" and pode_editar:
+                    sem_nome = any(
+                        not m["nome"].strip() or m["nome"].strip() == "-"
+                        for m in ficha["municipios"]
+                    )
+                    with st.container(key="acoes_adicionar_municipio"):
+                        col_botao, col_ajuda = st.columns(
+                            [2.2, 7.8], gap="medium", vertical_alignment="center"
+                        )
+                        with col_botao:
+                            if st.button(
+                                "Adicionar registro",
+                                key=f"{prefixo}_adicionar_municipio",
+                                disabled=sem_nome,
+                                icon=":material/add_circle:",
+                            ):
+                                mudar_municipios(ficha, prefixo, None)
+                        with col_ajuda:
+                            st.caption(
+                                "ⓘ Os nomes são padronizados automaticamente: "
+                                "minúsculas e sem espaços excedentes."
+                            )
     # A cópia automática não é a ficha oficial. Somente Salvar/Atualizar
     # modifica o registro e o relatório do sistema.
     st.session_state.ficha = deepcopy(ficha)
