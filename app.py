@@ -1556,22 +1556,34 @@ else:
 
 st.markdown(
     """
-    <footer class="rodape-institucional">
+    <footer class="rodape-institucional" aria-label="Rodapé da aplicação">
       <div class="rodape-principal">
         <div class="rodape-marca">
-          <strong>IEF</strong>
-          <span>Instituto Estadual de Florestas<br>Governo de Minas Gerais</span>
+          <div class="rodape-logo-placeholder"
+               role="img" aria-label="Espaço reservado para logo institucional">
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
+                 viewBox="0 0 64 64" fill="none">
+              <path d="M10 53h44M16 53V23l16-12 16 12v30"
+                    stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M23 31h6v6h-6zM35 31h6v6h-6zM27 53V43h10v10"
+                    stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Logo institucional</span>
+          </div>
+          <div class="rodape-identificacao">
+            <strong>Nome institucional</strong>
+            <span>Unidade ou órgão responsável</span>
+          </div>
         </div>
-        <div class="rodape-links">
-          <a href="https://semad.mg.gov.br/politica-de-privacidade-do-sisema"
-             target="_blank" rel="noopener noreferrer">
-            Aspectos legais e responsabilidades · Política de Privacidade do Sisema
-          </a>
+        <div class="rodape-informacoes">
+          <span>Informações institucionais e responsabilidades</span>
         </div>
       </div>
       <div class="rodape-inferior">
-        <span>Rodovia João Paulo II, 4143, Bairro Serra Verde · CEP 31630-900</span>
-        <span>ICMS Ecológico · Aplicação de apoio</span>
+        <span>Endereço institucional a definir</span>
+        <span>ICMS Ecológico · Aplicação de demonstração</span>
       </div>
     </footer>
     <div id="fim"></div>
