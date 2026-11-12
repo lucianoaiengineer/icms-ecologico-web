@@ -23,13 +23,13 @@ from icms.regras import (
     nova_linha_municipal,
     normalizar_nome_municipio,
     normalizar_municipios,
-    calcular,
     normalizar_processo,
     nova_ficha,
 )
 from icms.repositorio import Conflito, Repositorio
 from icms.relatorios import (
     colunas_resultado_alteradas,
+    apresentar_cabecalhos_municipais,
     consolidado_geral_visual,
     filtrar_resultados_por_processo,
     proteger_csv,
@@ -1238,7 +1238,6 @@ if modulo == "Ficha":
         horizontal_alignment="right",
         gap="small",
     ):
-        revisar = st.button("Revisar preenchimento")
         if versao == 0:
             rascunho = st.button("Salvar rascunho", disabled=not pode_editar)
             concluir = st.button("Cadastrar", disabled=not pode_editar)
@@ -1262,29 +1261,6 @@ if modulo == "Ficha":
         )
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
         st.info("O resumo será calculado após informar a pontuação da categoria.")
-    if revisar:
-        # A revisão mostra validações sem gravar o registro na base.
-        st.session_state.exibir_revisao = True
-        st.rerun()
-    if revisar or concluir or st.session_state.pop("exibir_revisao", False):
-        st.markdown("#### Revisão do preenchimento")
-        try:
-            calculo = calcular(ficha)
-            st.markdown(
-                renderizar_tabela(
-                    pd.DataFrame(calculo["municipios"])[["Município", "Soma", "FQ"]]
-                ),
-                unsafe_allow_html=True,
-            )
-        except ValueError as erro:
-            pendencias = [linha for linha in str(erro).splitlines() if linha]
-            st.error("Há campos obrigatórios pendentes ou dados inválidos:")
-            for pendencia in pendencias:
-                st.markdown(f"- {pendencia}")
-        except (KeyError, TypeError, ZeroDivisionError):
-            st.error(
-                "Não foi possível gerar a revisão. Confira os dados e tente novamente."
-            )
     if rascunho or concluir:
         try:
             situacao_destino = "Concluída" if concluir else "Rascunho"
@@ -1428,12 +1404,17 @@ else:
             quadro_analitico = quadro_analitico.sort_values(
                 by="Nº SEI", kind="stable"
             ).reset_index(drop=True)
-            quadro_geral = consolidado_geral_visual(quadro_analitico)
+            quadro_geral = apresentar_cabecalhos_municipais(
+                consolidado_geral_visual(quadro_analitico)
+            )
             destaques = {
-                registro["ficha"]["processo"]: colunas_resultado_alteradas(
-                    registro.get("alteracoes_ultima_versao", {}),
-                    segredo("totais_resultado", {}),
-                )
+                registro["ficha"]["processo"]: {
+                    NOMES_MUNICIPAIS.get(coluna.removeprefix("PARÂM "), coluna)
+                    for coluna in colunas_resultado_alteradas(
+                        registro.get("alteracoes_ultima_versao", {}),
+                        segredo("totais_resultado", {}),
+                    )
+                }
                 for registro in concluidas
             }
             aba_geral, aba_consulta = st.tabs(
@@ -1473,7 +1454,7 @@ else:
                 with col_analitico:
                     st.download_button(
                         "Baixar CSV — análise completa",
-                        proteger_csv(quadro_analitico),
+                        proteger_csv(apresentar_cabecalhos_municipais(quadro_analitico)),
                         "icms_resultados_analiticos.csv",
                         "text/csv",
                         use_container_width=True,
@@ -1554,14 +1535,16 @@ else:
                         renderizar_tabela(parametros_gerais),
                         unsafe_allow_html=True,
                     )
-                municipios_processo = quadro_analitico.loc[
-                    quadro_analitico["Nº SEI"] == processo_selecionado,
-                    [
-                        "Município", "PARÂM 10", "PARÂM 11.1",
-                        "PARÂM 11.2", "PARÂM 11.3",
-                        "SOMA PARÂMETROS", "FQ",
-                    ],
-                ]
+                municipios_processo = apresentar_cabecalhos_municipais(
+                    quadro_analitico.loc[
+                        quadro_analitico["Nº SEI"] == processo_selecionado,
+                        [
+                            "Município", "PARÂM 10", "PARÂM 11.1",
+                            "PARÂM 11.2", "PARÂM 11.3",
+                            "SOMA PARÂMETROS", "FQ",
+                        ],
+                    ]
+                )
                 st.markdown("##### Municípios vinculados")
                 st.markdown(
                     renderizar_tabela(municipios_processo),
