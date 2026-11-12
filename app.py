@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 import streamlit as st
 
+from icms.demonstracao import adequar_exemplos_legados, contar_exemplos_legados
 from icms.edicoes import chave_edicao
 from icms.regras import (
     CASAS_DECIMAIS_FQ,
@@ -519,6 +520,56 @@ except Exception:  # noqa: BLE001
     st.stop()
 if modo == "demonstracao":
     exibir_backup_demonstracao(repositorio)
+    quantidade_exemplos_antigos = contar_exemplos_legados(repositorio.listar())
+    if quantidade_exemplos_antigos:
+        st.warning(
+            f"Foram identificadas {quantidade_exemplos_antigos} ficha(s) "
+            "do exemplo antigo, cada uma com 13 municípios sintéticos. "
+            "Essas linhas vêm do backup histórico, não do cadastro novo. "
+            "É possível adequar somente esses exemplos ao modelo atual, "
+            "com um município por ficha."
+        )
+        if st.button(
+            "Adequar exemplos antigos (1 município por ficha)",
+            key="adequar_exemplos_sinteticos",
+        ):
+            st.session_state.confirmar_adequacao_exemplos = True
+        if st.session_state.get("confirmar_adequacao_exemplos"):
+            st.info(
+                "Esta ação altera apenas os registros do conjunto sintético "
+                "antigo. Cada ficha manterá um município distinto e terá uma "
+                "nova versão gravada no histórico. Fichas reais ou registros "
+                "municipais adicionados manualmente não serão reduzidos. "
+                "Faça um backup antes de confirmar."
+            )
+            col_confirmar, col_cancelar = st.columns([1, 1])
+            with col_confirmar:
+                if st.button(
+                    "Confirmar adequação dos exemplos",
+                    key="confirmar_adequacao_exemplos",
+                ):
+                    try:
+                        quantidade = adequar_exemplos_legados(
+                            repositorio, "adequacao_demonstracao"
+                        )
+                    except (ValueError, Conflito) as erro:
+                        st.error(str(erro))
+                    else:
+                        abrir(nova_ficha())
+                        st.session_state.confirmar_adequacao_exemplos = False
+                        st.session_state.aviso = (
+                            f"{quantidade} ficha(s) sintética(s) adequada(s). "
+                            "Cada uma possui agora apenas um município. "
+                            "Novos municípios serão incluídos somente ao "
+                            "selecionar Adicionar registro."
+                        )
+                        st.rerun()
+            with col_cancelar:
+                if st.button(
+                    "Cancelar adequação", key="cancelar_adequacao_exemplos"
+                ):
+                    st.session_state.confirmar_adequacao_exemplos = False
+                    st.rerun()
 elif modo == "banco":
     if repositorio.engine.dialect.name == "sqlite":
         st.warning(

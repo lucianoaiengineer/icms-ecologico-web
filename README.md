@@ -96,6 +96,14 @@ O navegador também pode alertar ao tentar abandonar a página com alterações 
 
 O modo **demonstração** oferece backup e restauração manual pelo arquivo `backup_fichas_icms.csv`. O CSV de resultados não substitui esse backup.
 
+**Exemplos sintéticos atualizados:** o arquivo
+`backup_fichas_icms_10_sinteticas_completas.csv` agora contém 10 fichas e **um
+município distinto em cada ficha**. O modelo antigo continha 13 municípios
+sintéticos por ficha. Se esses dados já tiverem sido restaurados em uma sessão,
+a aplicação exibirá uma ação opcional para adequar somente o conjunto legado,
+com confirmação e histórico. Fichas reais com múltiplos municípios não são
+reduzidas. Veja [Como adequar exemplos antigos](AJUSTE_DADOS_DEMONSTRACAO_MUNICIPIOS.md).
+
 ---
 
 ## Como executar no computador
@@ -122,6 +130,7 @@ Para preparar um ambiente persistente, consulte o [Guia de persistência](GUIA_P
 | [`assets/cabecalho_aprovado.png`](assets/cabecalho_aprovado.png) | Exibe a faixa ilustrada do cabeçalho, recortada da referência aprovada para a ficha. |
 | [`icms/regras.py`](icms/regras.py) | Contém validações, normalização do SEI e cálculo do FQ. |
 | [`icms/repositorio.py`](icms/repositorio.py) | Gerencia fichas temporárias, versões, histórico e backups da demonstração. |
+| [`icms/demonstracao.py`](icms/demonstracao.py) | Identifica e adequa exclusivamente o conjunto sintético legado de 13 municípios, após confirmação. |
 | [`icms/repositorio_sql.py`](icms/repositorio_sql.py) | Implementa o armazenamento SQL e a recuperação de edições interrompidas. |
 | [`icms/relatorios.py`](icms/relatorios.py) | Organiza as colunas, a grade de resultados e a exportação CSV. |
 | [`icms/edicoes.py`](icms/edicoes.py) | Identifica as cópias de edição recuperáveis. |
