@@ -121,6 +121,61 @@ def resultado_consolidado(
     return pd.DataFrame(linhas, columns=COLUNAS_RESULTADOS)
 
 
+def consolidado_geral_visual(quadro_analitico: pd.DataFrame) -> pd.DataFrame:
+    """Agrupa linhas por SEI sem repetir os dados gerais nas linhas seguintes.
+
+    A tabela analítica original permanece intacta, com o SEI completo em
+    cada registro para exportações destinadas a filtros e cruzamentos.
+    A ordem dos municípios em cada ficha é preservada.
+    """
+    if quadro_analitico.empty:
+        return quadro_analitico.copy().reset_index(drop=True)
+
+    colunas_compartilhadas = [*COLUNAS_GERAIS, *COLUNAS_PARAMETROS]
+    linhas = []
+    for _, grupo in quadro_analitico.groupby("Nº SEI", sort=False):
+        for indice, (_, registro) in enumerate(grupo.iterrows()):
+            linha = registro.copy()
+            if indice:
+                for coluna in colunas_compartilhadas:
+                    linha[coluna] = ""
+            linhas.append(linha)
+    return pd.DataFrame(linhas, columns=quadro_analitico.columns).reset_index(drop=True)
+
+
+def filtrar_resultados_por_processo(
+    resumo: pd.DataFrame, detalhado: pd.DataFrame, termo: str
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Pesquisa SEI, identificação ou município mantendo o grupo inteiro.
+
+    Um município encontrado seleciona sua ficha completa: os outros
+    municípios vinculados continuam visíveis no mesmo consolidado.
+    """
+    busca = termo.strip()
+    if not busca:
+        return resumo.copy(), detalhado.copy()
+
+    colunas_busca = (
+        "Nº SEI", "REMETENTE - UCs", "Esfera", "URFBio", "RESPONSÁVEL"
+    )
+    encontrados = pd.Series(False, index=resumo.index)
+    for coluna in colunas_busca:
+        encontrados |= resumo[coluna].astype(str).str.contains(
+            busca, case=False, regex=False, na=False
+        )
+    if not detalhado.empty:
+        municipio_encontrado = detalhado["Município"].astype(str).str.contains(
+            busca, case=False, regex=False, na=False
+        )
+        encontrados |= resumo["Nº SEI"].isin(
+            detalhado.loc[municipio_encontrado, "Nº SEI"]
+        )
+    filtrado = resumo.loc[encontrados].copy()
+    return filtrado, detalhado.loc[
+        detalhado["Nº SEI"].isin(filtrado["Nº SEI"])
+    ].copy()
+
+
 def quadro_final_ficha(ficha: dict[str, Any]) -> pd.DataFrame:
     """Exibe somente os municípios identificados da ficha atual."""
     ficha = normalizar_municipios(ficha)
@@ -148,15 +203,22 @@ def quadro_final_ficha(ficha: dict[str, Any]) -> pd.DataFrame:
 def renderizar_tabela(
     quadro: pd.DataFrame,
     destaques_por_processo: dict[str, set[str]] | None = None,
+    *,
+    agrupar_processos: bool = False,
 ) -> str:
-    """Renderiza grade HTML branca e rolável, sem linhas vazias do Streamlit."""
+    """Renderiza grade HTML rolável, podendo marcar visualmente grupos SEI."""
     colunas = list(quadro.columns)
     cabecalho = "".join(
         f'<th scope="col">{html.escape(str(coluna))}</th>' for coluna in colunas
     )
     linhas = []
+    processo_atual = ""
     for _, linha in quadro.iterrows():
         processo = str(linha.get("Nº SEI", ""))
+        if agrupar_processos and processo:
+            processo_atual = processo
+        elif agrupar_processos:
+            processo = processo_atual
         colunas_alteradas = (
             destaques_por_processo.get(processo, set())
             if destaques_por_processo
@@ -168,21 +230,50 @@ def renderizar_tabela(
             if pd.isna(valor):
                 texto = ""
             elif coluna == "DATA RECEBIDA" and hasattr(valor, "strftime"):
-                texto = valor.strftime("%m/%d/%Y")
+                texto = valor.strftime("%d/%m/%Y")
             elif coluna == "FQ" and isinstance(valor, Real):
                 texto = f"{valor:.{CASAS_DECIMAIS_FQ}f}"
             elif isinstance(valor, Real) and not isinstance(valor, bool):
                 texto = str(int(valor)) if float(valor).is_integer() else str(valor)
             else:
                 texto = str(valor)
-            classe = ' class="celula-alterada"' if coluna in colunas_alteradas else ""
+            if agrupar_processos and coluna == "Nº SEI" and not texto:
+                texto = "↳"
+            classe = (
+                ' class="celula-alterada"'
+                if coluna in colunas_alteradas and not (
+                    agrupar_processos and not str(linha.get(coluna, ""))
+                )
+                else ""
+            )
             celulas.append(f"<td{classe}>{html.escape(texto)}</td>")
-        linhas.append(f"<tr>{''.join(celulas)}</tr>")
+        if agrupar_processos:
+            tipo = (
+                "linha-inicio-processo"
+                if str(linha.get("Nº SEI", ""))
+                else "linha-municipio-adicional"
+            )
+            linhas.append(f'<tr class="{tipo}">{"".join(celulas)}</tr>')
+        else:
+            linhas.append(f"<tr>{''.join(celulas)}</tr>")
+    classe_tabela = (
+        "tabela-planilha-rolagem tabela-consolidado-agrupado"
+        if agrupar_processos else "tabela-planilha-rolagem"
+    )
+    cabecalho_grupos = ""
+    if agrupar_processos and colunas == COLUNAS_RESULTADOS:
+        cabecalho_grupos = (
+            '<tr class="cabecalho-grupos">'
+            '<th colspan="6" scope="colgroup">IDENTIFICAÇÃO</th>'
+            '<th colspan="14" scope="colgroup">PARÂMETROS GERAIS</th>'
+            '<th colspan="7" scope="colgroup">RESULTADOS POR MUNICÍPIO</th>'
+            '</tr>'
+        )
     return (
-        '<div class="tabela-planilha-rolagem" role="region" '
+        f'<div class="{classe_tabela}" role="region" '
         'aria-label="Tabela de dados; use as barras de rolagem para navegar" '
         'tabindex="0"><table class="tabela-planilha">'
-        f"<thead><tr>{cabecalho}</tr></thead>"
+        f"<thead>{cabecalho_grupos}<tr>{cabecalho}</tr></thead>"
         f"<tbody>{''.join(linhas)}</tbody></table></div>"
     )
 
@@ -228,7 +319,10 @@ def proteger_csv(quadro: pd.DataFrame) -> bytes:
     for coluna in quadro.columns:
         if coluna == "DATA RECEBIDA":
             quadro[coluna] = quadro[coluna].map(
-                lambda valor_csv: valor_csv.strftime("%m/%d/%Y")
+                lambda valor_csv: (
+                    valor_csv.strftime("%d/%m/%Y")
+                    if hasattr(valor_csv, "strftime") else valor_csv
+                )
             )
         else:
             quadro[coluna] = quadro[coluna].map(
