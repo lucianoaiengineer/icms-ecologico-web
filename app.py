@@ -1007,7 +1007,8 @@ if modulo == "Ficha":
         "11.2": ":material/account_balance:",
         "11.3": ":material/payments:",
     }
-    proporcao_municipal = [2.6, 1.25, 4.0, 1.3, 1.05]
+    # Uma única linha: nome, pontuações, justificativa, anexos e remoção.
+    proporcao_municipal = [2.4, 1.2, 3.5, 1.65, 1.2, 0.95]
     for codigo in MUNICIPAIS:
         with st.container(key=f"bloco_municipal_{codigo.replace('.', '_')}"):
             with st.expander(
@@ -1018,7 +1019,10 @@ if modulo == "Ficha":
                 with st.container(
                     key=f"cabecalho_municipal_{codigo.replace('.', '_')}"
                 ):
-                    col_nome, col_gestor, col_just, col_validado, col_acao = (
+                    (
+                        col_nome, col_gestor, col_just, col_validado,
+                        col_anexos, col_acao,
+                    ) = (
                         st.columns(
                             proporcao_municipal,
                             gap="small",
@@ -1030,6 +1034,7 @@ if modulo == "Ficha":
                         (col_gestor, "Pontos do gestor"),
                         (col_just, "Justificativa"),
                         (col_validado, "Pontos validados"),
+                        (col_anexos, "Anexos"),
                     ):
                         with coluna:
                             st.markdown(f"**{rotulo}**")
@@ -1054,6 +1059,7 @@ if modulo == "Ficha":
                             coluna_gestor,
                             coluna_just,
                             coluna_validado,
+                            coluna_anexos,
                             coluna_acao,
                         ) = st.columns(
                             proporcao_municipal,
@@ -1134,6 +1140,30 @@ if modulo == "Ficha":
                                     height=68,
                                     disabled=not pode_editar or not identificado,
                                     label_visibility="collapsed",
+                                )
+                        with coluna_anexos:
+                            # Elemento demonstrativo: sem seleção, upload ou
+                            # armazenamento. Ocupa a mesma linha do município.
+                            with st.container(
+                                key=(
+                                    f"anexos_visual_{codigo.replace('.', '_')}"
+                                    f"_{posicao}"
+                                )
+                            ):
+                                st.button(
+                                    "Anexos",
+                                    icon=":material/attach_file:",
+                                    disabled=True,
+                                    width="stretch",
+                                    help=(
+                                        "Apenas indicação visual. O envio de "
+                                        "documentos não está disponível "
+                                        "nesta demonstração."
+                                    ),
+                                    key=(
+                                        f"{prefixo}_anexos_visual_"
+                                        f"{codigo.replace('.', '_')}_{posicao}"
+                                    ),
                                 )
                         with coluna_acao:
                             if codigo == "10" and pode_editar:
