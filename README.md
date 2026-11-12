@@ -58,14 +58,36 @@ O resultado é arredondado para **quatro casas decimais**, com `Decimal` e `ROUN
 
 ### Relatórios de resultados
 
-O módulo **Resultados** oferece duas visões, sem posições municipais vazias:
+O módulo **Resultados** exibe, por padrão, o **Consolidado geral**: uma tabela
+contínua com os processos SEI e as informações da ficha organizadas como na
+planilha de referência. Há duas abas:
 
 | Visão | Conteúdo |
 | --- | --- |
-| **Resumo das fichas** | Uma linha por processo SEI concluído, com identificação, número de municípios, versão e última gravação (9 colunas). |
-| **Resultados por município** | Uma linha por município cadastrado, com 6 identificadores, 14 pontos validados gerais, nome, 4 pontos validados municipais, soma e FQ (**27 colunas**). |
+| **Consolidado geral** | Uma tabela geral de 27 colunas: seis de identificação, 14 parâmetros gerais, nome do município, quatro parâmetros municipais, soma e FQ. |
+| **Consulta por processo** | Seleção de um único SEI para consultar identificação, parâmetros gerais e municípios vinculados sem percorrer toda a tabela. |
 
-Cada visão possui um CSV próprio, com a mesma estrutura da grade exibida. Fichas em rascunho e fichas excluídas não entram em nenhuma das duas exportações.
+No **Consolidado geral**, a primeira linha de cada SEI apresenta todos os dados
+de identificação e os 14 parâmetros gerais, além dos dados do primeiro município.
+Quando a ficha tem outros municípios, eles aparecem nas linhas seguintes, com
+os dados gerais em branco e somente suas pontuações municipais, soma e FQ.
+**Um município equivale a uma linha e não há quantidade fixa de municípios.**
+As linhas ficam agrupadas por SEI, com divisórias entre processos e rolagem
+horizontal para consultar todas as colunas.
+
+A pesquisa por processo, unidade ou município preserva o conjunto de municípios
+vinculados à ficha encontrada. Apenas fichas concluídas entram nas visualizações.
+Fichas excluídas são retiradas do consolidado após sua exclusão confirmada.
+
+Os dois CSVs atendem a finalidades diferentes:
+
+- **Consolidado geral:** reproduz a tabela visual, com campos compartilhados vazios
+  após a primeira linha do SEI.
+- **Análise completa:** mantém o SEI e os parâmetros gerais em cada linha municipal,
+  facilitando filtros, tabelas dinâmicas e cruzamentos no Excel.
+
+Cada relatório apresenta as mesmas 27 colunas, mas com preenchimento diferente
+nos registros municipais adicionais. O CSV de resultados não é um backup de fichas.
 
 O formulário não apresenta mais a seção **TOTAL DOS PARÂMETROS** nem os indicadores de totais do gestor e dos pontos validados. Os cálculos internos necessários ao FQ permanecem intactos.
 
