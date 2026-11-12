@@ -84,6 +84,17 @@ class TesteInterface(unittest.TestCase):
         )
         self.assertTrue(botao.disabled)
 
+    def test_resumo_sem_revisao_repetida(self) -> None:
+        """Mantém o resumo e remove a revisão redundante do formulário."""
+        self.carregar_ficha()
+        self.assertFalse(any(
+            botao.label == "Revisar preenchimento"
+            for botao in self.aplicacao.button
+        ))
+        titulos = " ".join(item.value for item in self.aplicacao.markdown)
+        self.assertIn("Resumo final da ficha", titulos)
+        self.assertNotIn("Revisão do preenchimento", titulos)
+
     def test_quatro_blocos_e_titulos_corretos(self) -> None:
         """Não exibe números ou a palavra Parâmetro nos títulos expansíveis."""
         self.carregar_ficha()
@@ -175,7 +186,7 @@ class TesteInterface(unittest.TestCase):
         ]
         self.assertGreaterEqual(len(grades), 2)
         self.assertTrue(any("Município demonstrativo" in html for html in grades))
-        self.assertTrue(any("PARÂM 11.3" in html for html in grades))
+        self.assertTrue(any("Recursos Financeiro" in html for html in grades))
         self.assertTrue(any("0.4157" in html for html in grades))
         self.assertFalse(any("Nota13" in html for html in grades))
 
