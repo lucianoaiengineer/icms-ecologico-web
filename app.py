@@ -899,102 +899,102 @@ if modulo == "Ficha":
             ).isoformat()
     # Apresentação fiel à referência: cabeçalho compacto e linhas editáveis.
     with st.container(key="parametros_gerais_cartao"):
-        st.markdown('<h2 class="icms-titulo-secao">Parâmetros</h2>', unsafe_allow_html=True)
-        proporcao_colunas = [3.25, 1.4, 4.35, 1.45]
-        with st.container(key="cabecalho_parametros_gerais"):
-            col_rotulo, col_gestor, col_just, col_validado = st.columns(
-                proporcao_colunas, gap="small", vertical_alignment="center"
-            )
-            for coluna, titulo in (
-                (col_rotulo, "Parâmetro"),
-                (col_gestor, "Pontos do gestor"),
-                (col_just, "Justificativa"),
-                (col_validado, "Pontos validados"),
-            ):
-                with coluna:
-                    st.markdown(f"**{titulo}**")
-        for codigo, nome in PARAMETROS:
-            pontos = ficha["parametros"][codigo]
-            pontos_originais = st.session_state.ficha_original["parametros"].get(
-                codigo, {}
-            )
-            with st.container(key=f"linha_parametro_{codigo.replace('.', '_')}"):
-                (
-                    coluna_parametro,
-                    coluna_gestor,
-                    coluna_justificativa,
-                    coluna_validado,
-                ) = st.columns(
+        with st.expander("Parâmetros", expanded=False, icon=":material/tune:"):
+            proporcao_colunas = [3.25, 1.4, 4.35, 1.45]
+            with st.container(key="cabecalho_parametros_gerais"):
+                col_rotulo, col_gestor, col_just, col_validado = st.columns(
                     proporcao_colunas, gap="small", vertical_alignment="center"
                 )
-                with coluna_parametro:
-                    chave_rotulo = f"{prefixo}_{codigo}_rotulo"
-                    rotulo_padrao = f"{codigo} · {nome}"
-                    with st.container(
-                        key=chave_container_campo(
-                            chave_rotulo,
-                            pontos_originais.get("rotulo", rotulo_padrao),
-                        )
-                    ):
-                        # A edição do título existente é preservada; o CSS
-                        # apresenta o controle como texto de uma linha.
-                        pontos["rotulo"] = st.text_input(
-                            f"{codigo} · Parâmetro",
-                            value=pontos.get("rotulo", rotulo_padrao),
-                            key=chave_rotulo,
-                            disabled=not pode_editar,
-                            label_visibility="collapsed",
-                        )
-                with coluna_gestor:
-                    chave_gestor = f"{prefixo}_{codigo}_gestor"
-                    with st.container(
-                        key=chave_container_campo(
-                            chave_gestor, pontos_originais.get("gestor")
-                        )
-                    ):
-                        pontos["gestor"] = st.number_input(
-                            f"{codigo} · Pontos Gestor",
-                            min_value=0,
-                            max_value=9,
-                            value=pontos["gestor"],
-                            step=1,
-                            key=chave_gestor,
-                            disabled=not pode_editar,
-                            label_visibility="collapsed",
-                        )
-                with coluna_justificativa:
-                    chave_justificativa = f"{prefixo}_{codigo}_justificativa"
-                    with st.container(
-                        key=chave_container_campo(
-                            chave_justificativa,
-                            pontos_originais.get("justificativa", ""),
-                        )
-                    ):
-                        pontos["justificativa"] = st.text_area(
-                            f"{codigo} · Justificativa/Observação",
-                            value=pontos["justificativa"],
-                            key=chave_justificativa,
-                            height=68,
-                            disabled=not pode_editar,
-                            label_visibility="collapsed",
-                        )
-                with coluna_validado:
-                    chave_validado = f"{prefixo}_{codigo}_validado"
-                    with st.container(
-                        key=chave_container_campo(
-                            chave_validado, pontos_originais.get("validado")
-                        )
-                    ):
-                        pontos["validado"] = st.number_input(
-                            f"{codigo} · Pontos Validados",
-                            min_value=0,
-                            max_value=9,
-                            value=pontos["validado"],
-                            step=1,
-                            key=chave_validado,
-                            disabled=not pode_editar,
-                            label_visibility="collapsed",
-                        )
+                for coluna, titulo in (
+                    (col_rotulo, "Parâmetro"),
+                    (col_gestor, "Pontos do gestor"),
+                    (col_just, "Justificativa"),
+                    (col_validado, "Pontos validados"),
+                ):
+                    with coluna:
+                        st.markdown(f"**{titulo}**")
+            for codigo, nome in PARAMETROS:
+                pontos = ficha["parametros"][codigo]
+                pontos_originais = st.session_state.ficha_original["parametros"].get(
+                    codigo, {}
+                )
+                with st.container(key=f"linha_parametro_{codigo.replace('.', '_')}"):
+                    (
+                        coluna_parametro,
+                        coluna_gestor,
+                        coluna_justificativa,
+                        coluna_validado,
+                    ) = st.columns(
+                        proporcao_colunas, gap="small", vertical_alignment="center"
+                    )
+                    with coluna_parametro:
+                        chave_rotulo = f"{prefixo}_{codigo}_rotulo"
+                        rotulo_padrao = f"{codigo} · {nome}"
+                        with st.container(
+                            key=chave_container_campo(
+                                chave_rotulo,
+                                pontos_originais.get("rotulo", rotulo_padrao),
+                            )
+                        ):
+                            # A edição do título existente é preservada; o CSS
+                            # apresenta o controle como texto de uma linha.
+                            pontos["rotulo"] = st.text_input(
+                                f"{codigo} · Parâmetro",
+                                value=pontos.get("rotulo", rotulo_padrao),
+                                key=chave_rotulo,
+                                disabled=not pode_editar,
+                                label_visibility="collapsed",
+                            )
+                    with coluna_gestor:
+                        chave_gestor = f"{prefixo}_{codigo}_gestor"
+                        with st.container(
+                            key=chave_container_campo(
+                                chave_gestor, pontos_originais.get("gestor")
+                            )
+                        ):
+                            pontos["gestor"] = st.number_input(
+                                f"{codigo} · Pontos Gestor",
+                                min_value=0,
+                                max_value=9,
+                                value=pontos["gestor"],
+                                step=1,
+                                key=chave_gestor,
+                                disabled=not pode_editar,
+                                label_visibility="collapsed",
+                            )
+                    with coluna_justificativa:
+                        chave_justificativa = f"{prefixo}_{codigo}_justificativa"
+                        with st.container(
+                            key=chave_container_campo(
+                                chave_justificativa,
+                                pontos_originais.get("justificativa", ""),
+                            )
+                        ):
+                            pontos["justificativa"] = st.text_area(
+                                f"{codigo} · Justificativa/Observação",
+                                value=pontos["justificativa"],
+                                key=chave_justificativa,
+                                height=68,
+                                disabled=not pode_editar,
+                                label_visibility="collapsed",
+                            )
+                    with coluna_validado:
+                        chave_validado = f"{prefixo}_{codigo}_validado"
+                        with st.container(
+                            key=chave_container_campo(
+                                chave_validado, pontos_originais.get("validado")
+                            )
+                        ):
+                            pontos["validado"] = st.number_input(
+                                f"{codigo} · Pontos Validados",
+                                min_value=0,
+                                max_value=9,
+                                value=pontos["validado"],
+                                step=1,
+                                key=chave_validado,
+                                disabled=not pode_editar,
+                                label_visibility="collapsed",
+                            )
 
     st.markdown(
         '<h2 class="icms-titulo-municipios">Parâmetros por municípios</h2>',
