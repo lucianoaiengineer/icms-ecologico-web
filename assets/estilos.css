@@ -980,3 +980,38 @@ table.tabela-planilha {
         text-align: left;
     }
 }
+
+
+/* Anexos demonstrativos: sempre na MESMA linha do município.
+   O botão está desabilitado e não carrega, grava nem acessa documentos. */
+[class*="st-key-anexos_visual_"] {
+    min-width: 0;
+}
+[class*="st-key-anexos_visual_"] button:disabled {
+    min-height: 2.1rem !important;
+    width: 100% !important;
+    padding: 0.25rem 0.36rem !important;
+    border: 1px solid #cad5de !important;
+    border-radius: 0.4rem !important;
+    background: #f3f6f8 !important;
+    color: #536675 !important;
+    font-size: 0.79rem !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
+    cursor: not-allowed !important;
+    white-space: nowrap !important;
+}
+[class*="st-key-anexos_visual_"] button:disabled svg {
+    width: 1rem !important;
+    height: 1rem !important;
+    stroke: #536675 !important;
+    fill: none !important;
+}
+/* A sexta coluna é reservada para Anexos na própria linha, sem
+   acrescentar outras linhas; telas estreitas mantêm a rolagem existente. */
+@media (max-width: 900px) {
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"],
+    [class*="st-key-cabecalho_municipal_"] [data-testid="stHorizontalBlock"] {
+        min-width: 910px;
+    }
+}
