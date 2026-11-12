@@ -15,6 +15,7 @@ import pandas as pd
 from icms.regras import (
     CASAS_DECIMAIS_FQ,
     MUNICIPAIS,
+    NOMES_MUNICIPAIS,
     PARAMETROS,
     calcular,
     formatar_fq,
@@ -44,6 +45,18 @@ COLUNAS_RESUMO = [
     "Versão",
     "Última gravação",
 ]
+
+
+# As chaves técnicas do cálculo permanecem intactas. Apenas a apresentação
+# dos relatórios e CSVs utiliza os nomes visíveis na ficha.
+CABECALHOS_MUNICIPAIS = {
+    f"PARÂM {codigo}": NOMES_MUNICIPAIS[codigo] for codigo in MUNICIPAIS
+}
+
+
+def apresentar_cabecalhos_municipais(quadro: pd.DataFrame) -> pd.DataFrame:
+    """Renomeia apenas cabeçalhos visíveis; preserva todos os dados e valores."""
+    return quadro.rename(columns=CABECALHOS_MUNICIPAIS)
 
 
 def mapa_parametros_resultado(
@@ -261,7 +274,10 @@ def renderizar_tabela(
         if agrupar_processos else "tabela-planilha-rolagem"
     )
     cabecalho_grupos = ""
-    if agrupar_processos and colunas == COLUNAS_RESULTADOS:
+    if agrupar_processos and colunas in (
+        COLUNAS_RESULTADOS,
+        [CABECALHOS_MUNICIPAIS.get(c, c) for c in COLUNAS_RESULTADOS],
+    ):
         cabecalho_grupos = (
             '<tr class="cabecalho-grupos">'
             '<th colspan="6" scope="colgroup">IDENTIFICAÇÃO</th>'
