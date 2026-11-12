@@ -917,3 +917,66 @@ table.tabela-planilha {
 .tabela-consolidado-agrupado .tabela-planilha thead tr:nth-child(2) th {
     top: 2.3rem;
 }
+
+
+/* Rodapé genérico para a demonstração pública.
+   Nenhum elemento abaixo representa identidade oficial ou abre links. */
+.rodape-institucional .rodape-marca {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+}
+.rodape-institucional .rodape-logo-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    width: 6.5rem;
+    min-height: 6.1rem;
+    flex-shrink: 0;
+    border: 1px dashed #ffffffb3;
+    border-radius: 0.55rem;
+    padding: 0.5rem;
+    box-sizing: border-box;
+    text-align: center;
+    color: #ffffff;
+    background: #ffffff12;
+}
+.rodape-institucional .rodape-logo-placeholder svg {
+    display: block;
+    width: 2.55rem;
+    height: 2.55rem;
+}
+.rodape-institucional .rodape-logo-placeholder span {
+    font-size: 0.7rem;
+    line-height: 1.2;
+    font-weight: 600;
+}
+.rodape-institucional .rodape-identificacao {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    line-height: 1.35;
+}
+.rodape-institucional .rodape-identificacao strong {
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: normal;
+}
+.rodape-institucional .rodape-informacoes {
+    text-align: right;
+    max-width: 25rem;
+    line-height: 1.5;
+}
+@media (max-width: 640px) {
+    .rodape-institucional .rodape-marca {
+        align-items: flex-start;
+    }
+    .rodape-institucional .rodape-informacoes {
+        text-align: left;
+    }
+}
