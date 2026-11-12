@@ -1015,3 +1015,398 @@ table.tabela-planilha {
         min-width: 910px;
     }
 }
+
+/* ========================================================================
+   ICMS ECOLÓGICO — RESPONSIVIDADE (12/11/2026)
+   Alteração exclusivamente visual. Nenhuma regra de cadastro ou cálculo.
+   O CSS antigo forçava colunas sem quebra e largura mínima de 680/910 px.
+   No celular, linhas de formulário viram cartões verticais editáveis.
+   ======================================================================== */
+@media (max-width: 950px) {
+    /* A página nunca deve exigir uma largura maior que a tela. */
+    [data-testid="stMainBlockContainer"] {
+        width: calc(100% - 0.75rem) !important;
+        max-width: calc(100vw - 0.75rem) !important;
+        min-width: 0 !important;
+        margin: 0.65rem auto 1rem !important;
+        padding: 0.85rem 0.65rem 1.25rem !important;
+        box-sizing: border-box !important;
+    }
+    [data-testid="stMainBlockContainer"] :is(
+        [data-testid="stVerticalBlock"],
+        [data-testid="stVerticalBlockBorderWrapper"],
+        [data-testid="stExpanderDetails"],
+        [data-testid="stElementContainer"]
+    ) {
+        min-width: 0 !important;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    .st-key-cabecalho_visual_aplicacao img,
+    [data-testid="stMainBlockContainer"] [data-testid="stImage"] img {
+        display: block;
+        max-width: 100% !important;
+        height: auto !important;
+        object-fit: contain;
+    }
+    /* Neutraliza o nowrap imposto globalmente para desktop. */
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        flex-wrap: wrap !important;
+        gap: 0.55rem !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]) {
+        flex: 0 1 auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .rotulo-form-linha {
+        text-align: left !important;
+        font-size: 0.88rem;
+        line-height: 1.4;
+    }
+    [data-testid="stMainBlockContainer"] :is(
+        [data-testid="stTextInput"],
+        [data-testid="stNumberInput"],
+        [data-testid="stTextArea"],
+        [data-testid="stDateInput"],
+        [data-testid="stSelectbox"]
+    ) {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    /* Evita o zoom automático do iOS quando um campo recebe foco. */
+    [data-testid="stMainBlockContainer"] :is(
+        [data-testid="stTextInput"],
+        [data-testid="stNumberInput"],
+        [data-testid="stTextArea"],
+        [data-testid="stDateInput"]
+    ) :is(input, textarea) {
+        font-size: 16px !important;
+        max-width: 100% !important;
+    }
+    [data-testid="stMainBlockContainer"] [data-testid="stSelectbox"] input {
+        font-size: 16px !important;
+    }
+    [data-testid="stMainBlockContainer"] [data-testid="stExpander"] {
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    .st-key-parametros_gerais_cartao,
+    [class*="st-key-bloco_municipal_"] {
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+    .st-key-parametros_gerais_cartao [data-testid="stExpanderDetails"],
+    [class*="st-key-bloco_municipal_"] [data-testid="stExpanderDetails"] {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-x: visible !important;
+        padding: 0.6rem 0.7rem 0.8rem !important;
+    }
+    /* Os cabeçalhos da tabela desktop são substituídos por rótulos
+       em cada linha: funciona inclusive com os blocos recolhidos. */
+    [class*="st-key-cabecalho_parametros_gerais"],
+    [class*="st-key-cabecalho_municipal_"] {
+        display: none !important;
+    }
+    [class*="st-key-linha_parametro_"],
+    [class*="st-key-linha_municipal_"] {
+        padding: 0.75rem 0.15rem !important;
+        margin: 0 !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
+    }
+    /* Grades específicas sobrescrevem a antiga largura mínima de 680/910px.
+       Em tablets, as duas pontuações podem aparecer lado a lado. */
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"],
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"] {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-auto-rows: auto !important;
+        align-items: start !important;
+        gap: 0.75rem 0.9rem !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]),
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]) {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: none !important;
+    }
+    /* Primeiro: nome/descrição; depois notas; por fim justificativa. */
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(1),
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(1) {
+        grid-column: 1 / -1;
+        grid-row: 1;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(2),
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(2) {
+        grid-column: 1;
+        grid-row: 2;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(4),
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(4) {
+        grid-column: 2;
+        grid-row: 2;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(3),
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(3) {
+        grid-column: 1 / -1;
+        grid-row: 3;
+    }
+    /* Controles municipais extras ficam na última linha do cartão.
+       A coluna 5 apresenta Anexos (somente visual); a 6 remove. */
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(5) {
+        grid-column: 1;
+        grid-row: 4;
+    }
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(6) {
+        grid-column: 2;
+        grid-row: 4;
+    }
+    /* Rótulos claros e associados visualmente aos controles da linha. */
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(2)::before,
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(2)::before {
+        content: "Pontos do gestor";
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(3)::before,
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(3)::before {
+        content: "Justificativa";
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(4)::before,
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(4)::before {
+        content: "Pontos validados";
+    }
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(1)::before {
+        content: "Município";
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(2)::before,
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(3)::before,
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(4)::before,
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(1)::before,
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(2)::before,
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(3)::before,
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(4)::before {
+        display: block;
+        margin: 0 0 0.4rem;
+        color: #475569;
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1.35;
+        white-space: normal;
+    }
+    /* O primeiro campo geral é o título do parâmetro (não um input
+       numérico); usa estilo de título, mantendo a edição possível. */
+    [class*="st-key-linha_parametro_"] [data-testid="stTextInput"] input {
+        min-height: 2.55rem !important;
+        padding: 0.45rem 0.4rem !important;
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+        white-space: normal;
+        text-overflow: ellipsis;
+    }
+    /* As justificativas crescem para caber texto no uso por toque. */
+    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea,
+    [class*="st-key-linha_municipal_"] [data-testid="stTextArea"] textarea {
+        height: 5rem !important;
+        min-height: 5rem !important;
+        resize: vertical !important;
+    }
+    [class*="st-key-anexos_visual_"] button:disabled {
+        width: 100% !important;
+        white-space: normal !important;
+        min-height: 2.55rem !important;
+    }
+    /* Não comprimir o botão de inclusão e o texto auxiliar. */
+    .st-key-acoes_adicionar_municipio {
+        margin-top: 0.6rem;
+    }
+    .st-key-acoes_adicionar_municipio [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    .st-key-acoes_adicionar_municipio [data-testid="stCaptionContainer"] {
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+    }
+    /* Tabelas extensas do consolidado continuam completas, com rolagem
+       HORIZONTAL DENTRO da tabela, não da página inteira. */
+    .tabela-planilha-rolagem,
+    .tabela-consolidado-agrupado {
+        display: block;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: auto;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+    .tabela-planilha {
+        width: max-content !important;
+        min-width: 100% !important;
+    }
+    .tabela-planilha th,
+    .tabela-planilha td {
+        padding: 0.45rem 0.6rem !important;
+        font-size: 0.85rem;
+    }
+    .tabela-consolidado-agrupado .tabela-planilha thead tr:nth-child(2) th:first-child,
+    .tabela-consolidado-agrupado .tabela-planilha tbody td:first-child {
+        min-width: 8rem !important;
+    }
+    [data-testid="stTabs"] {
+        max-width: 100%;
+        min-width: 0;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        overflow-x: auto;
+        max-width: 100%;
+        -webkit-overflow-scrolling: touch;
+    }
+    /* Teclas de atalho flutuantes não devem cobrir campos ou botões. */
+    .atalhos-rolagem {
+        display: none !important;
+    }
+    .rodape-institucional {
+        width: 100%;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        box-sizing: border-box;
+    }
+    .rodape-principal,
+    .rodape-inferior {
+        min-width: 0;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+    }
+    .rodape-marca,
+    .rodape-identificacao,
+    .rodape-informacoes {
+        min-width: 0 !important;
+        max-width: 100%;
+    }
+}
+
+/* Celulares: uma coluna por campo. Não sacrificar a largura dos inputs. */
+@media (max-width: 600px) {
+    [data-testid="stMainBlockContainer"] {
+        width: 100% !important;
+        max-width: 100vw !important;
+        padding: 0.8rem 0.55rem 1.15rem !important;
+        margin: 0.4rem auto 1rem !important;
+        border-left: 0 !important;
+        border-right: 0 !important;
+        border-radius: 0 !important;
+    }
+    .icms-titulo-pagina {
+        font-size: 1.5rem !important;
+    }
+    .icms-titulo-municipios {
+        font-size: 1.2rem !important;
+        line-height: 1.35 !important;
+    }
+    .st-key-parametros_gerais_cartao [data-testid="stExpanderDetails"],
+    [class*="st-key-bloco_municipal_"] [data-testid="stExpanderDetails"] {
+        padding: 0.55rem 0.55rem 0.7rem !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"],
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"] {
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 0.65rem !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]),
+    [class*="st-key-linha_municipal_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]) {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+    }
+    [class*="st-key-linha_municipal_"] [data-testid="stNumberInput"] input,
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input {
+        min-width: 5rem !important;
+    }
+    [class*="st-key-linha_municipal_"] [data-testid="stButton"] button,
+    .st-key-acoes_adicionar_municipio [data-testid="stButton"] button {
+        min-height: 2.6rem;
+    }
+    .rodape-principal,
+    .rodape-inferior {
+        padding: 0.75rem 0.65rem !important;
+        align-items: flex-start;
+        flex-direction: column !important;
+    }
+    .rodape-institucional .rodape-logo-placeholder {
+        width: 4.1rem;
+        min-height: 4.2rem;
+    }
+    .rodape-institucional .rodape-logo-placeholder svg {
+        width: 1.9rem;
+        height: 1.9rem;
+    }
+    .rodape-institucional .rodape-marca {
+        gap: 0.55rem;
+    }
+}
+
+/* Garantias finais para a página de acesso e os controles de toque. */
+@media (max-width: 950px) {
+    [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+    .st-key-parametros_gerais_cartao {
+        overflow-x: visible !important;
+    }
+    [data-testid="stMainBlockContainer"] [data-testid="stNumberInput"] button {
+        min-width: 2.45rem !important;
+        min-height: 2.5rem !important;
+        padding-inline: 0.15rem !important;
+    }
+}
