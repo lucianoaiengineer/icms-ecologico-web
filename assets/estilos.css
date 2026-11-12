@@ -570,12 +570,37 @@ table.tabela-planilha {
 }
 
 /* Cartão dos 14 parâmetros, com textos e campos alinhados. */
+/* O expansor já é o único painel da seção Parâmetros.
+   O invólucro recebe apenas a chave de estilização, sem outra caixa. */
 .st-key-parametros_gerais_cartao {
-    padding: 1rem 1.15rem 0.75rem !important;
-    border: 1px solid #dbe2e8;
-    border-radius: 0.9rem;
-    background: #fff;
-    box-shadow: 0 3px 12px #0f172a0f;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+/* Mesmo acabamento discreto dos painéis de parâmetros municipais. */
+.st-key-parametros_gerais_cartao [data-testid="stExpander"] {
+    overflow: hidden;
+    border: 1px solid #d7dde3 !important;
+    border-radius: 0.8rem !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 9px #0f172a12;
+}
+.st-key-parametros_gerais_cartao [data-testid="stExpander"] summary {
+    min-height: 2.6rem;
+    padding: 0.55rem 1rem;
+    color: #334155 !important;
+    background: linear-gradient(90deg, #f6f7f8, #fbfcfc) !important;
+    font-size: 1.04rem !important;
+    font-weight: 700 !important;
+}
+.st-key-parametros_gerais_cartao [data-testid="stExpander"] summary:hover {
+    background: #f1f4f6 !important;
+}
+.st-key-parametros_gerais_cartao [data-testid="stExpanderDetails"] {
+    padding: 0.4rem 1rem 0.7rem !important;
+    background: #ffffff !important;
 }
 .st-key-parametros_gerais_cartao [data-testid="stCaptionContainer"] {
     margin-bottom: 0.2rem;
