@@ -1410,3 +1410,124 @@ table.tabela-planilha {
         padding-inline: 0.15rem !important;
     }
 }
+
+
+/* Identificação — modelo compacto aprovado, sem interferir nos outros blocos.
+   Fonte neutra; rótulos em semibold e textos auxiliares/campos em regular. */
+.st-key-identificacao_cartao {
+    min-width: 0;
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+.st-key-identificacao_cartao [data-testid="stExpander"] {
+    border: 1px solid #d5e1db !important;
+    background: #fff !important;
+    border-radius: 0.8rem !important;
+    box-shadow: 0 2px 9px #0f172a10 !important;
+    overflow: hidden;
+}
+.st-key-identificacao_cartao [data-testid="stExpander"] summary {
+    background: linear-gradient(100deg, #eef6f1, #f8fbf9) !important;
+    color: #1e3b2e !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-weight: 600 !important;
+    padding: 0.56rem 0.85rem !important;
+    min-height: 2.5rem !important;
+    font-size: 1rem !important;
+}
+.st-key-identificacao_cartao [data-testid="stExpanderDetails"] {
+    padding: 0.65rem 0.95rem 0.8rem !important;
+}
+.st-key-identificacao_cartao [data-testid="stExpanderDetails"]
+    > div > [data-testid="stVerticalBlock"] {
+    gap: 0.42rem !important;
+}
+.icms-identificacao-descricao {
+    color: #596b66;
+    font-size: 0.81rem;
+    line-height: 1.35;
+    font-weight: 400 !important;
+    margin: 0.02rem 0 0.26rem;
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+[class*="st-key-identificacao_campo_"] {
+    min-width: 0;
+}
+[class*="st-key-identificacao_campo_"] [data-testid="stVerticalBlock"] {
+    gap: 0.12rem !important;
+}
+.icms-identificacao-rotulo {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 0.88rem;
+    font-weight: 600 !important;
+    line-height: 1.24;
+    color: #22352d;
+    margin: 0;
+}
+.icms-identificacao-ajuda {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 0.75rem;
+    font-weight: 400 !important;
+    line-height: 1.28;
+    color: #65746f;
+    margin-top: 0.1rem;
+    margin-bottom: 0.18rem;
+}
+.st-key-identificacao_cartao :is(
+    [data-testid="stTextInput"], [data-testid="stNumberInput"],
+    [data-testid="stDateInput"], [data-testid="stSelectbox"]
+) {
+    width: 100% !important;
+    min-width: 0 !important;
+}
+.st-key-identificacao_cartao :is(
+    [data-testid="stTextInput"], [data-testid="stNumberInput"],
+    [data-testid="stDateInput"]
+) :is([data-baseweb="input"], input),
+.st-key-identificacao_cartao [data-testid="stSelectbox"]
+    [data-baseweb="select"] > div {
+    min-height: 2.18rem !important;
+    border-radius: 0.42rem !important;
+}
+.st-key-identificacao_cartao :is(
+    [data-testid="stTextInput"], [data-testid="stNumberInput"],
+    [data-testid="stDateInput"]
+) input {
+    height: 2.18rem !important;
+    padding: 0.23rem 0.55rem !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 0.92rem !important;
+    font-weight: 400 !important;
+    line-height: 1.25 !important;
+}
+.st-key-identificacao_cartao [data-testid="stSelectbox"]
+    [data-baseweb="select"] {
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 0.92rem;
+    font-weight: 400 !important;
+}
+[class*="st-key-identificacao_linha_"] [data-testid="stHorizontalBlock"] {
+    align-items: start !important;
+    gap: 0.9rem !important;
+}
+@media (max-width: 950px) {
+    /* O formulário deve ocupar a largura disponível sem truncar campos. */
+    [class*="st-key-identificacao_linha_"] [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 0.46rem !important;
+        width: 100% !important;
+    }
+    [class*="st-key-identificacao_linha_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]) {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .st-key-identificacao_cartao [data-testid="stExpanderDetails"] {
+        padding: 0.55rem 0.62rem 0.7rem !important;
+    }
+    .st-key-identificacao_cartao :is(
+        [data-testid="stTextInput"], [data-testid="stNumberInput"],
+        [data-testid="stDateInput"]
+    ) input {
+        font-size: 16px !important;
+    }
+}
