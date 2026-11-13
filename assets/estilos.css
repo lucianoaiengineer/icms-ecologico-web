@@ -1785,73 +1785,15 @@ table.tabela-planilha {
 
     /* Borda no contêiner REAL do number_input.
        Evita que apareça somente uma lateral do campo no celular. */
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] {
-        min-width: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"]
-        [data-baseweb="input"] {
-        min-width: 0 !important;
-        width: 100% !important;
-        border: 1px solid #b6c5cd !important;
-        border-radius: 0.42rem !important;
-        background: #fff !important;
-        box-shadow: none !important;
-        overflow: hidden !important;
-        box-sizing: border-box !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"]
-        [data-baseweb="input"]:focus-within {
-        border-color: #51876b !important;
-        box-shadow: 0 0 0 2px #51876b22 !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input {
-        min-height: 2.25rem !important;
-        height: 2.25rem !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        flex: 1 1 0 !important;
-        padding: 0.22rem 0.22rem !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        background: transparent !important;
-        font: 400 16px Arial, Helvetica, sans-serif !important;
-        text-align: center !important;
-        box-sizing: border-box !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] button {
-        min-height: 2.25rem !important;
-        height: 2.25rem !important;
-        min-width: 1.95rem !important;
-        width: 1.95rem !important;
-        max-width: 1.95rem !important;
-        padding: 0.1rem !important;
-        flex-shrink: 0 !important;
-    }
+    
+    
+    
+    
+    
 
     /* Justificativa compacta, com borda contínua e expansão manual. */
-    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"]
-        [data-baseweb="textarea"] {
-        min-height: 3.2rem !important;
-        border: 1px solid #b6c5cd !important;
-        border-radius: 0.42rem !important;
-        background: #fff !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-        box-sizing: border-box !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
-        min-height: 3.15rem !important;
-        height: 3.15rem !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        background: transparent !important;
-        padding: 0.42rem 0.5rem !important;
-        font: 400 16px/1.35 Arial, Helvetica, sans-serif !important;
-        resize: vertical !important;
-        box-sizing: border-box !important;
-    }
+    
+    
 }
 
 
@@ -1932,94 +1874,16 @@ table.tabela-planilha {
     }
     /* Pontuações: borda completa no widget e no elemento interno, sem
        molduras duplas e sem cortar os botões de incremento/decremento. */
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] {
-        display: block !important;
-        min-width: 0 !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-        background: #ffffff !important;
-        border: 1px solid #a6b8c6 !important;
-        border-radius: 0.45rem !important;
-        box-shadow: none !important;
-        overflow: hidden !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"]:focus-within {
-        border-color: #477b61 !important;
-        box-shadow: 0 0 0 2px #477b6122 !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"]
-        [data-baseweb="input"] {
-        min-height: 2.45rem !important;
-        width: 100% !important;
-        background: #ffffff !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input {
-        box-sizing: border-box !important;
-        min-width: 0 !important;
-        min-height: 2.45rem !important;
-        height: 2.45rem !important;
-        padding: 0.18rem 0.25rem !important;
-        background: #ffffff !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        font: 400 16px Arial, Helvetica, sans-serif !important;
-        color: #1f2937 !important;
-        text-align: center !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] button {
-        min-height: 2.45rem !important;
-        height: 2.45rem !important;
-        min-width: 2.1rem !important;
-        width: 2.1rem !important;
-        padding: 0 !important;
-        box-sizing: border-box !important;
-        border: 0 !important;
-        background: #f8fafb !important;
-    }
+    
+    
+    
+    
+    
     /* Justificativa: contorno externo visível e campo interno mais baixo. */
-    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] {
-        min-width: 0 !important;
-        width: 100% !important;
-        background: #ffffff !important;
-        border: 1px solid #a6b8c6 !important;
-        border-radius: 0.45rem !important;
-        box-sizing: border-box !important;
-        box-shadow: none !important;
-        overflow: hidden !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"]:focus-within {
-        border-color: #477b61 !important;
-        box-shadow: 0 0 0 2px #477b6122 !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"]
-        [data-baseweb="textarea"] {
-        min-height: 3.25rem !important;
-        height: 3.25rem !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
-        display: block !important;
-        min-height: 3.25rem !important;
-        height: 3.25rem !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-        padding: 0.45rem 0.55rem !important;
-        background: #ffffff !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        font: 400 16px/1.35 Arial, Helvetica, sans-serif !important;
-        color: #1f2937 !important;
-        resize: vertical !important;
-    }
+    
+    
+    
+    
 }
 
 
@@ -2109,98 +1973,100 @@ table.tabela-planilha {
     padding: 0.1rem !important;
 }
 
-/* PARÂMETROS GERAIS: a borda numérica acompanha o input real. Os botões
-   +/- mantêm sua posição e a estrutura do formulário não é alterada. */
-[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] {
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
+/* CONTROLES DOS PARÂMETROS GERAIS — estilo único para desktop e celular.
+   O invólucro BaseWeb recebe a borda principal. Caso o Streamlit renderize
+   o input sem esse invólucro, há uma borda de segurança no input nativo.
+   Não interfere nos parâmetros municipais nem nos demais formulários. */
+[class*="st-key-linha_parametro_"] {
+    --borda-campo-parametro: #9fb3bd;
+    --borda-foco-parametro: #427a61;
+    --altura-campo-parametro: 2.18rem;
 }
-[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] [data-baseweb="input"] {
-    min-height: 2.18rem !important;
-    height: 2.18rem !important;
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"],
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] {
+    width: 100% !important;
     max-width: 100% !important;
-    box-sizing: border-box !important;
+    min-width: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
-}
-[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input {
-    min-height: 2.18rem !important;
-    height: 2.18rem !important;
-    min-width: 2.65rem !important;
-    max-width: 100% !important;
+    overflow: visible !important;
     box-sizing: border-box !important;
-    padding: 0.2rem 0.35rem !important;
-    border: 1px solid #9fb3bd !important;
+}
+/* Borda principal no contêiner do campo, não nos botões de incremento. */
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] [data-baseweb="input"],
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] [data-baseweb="textarea"] {
+    min-height: var(--altura-campo-parametro) !important;
+    height: var(--altura-campo-parametro) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    border: 1px solid var(--borda-campo-parametro) !important;
     border-radius: 0.42rem !important;
     background: #ffffff !important;
+    box-shadow: inset 0 0 0 1px #9fb3bd40 !important;
+    overflow: visible !important;
+}
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] [data-baseweb="input"]:focus-within,
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] [data-baseweb="textarea"]:focus-within {
+    border-color: var(--borda-foco-parametro) !important;
+    box-shadow: 0 0 0 2px #427a6126 !important;
+}
+/* Campo com BaseWeb: uma borda, sem contorno duplicado no elemento interno. */
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] [data-baseweb="input"] input,
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] [data-baseweb="textarea"] textarea {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
     box-shadow: none !important;
-    font: 400 0.92rem Arial, Helvetica, sans-serif !important;
+    outline: none !important;
+}
+/* Alternativa caso o campo seja renderizado sem contêiner BaseWeb. */
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input:not([data-baseweb="input"] input),
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea:not([data-baseweb="textarea"] textarea) {
+    border: 1px solid var(--borda-campo-parametro) !important;
+    border-radius: 0.42rem !important;
+    background: #ffffff !important;
+    box-shadow: inset 0 0 0 1px #9fb3bd40 !important;
+}
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input,
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
+    display: block !important;
+    min-height: var(--altura-campo-parametro) !important;
+    height: var(--altura-campo-parametro) !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0.23rem 0.5rem !important;
     color: #22352d !important;
-    text-align: center !important;
+    font: 400 0.92rem/1.25 Arial, Helvetica, sans-serif !important;
     opacity: 1 !important;
 }
-[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input:focus {
-    border-color: #427a61 !important;
-    box-shadow: 0 0 0 2px #427a6122 !important;
-    outline: 0 !important;
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input {
+    text-align: center !important;
+    font-variant-numeric: tabular-nums !important;
+}
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
+    resize: vertical !important;
+    overflow-y: auto !important;
 }
 [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] button {
-    min-height: 2.18rem !important;
-    height: 2.18rem !important;
+    min-height: var(--altura-campo-parametro) !important;
+    height: var(--altura-campo-parametro) !important;
     min-width: 1.85rem !important;
     width: 1.85rem !important;
     padding: 0.05rem !important;
     border: 0 !important;
     background: transparent !important;
 }
-
-/* JUSTIFICATIVA: a borda também está no textarea, sem depender do wrapper.
-   Permite redimensionamento vertical com o mouse/toque e rolagem. */
-[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] {
-    width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
-}
-[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] [data-baseweb="textarea"] {
-    width: 100% !important;
-    min-height: 2.18rem !important;
-    height: 2.18rem !important;
-    box-sizing: border-box !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
-}
-[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
-    display: block !important;
-    width: 100% !important;
-    min-height: 2.18rem !important;
-    height: 2.18rem !important;
-    box-sizing: border-box !important;
-    padding: 0.25rem 0.5rem !important;
-    border: 1px solid #9fb3bd !important;
-    border-radius: 0.42rem !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
-    font: 400 0.92rem/1.25 Arial, Helvetica, sans-serif !important;
-    color: #22352d !important;
-    resize: vertical !important;
-    overflow-y: auto !important;
-    opacity: 1 !important;
-}
-[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea:focus {
-    border-color: #427a61 !important;
-    box-shadow: 0 0 0 2px #427a6122 !important;
-    outline: 0 !important;
+/* O controle permanece utilizável em telas estreitas. */
+@media (max-width: 950px) {
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input,
+    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
+        width: 100% !important;
+        font-size: 16px !important;
+    }
 }
 
 /* Alinhamento compacto e sem interferir nos controles municipais. */
