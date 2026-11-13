@@ -930,8 +930,7 @@ if modulo == "Ficha":
         ):
             st.markdown(
                 '<div class="icms-identificacao-descricao">'
-                'Dados básicos da Unidade de Conservação (U.C.) e '
-                'informações de gestão e análise.</div>',
+                </div>',
                 unsafe_allow_html=True,
             )
             for linha in (
