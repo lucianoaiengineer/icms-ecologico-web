@@ -928,12 +928,6 @@ if modulo == "Ficha":
         with st.expander(
             "Identificação", expanded=True, icon=":material/folder_open:"
         ):
-            st.markdown(
-                '<div class="icms-identificacao-descricao">'
-                'Dados básicos da Unidade de Conservação (U.C.) e '
-                'informações de gestão e análise.</div>',
-                unsafe_allow_html=True,
-            )
             for linha in (
                 ("processo", "orgao"),
                 ("unidade", "categoria"),
