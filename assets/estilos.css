@@ -1692,3 +1692,164 @@ table.tabela-planilha {
         font-size: 16px !important;
     }
 }
+
+/* ----------------------------------------------------------------------
+   Parâmetros gerais no celular — 13/11/2026
+   Linhas compactas, bordas completas e controles consistentes com a Ficha.
+   Não afeta os campos municipais, a Identificação, as regras ou o FQ.
+   ---------------------------------------------------------------------- */
+@media (max-width: 950px) {
+    .st-key-parametros_gerais_cartao [data-testid="stExpanderDetails"] {
+        padding: 0.42rem 0.65rem 0.65rem !important;
+    }
+
+    [class*="st-key-linha_parametro_"] {
+        margin: 0 !important;
+        padding: 0.48rem 0.1rem 0.55rem !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        min-width: 0 !important;
+    }
+
+    /* Dois campos de pontuação lado a lado, justificativa na largura toda.
+       Assim cada parâmetro ocupa menos altura sem estreitar a digitação. */
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"] {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.48rem 0.65rem !important;
+        align-items: start !important;
+        min-width: 0 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]) {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: none !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(1) {
+        grid-column: 1 / -1 !important;
+        grid-row: 1 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(2) {
+        grid-column: 1 !important;
+        grid-row: 2 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(4) {
+        grid-column: 2 !important;
+        grid-row: 2 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(3) {
+        grid-column: 1 / -1 !important;
+        grid-row: 3 !important;
+    }
+
+    /* Streamlit cria blocos internos com espaçamento vertical padrão.
+       A redução é aplicada apenas às linhas dos parâmetros gerais. */
+    [class*="st-key-linha_parametro_"] [data-testid="column"]
+        [data-testid="stVerticalBlock"],
+    [class*="st-key-linha_parametro_"] [data-testid="stColumn"]
+        [data-testid="stVerticalBlock"] {
+        gap: 0.18rem !important;
+    }
+
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"])::before {
+        margin-bottom: 0.2rem !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 0.78rem !important;
+        font-weight: 500 !important;
+        line-height: 1.28 !important;
+        color: #475569 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):first-child::before {
+        display: none !important;
+    }
+
+    /* O rótulo do parâmetro continua editável, sem aparência de caixa. */
+    [class*="st-key-linha_parametro_"] [data-testid="stTextInput"] input {
+        min-height: 1.95rem !important;
+        height: 1.95rem !important;
+        padding: 0.12rem 0.2rem !important;
+        border: 0 !important;
+        background: transparent !important;
+        font-size: 0.88rem !important;
+        font-weight: 600 !important;
+        line-height: 1.3 !important;
+        text-overflow: ellipsis;
+    }
+
+    /* Borda no contêiner REAL do number_input.
+       Evita que apareça somente uma lateral do campo no celular. */
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"]
+        [data-baseweb="input"] {
+        min-width: 0 !important;
+        width: 100% !important;
+        border: 1px solid #b6c5cd !important;
+        border-radius: 0.42rem !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"]
+        [data-baseweb="input"]:focus-within {
+        border-color: #51876b !important;
+        box-shadow: 0 0 0 2px #51876b22 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input {
+        min-height: 2.25rem !important;
+        height: 2.25rem !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: 1 1 0 !important;
+        padding: 0.22rem 0.22rem !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        font: 400 16px Arial, Helvetica, sans-serif !important;
+        text-align: center !important;
+        box-sizing: border-box !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] button {
+        min-height: 2.25rem !important;
+        height: 2.25rem !important;
+        min-width: 1.95rem !important;
+        width: 1.95rem !important;
+        max-width: 1.95rem !important;
+        padding: 0.1rem !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Justificativa compacta, com borda contínua e expansão manual. */
+    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"]
+        [data-baseweb="textarea"] {
+        min-height: 3.2rem !important;
+        border: 1px solid #b6c5cd !important;
+        border-radius: 0.42rem !important;
+        background: #fff !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
+        min-height: 3.15rem !important;
+        height: 3.15rem !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        padding: 0.42rem 0.5rem !important;
+        font: 400 16px/1.35 Arial, Helvetica, sans-serif !important;
+        resize: vertical !important;
+        box-sizing: border-box !important;
+    }
+}
