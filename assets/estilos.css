@@ -2023,182 +2023,205 @@ table.tabela-planilha {
 }
 
 
-/* ======================================================================
-   Ajuste final — 13/11/2026
-   1) Esfera administrativa e Data de recebimento com contorno visível.
-   2) Parâmetros gerais com a mesma linguagem visual da Identificação,
-      inclusive altura mais compacta e bordas consistentes.
-   3) Mantém responsividade no celular.
-   ====================================================================== */
+/* ==========================================================================
+   CORREÇÃO DE BORDAS — seção Identificação e Parâmetros gerais
+   13/11/2026. Seletores restritos às seções indicadas; os municípios,
+   resultados, relatórios e regras de negócio não são modificados.
 
-/* Campos compactos e delimitados na Identificação. */
+   Contexto: estilos anteriores ocultavam a borda do input real e
+   dependiam de wrappers BaseWeb, que variam entre versões do Streamlit.
+   Agora a borda aparece também no elemento interativo efetivo.
+   ========================================================================== */
+
+/* Identificação: SELECT (Esfera administrativa). O próprio controle fica
+   contornado, independentemente da estrutura interna do BaseWeb. */
 .st-key-identificacao_campo_esfera [data-testid="stSelectbox"] {
     width: min(18.5rem, 100%) !important;
     max-width: 100% !important;
     min-width: 0 !important;
+    min-height: 2.18rem !important;
+    box-sizing: border-box !important;
+    border: 1px solid #9fb3bd !important;
+    border-radius: 0.42rem !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
 }
+.st-key-identificacao_campo_esfera [data-testid="stSelectbox"]:focus-within {
+    border-color: #427a61 !important;
+    box-shadow: 0 0 0 2px #427a6122 !important;
+}
+.st-key-identificacao_campo_esfera [data-testid="stSelectbox"] [data-baseweb="select"],
+.st-key-identificacao_campo_esfera [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+.st-key-identificacao_campo_esfera [data-testid="stSelectbox"] [role="combobox"] {
+    min-height: 2.12rem !important;
+    height: 2.12rem !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    font: 400 0.92rem Arial, Helvetica, sans-serif !important;
+}
+
+/* Identificação: DATA. A caixa inteira reúne data e calendário.
+   Sem contorno duplo entre o input e o botão. */
 .st-key-identificacao_campo_recebimento [data-testid="stDateInput"] {
     width: min(12.25rem, 100%) !important;
     max-width: 100% !important;
     min-width: 0 !important;
-}
-.st-key-identificacao_campo_esfera [data-testid="stSelectbox"] [data-baseweb="select"],
-.st-key-identificacao_campo_esfera [data-testid="stSelectbox"] [data-baseweb="select"] > div,
-.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] [data-baseweb="input"] {
     min-height: 2.18rem !important;
-    height: 2.18rem !important;
-    background: #ffffff !important;
-    border: 1px solid #b6c5cd !important;
-    border-radius: 0.42rem !important;
-    box-shadow: none !important;
-    overflow: hidden !important;
     box-sizing: border-box !important;
-}
-.st-key-identificacao_campo_esfera [data-testid="stSelectbox"]:focus-within [data-baseweb="select"] > div,
-.st-key-identificacao_campo_recebimento [data-testid="stDateInput"]:focus-within [data-baseweb="input"] {
-    border-color: #51876b !important;
-    box-shadow: 0 0 0 2px #51876b22 !important;
-}
-.st-key-identificacao_campo_esfera [data-testid="stSelectbox"] input,
-.st-key-identificacao_campo_esfera [data-testid="stSelectbox"] div,
-.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] input {
-    font-family: Arial, Helvetica, sans-serif !important;
-    font-size: 0.92rem !important;
-    font-weight: 400 !important;
-    line-height: 1.25 !important;
-}
-.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] input {
-    height: 2.18rem !important;
-    padding: 0.23rem 0.55rem !important;
-    border: 0 !important;
+    border: 1px solid #9fb3bd !important;
+    border-radius: 0.42rem !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
     box-shadow: none !important;
+}
+.st-key-identificacao_campo_recebimento [data-testid="stDateInput"]:focus-within {
+    border-color: #427a61 !important;
+    box-shadow: 0 0 0 2px #427a6122 !important;
+}
+.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] [data-baseweb="input"],
+.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] input,
+.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] button {
+    min-height: 2.08rem !important;
+    height: 2.08rem !important;
+    box-sizing: border-box !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+}
+.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] input {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    padding: 0.2rem 0.4rem !important;
+    font: 400 0.92rem Arial, Helvetica, sans-serif !important;
 }
 .st-key-identificacao_campo_recebimento [data-testid="stDateInput"] button {
-    min-height: 2.18rem !important;
-    height: 2.18rem !important;
-    min-width: 2rem !important;
     width: 2rem !important;
-    border: 0 !important;
-    background: #ffffff !important;
+    min-width: 2rem !important;
+    max-width: 2rem !important;
+    flex: 0 0 2rem !important;
+    padding: 0.1rem !important;
 }
 
-/* Parâmetros gerais: altura e bordas alinhadas à seção Identificação. */
-.st-key-parametros_gerais_cartao {
-    --icms-campo-altura: 2.18rem;
-    --icms-campo-borda: 1px solid #b6c5cd;
-    --icms-campo-raio: 0.42rem;
-}
-.st-key-parametros_gerais_cartao [data-testid="stExpanderDetails"] {
-    padding-top: 0.5rem !important;
-}
-[class*="st-key-linha_parametro_"] {
-    padding: 0.22rem 0 !important;
-}
-[class*="st-key-linha_parametro_"] [data-testid="stVerticalBlock"] {
-    gap: 0.14rem !important;
-}
-[class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"] {
-    align-items: start !important;
-}
+/* PARÂMETROS GERAIS: a borda numérica acompanha o input real. Os botões
+   +/- mantêm sua posição e a estrutura do formulário não é alterada. */
 [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] {
     min-width: 0 !important;
-    width: 100% !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
 }
 [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] [data-baseweb="input"] {
-    min-height: var(--icms-campo-altura) !important;
-    height: var(--icms-campo-altura) !important;
-    border: var(--icms-campo-borda) !important;
-    border-radius: var(--icms-campo-raio) !important;
-    background: #ffffff !important;
-    box-shadow: none !important;
-    overflow: hidden !important;
+    min-height: 2.18rem !important;
+    height: 2.18rem !important;
+    max-width: 100% !important;
     box-sizing: border-box !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input {
-    min-height: var(--icms-campo-altura) !important;
-    height: var(--icms-campo-altura) !important;
-    padding: 0.23rem 0.42rem !important;
-    border: 0 !important;
-    background: transparent !important;
+    min-height: 2.18rem !important;
+    height: 2.18rem !important;
+    min-width: 2.65rem !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0.2rem 0.35rem !important;
+    border: 1px solid #9fb3bd !important;
+    border-radius: 0.42rem !important;
+    background: #ffffff !important;
     box-shadow: none !important;
-    font: 400 0.92rem/1.25 Arial, Helvetica, sans-serif !important;
+    font: 400 0.92rem Arial, Helvetica, sans-serif !important;
+    color: #22352d !important;
     text-align: center !important;
+    opacity: 1 !important;
+}
+[class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input:focus {
+    border-color: #427a61 !important;
+    box-shadow: 0 0 0 2px #427a6122 !important;
+    outline: 0 !important;
 }
 [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] button {
-    min-height: var(--icms-campo-altura) !important;
-    height: var(--icms-campo-altura) !important;
-    min-width: 1.9rem !important;
-    width: 1.9rem !important;
-    padding: 0 !important;
+    min-height: 2.18rem !important;
+    height: 2.18rem !important;
+    min-width: 1.85rem !important;
+    width: 1.85rem !important;
+    padding: 0.05rem !important;
     border: 0 !important;
-    background: #ffffff !important;
+    background: transparent !important;
 }
+
+/* JUSTIFICATIVA: a borda também está no textarea, sem depender do wrapper.
+   Permite redimensionamento vertical com o mouse/toque e rolagem. */
 [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] {
-    min-width: 0 !important;
     width: 100% !important;
-    border: var(--icms-campo-borda) !important;
-    border-radius: var(--icms-campo-raio) !important;
-    background: #ffffff !important;
-    box-shadow: none !important;
-    overflow: hidden !important;
+    min-width: 0 !important;
     box-sizing: border-box !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }
 [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] [data-baseweb="textarea"] {
-    min-height: var(--icms-campo-altura) !important;
-    height: var(--icms-campo-altura) !important;
+    width: 100% !important;
+    min-height: 2.18rem !important;
+    height: 2.18rem !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
-    background: #ffffff !important;
     box-shadow: none !important;
-    padding: 0 !important;
+    background: transparent !important;
 }
 [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
-    min-height: var(--icms-campo-altura) !important;
-    height: var(--icms-campo-altura) !important;
-    padding: 0.23rem 0.55rem !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    font: 400 0.92rem/1.25 Arial, Helvetica, sans-serif !important;
-    resize: vertical !important;
+    display: block !important;
+    width: 100% !important;
+    min-height: 2.18rem !important;
+    height: 2.18rem !important;
     box-sizing: border-box !important;
+    padding: 0.25rem 0.5rem !important;
+    border: 1px solid #9fb3bd !important;
+    border-radius: 0.42rem !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    font: 400 0.92rem/1.25 Arial, Helvetica, sans-serif !important;
+    color: #22352d !important;
+    resize: vertical !important;
+    overflow-y: auto !important;
+    opacity: 1 !important;
+}
+[class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea:focus {
+    border-color: #427a61 !important;
+    box-shadow: 0 0 0 2px #427a6122 !important;
+    outline: 0 !important;
+}
+
+/* Alinhamento compacto e sem interferir nos controles municipais. */
+[class*="st-key-linha_parametro_"] {
+    padding-block: 0.22rem !important;
 }
 
 @media (max-width: 950px) {
     .st-key-identificacao_campo_esfera [data-testid="stSelectbox"],
     .st-key-identificacao_campo_recebimento [data-testid="stDateInput"] {
-        width: 100% !important;
+        max-width: 100% !important;
     }
     [class*="st-key-linha_parametro_"] {
-        padding: 0.38rem 0.1rem 0.45rem !important;
+        padding-block: 0.4rem !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input {
+        min-width: 0 !important;
+        width: 100% !important;
     }
     [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"] {
-        column-gap: 0.7rem !important;
-        row-gap: 0.3rem !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] {
-        border: 1px solid #b6c5cd !important;
-        border-radius: 0.42rem !important;
-        background: #ffffff !important;
-        box-shadow: none !important;
-        overflow: hidden !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] [data-baseweb="input"],
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input,
-    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] button {
-        min-height: var(--icms-campo-altura) !important;
-        height: var(--icms-campo-altura) !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] {
-        border: 1px solid #b6c5cd !important;
-        border-radius: 0.42rem !important;
-    }
-    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] [data-baseweb="textarea"],
-    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
-        min-height: var(--icms-campo-altura) !important;
-        height: var(--icms-campo-altura) !important;
-        padding-top: 0.23rem !important;
-        padding-bottom: 0.23rem !important;
+        column-gap: 0.65rem !important;
+        row-gap: 0.32rem !important;
     }
 }
