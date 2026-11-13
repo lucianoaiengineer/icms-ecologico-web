@@ -821,82 +821,130 @@ if modulo == "Ficha":
         st.caption("Preencha os dados e escolha Cadastrar ou Salvar rascunho.")
     ficha = deepcopy(st.session_state.ficha)
     prefixo = str(st.session_state.geracao)
-    st.markdown("#### Identificação")
-    for campo, rotulo in (
-        ("processo", "Processo SEI"),
-        ("orgao", "Órgão gestor"),
-        ("unidade", "Nome da U.C."),
-        ("categoria", "Categoria da U.C."),
-        ("responsavel", "Responsável GCMUC"),
-        ("tecnico", "Responsável técnico"),
-        ("urfbio", "URFBio"),
-    ):
-        ficha[campo] = texto_em_linha(
-            rotulo,
-            ficha[campo],
-            f"{prefixo}_{campo}",
-            valor_original=st.session_state.ficha_original.get(campo, ""),
-            desabilitado=(
-                not pode_editar or (campo == "processo" and st.session_state.versao > 0)
-            ),
-        )
-    coluna_esfera, coluna_categoria = st.columns(2)
-    with coluna_esfera:
-        rotulo, controle = st.columns([0.45, 0.55], vertical_alignment="center")
-        with rotulo:
-            exibir_rotulo_formulario("Esfera administrativa")
-        with controle:
-            opcoes = ["", "Estadual", "Federal", "Municipal"]
-            chave_esfera = f"{prefixo}_esfera"
-            with st.container(
-                key=chave_container_campo(
-                    chave_esfera,
-                    st.session_state.ficha_original.get("esfera", ""),
-                )
+    # Formulário de identificação: uma caixa expansível e campos compactos.
+    # Os identificadores dos widgets permanecem estáveis para preservar
+    # o preenchimento, a comparação com a ficha aberta e a gravação.
+    identificacao_rotulos = {
+        "processo": (
+            "Processo SEI",
+            "Número do processo no Sistema Eletrônico de Informações (SEI).",
+        ),
+        "orgao": ("Órgão gestor", "Órgão responsável pela gestão da U.C."),
+        "unidade": ("Nome da U.C.", "Nome da Unidade de Conservação."),
+        "categoria": (
+            "Categoria da U.C.", "Categoria de manejo da Unidade de Conservação."
+        ),
+        "responsavel": (
+            "Responsável GCMUC", "Nome do responsável pela GCMUC."
+        ),
+        "tecnico": (
+            "Responsável técnico", "Nome do responsável técnico pela U.C."
+        ),
+        "urfbio": (
+            "URFBio", "Unidade Regional de Florestas e Biodiversidade de referência."
+        ),
+        "esfera": (
+            "Esfera administrativa", "Esfera de gestão da Unidade de Conservação."
+        ),
+        "pontuacao_categoria": (
+            "Pontuação da categoria", "Pontuação atribuída à categoria da U.C."
+        ),
+        "analise": (
+            "Data de análise (mm/aaaa)", "Mês e ano da análise da U.C."
+        ),
+        "recebimento": (
+            "Data de recebimento", "Data de recebimento da documentação."
+        ),
+    }
+
+    def campo_identificacao(campo: str) -> None:
+        """Apresenta campo e orientação em linhas curtas, sem alterar regras."""
+        rotulo, orientacao = identificacao_rotulos[campo]
+        chave = f"{prefixo}_{campo}"
+        valor_anterior = st.session_state.ficha_original.get(campo)
+        with st.container(key=f"identificacao_campo_{campo}"):
+            st.markdown(
+                '<div class="icms-identificacao-rotulo">'
+                f'{html.escape(rotulo)}</div>'
+                '<div class="icms-identificacao-ajuda">'
+                f'{html.escape(orientacao)}</div>',
+                unsafe_allow_html=True,
+            )
+            if campo == "recebimento":
+                anterior_data = date.fromisoformat(valor_anterior)
+                with st.container(key=chave_container_campo(chave, anterior_data)):
+                    ficha[campo] = st.date_input(
+                        rotulo,
+                        value=date.fromisoformat(ficha[campo]),
+                        format="MM/DD/YYYY",
+                        key=chave,
+                        disabled=not pode_editar,
+                        label_visibility="collapsed",
+                        width="stretch",
+                    ).isoformat()
+            elif campo == "esfera":
+                opcoes = ["", "Estadual", "Federal", "Municipal"]
+                with st.container(key=chave_container_campo(chave, valor_anterior)):
+                    ficha[campo] = st.selectbox(
+                        rotulo,
+                        opcoes,
+                        index=opcoes.index(ficha[campo]),
+                        key=chave,
+                        disabled=not pode_editar,
+                        label_visibility="collapsed",
+                    )
+            elif campo == "pontuacao_categoria":
+                with st.container(key=chave_container_campo(chave, valor_anterior)):
+                    ficha[campo] = st.number_input(
+                        rotulo,
+                        min_value=1,
+                        max_value=999,
+                        value=ficha[campo],
+                        step=1,
+                        key=chave,
+                        disabled=not pode_editar,
+                        label_visibility="collapsed",
+                    )
+            else:
+                with st.container(key=chave_container_campo(chave, valor_anterior)):
+                    ficha[campo] = st.text_input(
+                        rotulo,
+                        value=ficha[campo],
+                        key=chave,
+                        disabled=(
+                            not pode_editar
+                            or (campo == "processo" and st.session_state.versao > 0)
+                        ) if campo != "analise" else False,
+                        placeholder="mm/aaaa" if campo == "analise" else "",
+                        label_visibility="collapsed",
+                    )
+
+    with st.container(key="identificacao_cartao"):
+        with st.expander(
+            "Identificação", expanded=False, icon=":material/folder_open:"
+        ):
+            st.markdown(
+                '<div class="icms-identificacao-descricao">'
+                'Dados básicos da Unidade de Conservação (U.C.) e '
+                'informações de gestão e análise.</div>',
+                unsafe_allow_html=True,
+            )
+            for linha in (
+                ("processo", "orgao"),
+                ("unidade", "categoria"),
+                ("responsavel", "tecnico"),
+                ("urfbio",),
+                ("esfera", "pontuacao_categoria"),
+                ("analise", "recebimento"),
             ):
-                ficha["esfera"] = st.selectbox(
-                    "Esfera administrativa",
-                    opcoes,
-                    index=opcoes.index(ficha["esfera"]),
-                    key=chave_esfera,
-                    disabled=not pode_editar,
-                    label_visibility="collapsed",
-                )
-    with coluna_categoria:
-        ficha["pontuacao_categoria"] = inteiro_em_linha(
-            "Pontuação da categoria",
-            ficha["pontuacao_categoria"],
-            f"{prefixo}_pontuacao_categoria",
-            1,
-            999,
-            valor_original=st.session_state.ficha_original.get("pontuacao_categoria"),
-            desabilitado=not pode_editar,
-        )
-    ficha["analise"] = texto_em_linha(
-        "Data de análise (mm/aaaa)",
-        ficha["analise"],
-        f"{prefixo}_analise",
-        valor_original=st.session_state.ficha_original.get("analise", ""),
-        placeholder="mm/aaaa",
-    )
-    rotulo_data, controle_data = st.columns([0.24, 0.76], vertical_alignment="center")
-    with rotulo_data:
-        exibir_rotulo_formulario("Data de recebimento")
-    with controle_data:
-        chave_recebimento = f"{prefixo}_recebimento"
-        data_original = date.fromisoformat(
-            st.session_state.ficha_original["recebimento"]
-        )
-        with st.container(key=chave_container_campo(chave_recebimento, data_original)):
-            ficha["recebimento"] = st.date_input(
-                "Data de recebimento",
-                value=date.fromisoformat(ficha["recebimento"]),
-                format="MM/DD/YYYY",
-                key=chave_recebimento,
-                disabled=not pode_editar,
-                label_visibility="collapsed",
-                width=180,
-            ).isoformat()
+                with st.container(key=f"identificacao_linha_{linha[0]}"):
+                    if len(linha) == 1:
+                        campo_identificacao(linha[0])
+                    else:
+                        colunas = st.columns(2, gap="medium")
+                        for coluna, campo in zip(colunas, linha):
+                            with coluna:
+                                campo_identificacao(campo)
     # Apresentação fiel à referência: cabeçalho compacto e linhas editáveis.
     with st.container(key="parametros_gerais_cartao"):
         with st.expander("Parâmetros", expanded=False, icon=":material/tune:"):
