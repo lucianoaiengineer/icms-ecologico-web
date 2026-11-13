@@ -1531,3 +1531,164 @@ table.tabela-planilha {
         font-size: 16px !important;
     }
 }
+
+
+/* ======================================================================
+   Homologação de usabilidade: topo, ficha aberta e datas compactas.
+   Somente estilos; cadastro, relatórios e cálculos são preservados.
+   ====================================================================== */
+
+/* A faixa visual fica afastada do cabeçalho nativo do Streamlit. */
+[data-testid="stMainBlockContainer"]:not(:has(.st-key-cartao_acesso)) {
+    margin-top: 1.4rem !important;
+    padding-top: 1rem !important;
+}
+.st-key-cabecalho_visual_aplicacao {
+    margin-top: 0.45rem !important;
+    margin-bottom: 0.25rem !important;
+}
+.st-key-cabecalho_visual_aplicacao [data-testid="stImage"] {
+    margin: 0 !important;
+}
+.st-key-cabecalho_visual_aplicacao img {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    border-radius: 0.55rem !important;
+}
+
+/* Reduz espaços entre o cabeçalho, o aviso, o backup e a navegação. */
+.aviso-demo {
+    margin: 0.12rem 0 0.22rem !important;
+    padding: 0.62rem 0.85rem !important;
+    line-height: 1.45 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-weight: 400 !important;
+}
+[data-testid="stRadio"] {
+    margin-block: 0.1rem !important;
+}
+[data-testid="stRadio"] [role="radiogroup"] {
+    gap: 0.5rem 0.85rem !important;
+}
+.st-key-ficha_abertura_compacta {
+    margin: 0.05rem 0 0.2rem !important;
+}
+.st-key-ficha_abertura_compacta [data-testid="stVerticalBlock"] {
+    gap: 0.08rem !important;
+}
+.st-key-ficha_abertura_compacta .icms-titulo-pagina {
+    margin: 0.1rem 0 0.18rem !important;
+    font-size: clamp(1.55rem, 2vw, 1.95rem) !important;
+    line-height: 1.15 !important;
+}
+.st-key-ficha_abertura_compacta [data-testid="stCaptionContainer"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.4 !important;
+}
+.st-key-ficha_abertura_compacta [data-testid="stCaptionContainer"] p {
+    margin: 0 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-weight: 400 !important;
+}
+
+/* Data recebida: entrada e botão do calendário próximos, na mesma caixa. */
+.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] {
+    width: 195px !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+.st-key-identificacao_campo_recebimento [data-testid="stDateInput"]
+    [data-baseweb="input"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    overflow: hidden;
+    box-sizing: border-box !important;
+}
+.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] input {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    padding: 0.25rem 0.5rem !important;
+    font-weight: 400 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+.st-key-identificacao_campo_recebimento [data-testid="stDateInput"] button {
+    flex: 0 0 2rem !important;
+    width: 2rem !important;
+    min-width: 2rem !important;
+    max-width: 2rem !important;
+    padding-inline: 0.25rem !important;
+}
+.st-key-identificacao_campo_analise [data-testid="stTextInput"] {
+    width: 140px !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+.st-key-identificacao_campo_analise [data-testid="stTextInput"] input {
+    padding: 0.25rem 0.5rem !important;
+    font-weight: 400 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
+/* Evita que os campos compactos sejam forçados a preencher a tela inteira.
+   As outras caixas de identificação seguem com largura total. */
+@media (max-width: 950px) {
+    [data-testid="stMainBlockContainer"]:not(:has(.st-key-cartao_acesso)) {
+        margin-top: 1rem !important;
+        padding-top: 0.85rem !important;
+    }
+    .st-key-cabecalho_visual_aplicacao {
+        margin-top: 0.35rem !important;
+        margin-bottom: 0.15rem !important;
+    }
+    .st-key-ficha_abertura_compacta {
+        margin-top: 0 !important;
+    }
+    .st-key-identificacao_campo_recebimento [data-testid="stDateInput"] {
+        width: min(195px, 100%) !important;
+    }
+    .st-key-identificacao_campo_analise [data-testid="stTextInput"] {
+        width: min(140px, 100%) !important;
+    }
+    /* Evita sobreposição de rótulos quando a identificação está expandida. */
+    [class*="st-key-identificacao_linha_"] [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.5rem !important;
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+    [class*="st-key-identificacao_linha_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]) {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+}
+@media (max-width: 600px) {
+    [data-testid="stMainBlockContainer"]:not(:has(.st-key-cartao_acesso)) {
+        margin-top: 0.9rem !important;
+        padding-top: 0.7rem !important;
+    }
+    .aviso-demo {
+        padding: 0.55rem 0.65rem !important;
+    }
+    .st-key-ficha_abertura_compacta .icms-titulo-pagina {
+        font-size: 1.55rem !important;
+    }
+    .st-key-identificacao_cartao [data-testid="stExpanderDetails"] {
+        padding: 0.55rem 0.65rem !important;
+    }
+    .st-key-identificacao_campo_recebimento [data-testid="stDateInput"] input {
+        font-size: 16px !important;
+    }
+    .st-key-identificacao_campo_analise [data-testid="stTextInput"] input {
+        font-size: 16px !important;
+    }
+}
