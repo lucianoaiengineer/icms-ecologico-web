@@ -1853,3 +1853,171 @@ table.tabela-planilha {
         box-sizing: border-box !important;
     }
 }
+
+
+/* ------------------------------------------------------------------------
+   Correção final de Parâmetros no celular — 13/11/2026.
+   O contorno fica também no próprio widget: não depende exclusivamente
+   do invólucro BaseWeb, que varia entre navegadores/versões do Streamlit.
+   Não modifica Identificação, Municípios, cálculos ou dados digitados.
+   ------------------------------------------------------------------------ */
+@media (max-width: 950px) {
+    .st-key-parametros_gerais_cartao [data-testid="stExpanderDetails"] {
+        padding: 0.38rem 0.62rem 0.55rem !important;
+    }
+    [class*="st-key-linha_parametro_"] {
+        margin: 0 !important;
+        padding: 0.42rem 0.12rem 0.52rem !important;
+        border-bottom: 1px solid #e5e9ed !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"] {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        column-gap: 0.7rem !important;
+        row-gap: 0.36rem !important;
+        align-items: start !important;
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]) {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: none !important;
+        margin: 0 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(1) {
+        grid-column: 1 / -1 !important;
+        grid-row: 1 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(2) {
+        grid-column: 1 !important;
+        grid-row: 2 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(4) {
+        grid-column: 2 !important;
+        grid-row: 2 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"]):nth-child(3) {
+        grid-column: 1 / -1 !important;
+        grid-row: 3 !important;
+    }
+    /* Reduz os espaços impostos pelos contêineres internos do Streamlit. */
+    [class*="st-key-linha_parametro_"] [data-testid="stVerticalBlock"] {
+        gap: 0.16rem !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stHorizontalBlock"]
+        > :is([data-testid="column"], [data-testid="stColumn"])::before {
+        margin: 0 0 0.2rem !important;
+        font: 400 0.82rem/1.25 Arial, Helvetica, sans-serif !important;
+        color: #445365 !important;
+    }
+    /* O nome inteiro do parâmetro ocupa a largura da linha no celular. */
+    [class*="st-key-linha_parametro_"] [data-testid="stTextInput"]
+        [data-baseweb="input"],
+    [class*="st-key-linha_parametro_"] [data-testid="stTextInput"] input {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stTextInput"] input {
+        text-overflow: clip !important;
+        font-size: 0.86rem !important;
+    }
+    /* Pontuações: borda completa no widget e no elemento interno, sem
+       molduras duplas e sem cortar os botões de incremento/decremento. */
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] {
+        display: block !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        background: #ffffff !important;
+        border: 1px solid #a6b8c6 !important;
+        border-radius: 0.45rem !important;
+        box-shadow: none !important;
+        overflow: hidden !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"]:focus-within {
+        border-color: #477b61 !important;
+        box-shadow: 0 0 0 2px #477b6122 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"]
+        [data-baseweb="input"] {
+        min-height: 2.45rem !important;
+        width: 100% !important;
+        background: #ffffff !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] input {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        min-height: 2.45rem !important;
+        height: 2.45rem !important;
+        padding: 0.18rem 0.25rem !important;
+        background: #ffffff !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        font: 400 16px Arial, Helvetica, sans-serif !important;
+        color: #1f2937 !important;
+        text-align: center !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stNumberInput"] button {
+        min-height: 2.45rem !important;
+        height: 2.45rem !important;
+        min-width: 2.1rem !important;
+        width: 2.1rem !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+        border: 0 !important;
+        background: #f8fafb !important;
+    }
+    /* Justificativa: contorno externo visível e campo interno mais baixo. */
+    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] {
+        min-width: 0 !important;
+        width: 100% !important;
+        background: #ffffff !important;
+        border: 1px solid #a6b8c6 !important;
+        border-radius: 0.45rem !important;
+        box-sizing: border-box !important;
+        box-shadow: none !important;
+        overflow: hidden !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"]:focus-within {
+        border-color: #477b61 !important;
+        box-shadow: 0 0 0 2px #477b6122 !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"]
+        [data-baseweb="textarea"] {
+        min-height: 3.25rem !important;
+        height: 3.25rem !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+    [class*="st-key-linha_parametro_"] [data-testid="stTextArea"] textarea {
+        display: block !important;
+        min-height: 3.25rem !important;
+        height: 3.25rem !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 0.45rem 0.55rem !important;
+        background: #ffffff !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        font: 400 16px/1.35 Arial, Helvetica, sans-serif !important;
+        color: #1f2937 !important;
+        resize: vertical !important;
+    }
+}
