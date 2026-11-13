@@ -13,7 +13,7 @@ Aplicação desenvolvida em **Python e Streamlit** para organizar a análise de 
 ## O que é possível fazer
 
 - **Cadastrar e consultar fichas** pelo número do processo SEI.
-- **Salvar rascunhos** para continuar o preenchimento em outra ocasião, respeitando o tipo de armazenamento utilizado.
+- **Salvar rascunhos:** permite interromper o preenchimento e retomar depois. No modo demonstração, a disponibilidade desse rascunho depende da sessão ativa e do tipo de armazenamento utilizado.
 - **Revisar informações** e verificar pendências antes da conclusão.
 - **Calcular o FQ** individualmente para cada município informado.
 - **Atualizar ou excluir fichas**, com controle de versão e registro do histórico.
@@ -45,14 +45,24 @@ A consulta localiza registros **dentro da própria aplicação**. Não há conex
 
 ### Cálculo do FQ
 
-Para cada município identificado:
+Para cada município vinculado à ficha:
 
 ```text
-Soma = pontos validados dos 14 parâmetros gerais
-     + quatro pontuações daquele município
+Soma do município =
+    soma dos pontos validados dos 14 parâmetros gerais da ficha
+  + pontos validados de Zona de Amortecimento
+  + pontos validados de RH ou Recurso Material
+  + pontos validados de Empréstimo de Sede
+  + pontos validados de Recursos Financeiro
 
-FQ = Soma / pontuação da categoria
+FQ do município = Soma do município / pontuação da categoria
 ```
+
+A relação entre ficha, municípios e resultado é:
+
+- **1 ficha**
+- **N municípios vinculados**
+- **1 FQ calculado para cada município**
 
 O resultado é arredondado para **quatro casas decimais**, com `Decimal` e `ROUND_HALF_UP`. Os pontos do gestor não entram nessa soma; a nota de um município não depende da nota dos demais.
 
