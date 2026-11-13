@@ -12,6 +12,8 @@ Aplicação desenvolvida em **Python e Streamlit** para organizar a análise de 
 
 ## O que é possível fazer
 
+<p style="line-height: 2;">
+    
 - **Cadastrar e consultar fichas** pelo número do processo SEI.
 - **Salvar rascunhos:** permite interromper o preenchimento e retomar depois. No modo demonstração, a disponibilidade desse rascunho depende da sessão ativa e do tipo de armazenamento utilizado.
 - **Revisar informações** e verificar pendências antes da conclusão.
@@ -19,10 +21,13 @@ Aplicação desenvolvida em **Python e Streamlit** para organizar a análise de 
 - **Atualizar ou excluir fichas**, com controle de versão e registro do histórico.
 - **Consultar resultados consolidados** e exportá-los em CSV.
 
+</p>
 A consulta localiza registros **dentro da própria aplicação**. Não há conexão automática com o sistema SEI institucional.
 
 ## Como funciona uma ficha
 
+<p style="line-height: 3;">
+    
 **1. Localize o processo.** Informe o SEI no campo de busca. Se a ficha existir, seus dados serão apresentados; se não existir, o formulário será iniciado com o número informado.
 
 **2. Preencha os dados.** Registre as informações gerais e as pontuações na tabela compacta, com justificativas ajustáveis. Em **Parâmetros por municípios**, abra **Zona de Amortecimento** para cadastrar nomes e use **Adicionar registro** quando necessário. Os nomes aparecem automaticamente nos outros blocos: **RH ou Recurso Material**, **Empréstimo de Sede** e **Recursos Financeiro**. Cada município possui pontos do gestor, justificativa e pontos validados por bloco.
@@ -30,6 +35,8 @@ A consulta localiza registros **dentro da própria aplicação**. Não há conex
 **3. Revise e grave.** Use **Revisar preenchimento** para conferir os dados sem gravá-los. Escolha **Salvar rascunho**, **Cadastrar** ou **Atualizar ficha**, conforme a situação.
 
 **4. Consulte o resultado.** O módulo **Resultados** apresenta somente fichas concluídas. Uma ficha excluída deixa de constar da consulta e do próximo CSV exportado.
+
+</p>
 
 ## Regras essenciais
 
