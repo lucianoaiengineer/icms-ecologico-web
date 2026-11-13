@@ -1,61 +1,517 @@
 """Interface web de cadastro, consulta e resultados do ICMS Ecológico."""
 
-from __future__ import annotations
-
 import html
 import logging
 import os
 from copy import deepcopy
 from datetime import date
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from numbers import Real
+from typing import Any
 
 import pandas as pd
 import streamlit as st
 
-from icms.demonstracao import adequar_exemplos_legados, contar_exemplos_legados
-from icms.edicoes import chave_edicao
 from icms.regras import (
     CASAS_DECIMAIS_FQ,
     MUNICIPAIS,
     PARAMETROS,
-    NOMES_MUNICIPAIS,
-    nova_linha_municipal,
-    normalizar_nome_municipio,
-    normalizar_municipios,
+    ROTULOS_MUNICIPAIS,
+    calcular,
+    formatar_fq,
     normalizar_processo,
     nova_ficha,
 )
-from icms.repositorio import Conflito, Repositorio
-from icms.relatorios import (
-    colunas_resultado_alteradas,
-    apresentar_cabecalhos_municipais,
-    consolidado_geral_visual,
-    filtrar_resultados_por_processo,
-    proteger_csv,
-    quadro_final_ficha,
-    resumo_fichas,
-    renderizar_tabela,
-    resultado_consolidado,
-)
-
-if TYPE_CHECKING:
-    from icms.repositorio_sql import RepositorioSQL
+from icms.repositorio import Conflito, Repositorio, RepositorioSheets
 
 registrador_log = logging.getLogger(__name__)
 
 # Mantém as interfaces externas, regras do domínio e armazenamento separados.
 st.set_page_config(page_title="Gestão de Fichas | ICMS Ecológico", layout="centered")
 
-# Estilos separados do ponto de entrada. O arquivo faz parte da distribuição.
-ESTILOS = Path(__file__).resolve().parent / "assets" / "estilos.css"
 st.markdown(
-    f"<style>{ESTILOS.read_text(encoding='utf-8')}</style>",
+    """
+    <style>
+    :root {
+        --ief-cinza-fundo: #f3f4f6;
+        --ief-verde-medio: #2f6b3c;
+        --ief-verde-escuro: #234b2e;
+        --ief-verde-contorno: #4b8b55;
+        --ief-texto: #24352a;
+        --ief-texto-secundario: #46574a;
+        --ief-terra: #8b6b3e;
+    }
+    [data-testid="stAppViewContainer"] {
+        background: var(--ief-cinza-fundo) !important;
+        color: var(--ief-texto) !important;
+    }
+    /* Barra superior preenchida para separar visualmente a página do conteúdo. */
+    [data-testid="stHeader"] {
+        background: var(--ief-verde-escuro) !important;
+    }
+    [data-testid="stHeader"] [data-testid="stToolbar"] button,
+    [data-testid="stHeader"] [data-testid="stToolbar"] svg {
+        color: #ffffff !important;
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+    }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 980px;
+        margin: 1.1rem auto 2rem auto;
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+        color: var(--ief-texto) !important;
+        background: #ffffff !important;
+        border: 2px solid var(--ief-verde-escuro);
+        border-radius: 0.8rem;
+        box-shadow: 0 5px 20px #24452b0d;
+        box-sizing: border-box;
+    }
+    [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
+        max-width: none;
+        width: 100%;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stMainBlockContainer"]:has(.st-key-resultados_grade) {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-cartao_acesso) {
+        width: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+    .st-key-cartao_acesso {
+        position: fixed !important;
+        left: 50vw !important;
+        top: 50vh !important;
+        top: 50dvh !important;
+        z-index: 1000 !important;
+        transform: translate(-50%, -50%) !important;
+        width: min(360px, calc(100vw - 2rem)) !important;
+        max-width: 360px !important;
+        max-height: calc(100vh - 2rem);
+        max-height: calc(100dvh - 2rem);
+        overflow-y: auto;
+        margin: 0 !important;
+        padding: 1.2rem clamp(1rem, 5vw, 1.4rem) !important;
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        border: 1px solid #d8e5d2 !important;
+        border-top: 5px solid var(--ief-verde-medio) !important;
+        border-radius: 0.8rem !important;
+        box-shadow: 0 12px 35px #24452b18 !important;
+        box-sizing: border-box !important;
+        color: var(--ief-texto) !important;
+    }
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    [data-testid="stWidgetLabel"] p,
+    [data-testid="stExpander"] summary,
+    [data-testid="stCaptionContainer"],
+    [data-testid="stCaptionContainer"] p {
+        color: var(--ief-texto-secundario) !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stExpander"] {
+        background: #ffffff !important;
+        border: 1px solid #477a3e !important;
+        border-radius: 0.35rem !important;
+    }
+    [data-testid="stExpander"] summary {
+        color: #111111 !important;
+        font-weight: 700 !important;
+    }
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3,
+    [data-testid="stMarkdownContainer"] h4,
+    [data-testid="stWidgetLabel"] p,
+    label {
+        color: var(--ief-texto) !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stMarkdownContainer"] strong {
+        color: #111111 !important;
+    }
+    /* Delimita visualmente o próprio controle: o tema do Streamlit pode
+       ocultar a borda do invólucro BaseWeb, por isso a linha também vai no input. */
+    [data-testid="stTextInput"] [data-baseweb="input"],
+    [data-testid="stNumberInput"] [data-baseweb="input"],
+    [data-testid="stDateInput"] [data-baseweb="input"] {
+        min-height: 2.35rem;
+        background: #ffffff !important;
+        border: 1px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.25rem !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input {
+        min-height: 2.35rem;
+        box-sizing: border-box !important;
+        background: #ffffff !important;
+        border: 1px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.25rem !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stTextInput"] [data-baseweb="input"]:focus-within,
+    [data-testid="stNumberInput"] [data-baseweb="input"]:focus-within,
+    [data-testid="stDateInput"] [data-baseweb="input"]:focus-within,
+    [data-testid="stTextInput"] input:focus,
+    [data-testid="stNumberInput"] input:focus,
+    [data-testid="stDateInput"] input:focus {
+        border: 2px solid var(--ief-verde-escuro) !important;
+        outline: none !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+        min-height: 2.35rem;
+        box-sizing: border-box !important;
+        background: #ffffff !important;
+        border: 1px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.25rem !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within {
+        border: 2px solid var(--ief-verde-escuro) !important;
+    }
+    [data-testid="stForm"] {
+        padding: 0.75rem;
+        background: #ffffff !important;
+        border: 1px solid #477a3e !important;
+        border-radius: 0.35rem !important;
+    }
+    /* As justificativas dos parâmetros seguem o mesmo padrão visual da seção
+       de identificação: mesma borda, raio e altura compacta. */
+    [data-testid="stTextArea"] [data-baseweb="textarea"] {
+        min-height: 2.35rem !important;
+        background: #ffffff !important;
+        border: 1px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.25rem !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stTextArea"] textarea {
+        display: block !important;
+        width: 100% !important;
+        min-height: 2.35rem !important;
+        height: 2.35rem !important;
+        box-sizing: border-box !important;
+        padding: 0.45rem 0.65rem !important;
+        line-height: 1.35 !important;
+        color: var(--ief-texto) !important;
+        background: #ffffff !important;
+        border: 1px solid var(--ief-verde-contorno) !important;
+        border-radius: 0.25rem !important;
+        box-shadow: none !important;
+        opacity: 1 !important;
+        resize: vertical !important;
+        overflow-y: auto !important;
+    }
+    [data-testid="stTextArea"] textarea:focus {
+        border: 2px solid var(--ief-verde-escuro) !important;
+        outline: none !important;
+    }
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input,
+    [data-testid="stTextArea"] textarea {
+        color: var(--ief-texto) !important;
+        background: #ffffff !important;
+        opacity: 1 !important;
+    }
+    [data-testid="stTextInput"] input::placeholder,
+    [data-testid="stTextArea"] textarea::placeholder {
+        color: #59675b !important;
+        opacity: 1 !important;
+    }
+    .acesso-marca {
+        margin-bottom: 1.5rem;
+        color: var(--ief-verde-escuro);
+        text-align: center;
+    }
+    .acesso-marca .folha {
+        display: block;
+        margin-bottom: 0.45rem;
+        color: var(--ief-verde-medio);
+        font-size: 2rem;
+    }
+    .acesso-marca h1 {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 700;
+    }
+    .acesso-marca p {
+        margin: 0.45rem 0 0;
+        color: #526257;
+    }
+    .acesso-ajuda {
+        margin-top: 1rem;
+        color: #42564a;
+        font-size: 0.92rem;
+        line-height: 1.55;
+    }
+    .acesso-ajuda a {
+        color: var(--ief-verde-escuro) !important;
+        font-weight: 600;
+    }
+    div.stButton > button[kind="primary"] {
+        border-color: var(--ief-verde-medio) !important;
+        background: var(--ief-verde-medio) !important;
+        color: #ffffff !important;
+        font-weight: 650;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        border-color: var(--ief-verde-escuro) !important;
+        background: var(--ief-verde-escuro) !important;
+        color: #ffffff !important;
+    }
+    div.stButton > button[kind="primary"]:disabled {
+        border-color: #cbd9c8 !important;
+        background: #e8efe5 !important;
+        color: #4c5d4e !important;
+        opacity: 1 !important;
+        cursor: not-allowed;
+    }
+    .aviso-demo {
+        margin: 0.75rem 0 1rem;
+        padding: 0.8rem 1rem;
+        border: 1px solid #9fba95;
+        border-left: 5px solid var(--ief-verde-medio);
+        border-radius: 0.45rem;
+        background: #e4efdf;
+        color: #29452e;
+        line-height: 1.5;
+    }
+    .aviso-demo strong {
+        color: #234b2e;
+    }
+    /* Mantém rótulos e controles na mesma linha em qualquer largura. */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        align-items: center;
+    }
+    [data-testid="column"] {
+        min-width: 0 !important;
+    }
+    .atalhos-rolagem {
+        position: fixed;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        z-index: 999;
+    }
+    .atalhos-rolagem a {
+        width: 2.7rem;
+        height: 2.7rem;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: #174a72;
+        color: #fff !important;
+        font-size: 1.35rem;
+        font-weight: 700;
+        text-decoration: none !important;
+        box-shadow: 0 2px 8px #0003;
+    }
+    .atalhos-rolagem a:hover {
+        background: #0d3554;
+    }
+    .linha-parametro {
+        border: 0;
+        border-top: 1px solid #477a3e;
+        margin: 0.15rem 0 0.7rem;
+    }
+    /* A tabela controla o próprio fundo e as bordas, sem o canvas do dataframe. */
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) {
+        padding: 0 !important;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-resultados_grade) > div,
+    .st-key-resultados_grade {
+        background: transparent !important;
+        color: var(--ief-texto) !important;
+    }
+    .tabela-planilha-rolagem {
+        width: 100%;
+        max-height: 650px;
+        overflow: auto;
+        background: #ffffff !important;
+        border: 2px solid var(--ief-verde-escuro);
+        border-radius: 0.4rem;
+        box-sizing: border-box;
+    }
+    table.tabela-planilha {
+        width: max-content;
+        min-width: 100%;
+        border-collapse: collapse !important;
+        background: #ffffff !important;
+        color: var(--ief-texto) !important;
+    }
+    .tabela-planilha th,
+    .tabela-planilha td {
+        min-width: 6rem;
+        padding: 0.55rem 0.65rem;
+        border: 1px solid #477a3e !important;
+        background: #ffffff !important;
+        color: #344238 !important;
+        text-align: left;
+        white-space: nowrap;
+    }
+    .tabela-planilha th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #ffffff !important;
+        color: #111111 !important;
+        font-weight: 700;
+    }
+    .tabela-planilha td.celula-alterada {
+        background: #eaf4df !important;
+        color: #234b2e !important;
+        font-weight: 600;
+    }
+    /* Verde suave destaca somente o campo cujo valor difere da ficha aberta. */
+    [class*="st-key-campo_alterado_"] input,
+    [class*="st-key-campo_alterado_"] textarea,
+    [class*="st-key-campo_alterado_"] [data-baseweb="input"],
+    [class*="st-key-campo_alterado_"] [data-baseweb="select"] > div {
+        background: #eaf4df !important;
+        border-color: #477a3e !important;
+        box-shadow: 0 0 0 2px #477a3e24 !important;
+    }
+    .aviso-alteracoes {
+        margin: 0.75rem 0;
+        padding: 0.75rem 1rem;
+        color: #234b2e;
+        background: #eaf4df;
+        border: 1px solid #8eae7d;
+        border-left: 4px solid #477a3e;
+        border-radius: 0.4rem;
+    }
+    .rotulo-form-linha {
+        color: #111111;
+        font-weight: 600;
+        line-height: 1.35;
+        text-align: right;
+    }
+    .rodape-institucional {
+        margin-top: 3rem;
+        color: #fff;
+        background: #83a398;
+        border-radius: 0.25rem 0.25rem 0 0;
+        overflow: hidden;
+        font-size: 0.82rem;
+    }
+    .rodape-principal,
+    .rodape-inferior {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.1rem 1.25rem;
+    }
+    .rodape-marca {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        line-height: 1.35;
+    }
+    .rodape-marca strong {
+        font-size: 1.7rem;
+        letter-spacing: 0.08em;
+    }
+    .rodape-links {
+        text-align: right;
+    }
+    .rodape-institucional a {
+        color: #fff !important;
+        text-decoration: underline;
+        text-underline-offset: 0.15em;
+    }
+    .rodape-inferior {
+        background: #6f9085;
+        font-size: 0.72rem;
+    }
+    @media (max-width: 640px) {
+        [data-testid="stMainBlockContainer"] {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            margin-top: 0.5rem;
+            border-radius: 0.6rem;
+        }
+        [data-testid="stMainBlockContainer"]:has(.st-key-cartao_acesso) {
+            width: 100%;
+            min-height: 0;
+            margin: 0;
+            padding: 0;
+            border: 0 !important;
+        }
+        .st-key-cartao_acesso {
+            width: calc(100vw - 2rem) !important;
+            max-width: 360px !important;
+        }
+        [data-testid="stHorizontalBlock"] {
+            gap: 0.5rem;
+        }
+        [data-testid="stHorizontalBlock"]:has(.rotulo-form-linha) {
+            flex-wrap: wrap !important;
+            row-gap: 0.1rem;
+        }
+        [data-testid="stHorizontalBlock"]:has(.rotulo-form-linha)
+        > [data-testid="column"] {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+        }
+        .rotulo-form-linha {
+            text-align: left;
+        }
+        [data-testid="stTextInput"],
+        [data-testid="stNumberInput"],
+        [data-testid="stSelectbox"],
+        [data-testid="stDateInput"],
+        [data-testid="stTextArea"] {
+            min-width: 0 !important;
+        }
+        .atalhos-rolagem {
+            right: 0.35rem;
+        }
+        .atalhos-rolagem a {
+            width: 2.3rem;
+            height: 2.3rem;
+        }
+        .rodape-principal,
+        .rodape-inferior {
+            align-items: flex-start;
+            flex-direction: column;
+            padding: 0.9rem 0.75rem;
+        }
+        .rodape-links {
+            text-align: left;
+        }
+    }
+    </style>
+    """,
     unsafe_allow_html=True,
 )
 
 
-def segredo(chave: str, padrao: Any = None) -> Any:
+def segredo(chave: str, padrao: object = None) -> Any:
     """Lê configuração sem exigir arquivo de segredos na demonstração."""
     try:
         return st.secrets.get(chave, padrao)
@@ -63,30 +519,22 @@ def segredo(chave: str, padrao: Any = None) -> Any:
         return padrao
 
 
+@st.cache_resource
 def conectar(modo: str) -> Repositorio:
-    """Isola a demonstração na sessão e compartilha conexões persistentes.
-
-    Não usar cache global aqui: ele faria navegadores diferentes receberem
-    o mesmo repositório temporário, afetando consultas e exclusões.
-    """
+    """Isola demonstrações por navegador e compartilha só a conexão Sheets."""
     if modo == "demonstracao":
         if "repositorio_demonstracao" not in st.session_state:
             st.session_state.repositorio_demonstracao = Repositorio()
         return st.session_state.repositorio_demonstracao
-    if modo == "banco":
-        url = str(segredo("banco_url", os.environ.get("ICMS_BANCO_URL", ""))).strip()
-        if not url:
-            raise ValueError("Configure banco_url nos Secrets para o modo banco.")
-        return conectar_banco(url)
-    raise ValueError("Modo de armazenamento não reconhecido.")
+    return conectar_sheets()
 
 
 @st.cache_resource
-def conectar_banco(url: str) -> RepositorioSQL:
-    """Abre o adaptador SQL somente no modo banco explicitamente configurado."""
-    from icms.repositorio_sql import RepositorioSQL
-
-    return RepositorioSQL(url)
+def conectar_sheets() -> RepositorioSheets:
+    """Compartilha a conexão persistente com a planilha configurada."""
+    return RepositorioSheets(
+        dict(st.secrets["gcp_service_account"]), str(st.secrets["planilha_id"])
+    )
 
 
 def exibir_backup_demonstracao(repositorio: Repositorio) -> None:
@@ -109,10 +557,7 @@ def exibir_backup_demonstracao(repositorio: Repositorio) -> None:
             data=exportador_csv(),
             file_name="backup_fichas_icms.csv",
             mime="text/csv",
-            help=(
-                "Inclui conteúdo integral, situação, versão "
-                "e histórico de cada ficha."
-            ),
+            help="Inclui conteúdo integral, situação, versão e histórico de cada ficha.",
         )
         arquivo_backup = st.file_uploader(
             "Restaurar fichas de um backup CSV",
@@ -223,8 +668,7 @@ def exibir_tela_acesso(
             """
             <div class="acesso-ajuda">
               <p>O acesso é restrito a contas previamente autorizadas.</p>
-              <p>As credenciais e a confirmação de e-mail são administradas
-              pelo provedor institucional.</p>
+              <p>As credenciais e a confirmação de e-mail são administradas pelo provedor institucional.</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -237,24 +681,18 @@ def exibir_tela_acesso(
             st.link_button("Solicitar acesso ou suporte", endereco_suporte)
         elif not endereco_recuperacao.startswith("https://"):
             st.caption(
-                "Para recuperar a conta ou solicitar acesso, "
-                "procure o suporte institucional."
+                "Para recuperar a conta ou solicitar acesso, procure o suporte institucional."
             )
         if not autenticacao_configurada:
             st.caption(
-                "O acesso institucional será liberado após configurar a "
-                "autenticação. A demonstração aceita somente dados fictícios "
-                "e não grava na base oficial."
+                "O acesso institucional será liberado após a configuração da autenticação. "
+                "A demonstração aceita somente dados fictícios e não grava na base oficial."
             )
 
 
-def abrir(
-    ficha: dict[str, Any], versao: int = 0, situacao: str = ""
-) -> None:
+def abrir(ficha: dict, versao: int = 0, situacao: str = "") -> None:
     """Abre uma ficha em um novo conjunto de campos da sessão."""
-    ficha_aberta = normalizar_municipios(ficha)
-    if not ficha_aberta["municipios"]:
-        ficha_aberta["municipios"] = [nova_linha_municipal()]
+    ficha_aberta = deepcopy(ficha)
     for codigo, nome in PARAMETROS:
         ficha_aberta["parametros"].setdefault(codigo, {}).setdefault(
             "rotulo", f"{codigo} · {nome}"
@@ -265,55 +703,6 @@ def abrir(
     st.session_state.status_ficha = situacao
     st.session_state.confirmar_exclusao = False
     st.session_state.geracao = st.session_state.get("geracao", 0) + 1
-    st.session_state.pop("ultimo_autosalvamento", None)
-    st.session_state.pop("autosalvo_chave", None)
-
-
-def validar_troca_modulo() -> None:
-    """Exige confirmação antes de sair do formulário modificado."""
-    if (
-        st.session_state.get("modulo") == "Resultados"
-        and st.session_state.get("ficha") != st.session_state.get("ficha_original")
-    ):
-        st.session_state.modulo = "Ficha"
-        st.session_state.confirmar_saida_modulo = True
-
-
-def aviso_saida_navegador(alterado: bool, geracao: int) -> None:
-    """Solicita confirmação nativa do navegador quando há edição pendente.
-
-    O aviso é melhor esforço: navegadores móveis e encerramentos forçados podem
-    ignorá-lo. O autosave em banco permanece a proteção principal.
-    """
-    st.html(
-        f"""<script>
-        (() => {{
-          const ativo = {str(alterado).lower()};
-          const campo = 'st-key-{geracao}_';
-          window.__icmsAvisoEdicao = ativo;
-          if (window.__icmsAvisoAntes) {{
-            window.removeEventListener('beforeunload', window.__icmsAvisoAntes);
-          }}
-          if (window.__icmsDetectaDigitacao) {{
-            document.removeEventListener('input', window.__icmsDetectaDigitacao, true);
-          }}
-          window.__icmsDetectaDigitacao = (evento) => {{
-            if (evento.target.closest('[class*="' + campo + '"]')) {{
-              window.__icmsAvisoEdicao = true;
-            }}
-          }};
-          document.addEventListener('input', window.__icmsDetectaDigitacao, true);
-          window.__icmsAvisoAntes = (evento) => {{
-            if (window.__icmsAvisoEdicao) {{
-              evento.preventDefault();
-              evento.returnValue = '';
-            }}
-          }};
-          window.addEventListener('beforeunload', window.__icmsAvisoAntes);
-        }})();
-        </script>""",
-        unsafe_allow_javascript=True,
-    )
 
 
 def chave_container_campo(chave: str, valor_original: Any) -> str:
@@ -386,6 +775,197 @@ def inteiro_em_linha(
         )
 
 
+def mapa_parametros_resultado() -> dict[str, str]:
+    """Relaciona os três fatores visíveis aos totais usados no cálculo."""
+    mapa = {
+        "11.1": "11.1",
+        "11.2": "11.1",
+        "11.3": "11.1",
+    }
+    mapa.update(dict(segredo("totais_resultado", {})))
+    return {codigo: mapa[codigo] for codigo in ("11.1", "11.2", "11.3")}
+
+
+def resultado_consolidado(registros: list[dict]) -> pd.DataFrame:
+    """Monta o relatório a partir das fichas concluídas, sem segunda base."""
+    mapa = mapa_parametros_resultado()
+    linhas = []
+    for registro in registros:
+        if registro["status"] != "Concluída":
+            continue
+        ficha = registro["ficha"]
+        calculo = calcular(ficha)
+        linha = {
+            "Nº SEI": ficha["processo"],
+            "DATA RECEBIDA": date.fromisoformat(ficha["recebimento"]),
+            "REMETENTE - UCs": ficha["unidade"],
+            "Esfera": ficha["esfera"],
+            "URFBio": ficha["urfbio"],
+            "RESPONSÁVEL": ficha["responsavel"],
+        }
+        for codigo, origem in mapa.items():
+            linha[f"PARÂM {codigo}"] = calculo["totais"].get(origem)
+        for posicao in range(13):
+            municipio = ficha["municipios"][posicao]
+            nome = municipio["nome"].strip()
+            linha[f"Município{posicao + 1}"] = nome if nome not in ("", "-") else "-"
+            nota = next(
+                (
+                    municipio_calculado
+                    for municipio_calculado in calculo["municipios"]
+                    if municipio_calculado["Município"] == nome
+                ),
+                None,
+            )
+            linha[f"Nota{posicao + 1}"] = (
+                float(nota["FQ"].replace(",", ".")) if nota else None
+            )
+        linhas.append(linha)
+    return pd.DataFrame(linhas)
+
+
+def quadro_final_ficha(ficha: dict) -> pd.DataFrame:
+    """Monta a parte inferior da ficha para os 13 municípios."""
+    total_validado = sum(
+        ponto.get("validado") or 0 for ponto in ficha["parametros"].values()
+    )
+    linhas = []
+    for posicao, municipio in enumerate(ficha["municipios"], 1):
+        nome = municipio["nome"].strip()
+        if not nome or nome == "-":
+            linhas.append(
+                {
+                    "Posição": f"Município {posicao}",
+                    "Município": "-",
+                    "SOMA PARÂMETROS": "-",
+                    "PONTUAÇÃO FINAL FQ": "-",
+                }
+            )
+            continue
+        soma = total_validado + sum(municipio.get(codigo) or 0 for codigo in MUNICIPAIS)
+        linhas.append(
+            {
+                "Posição": f"Município {posicao}",
+                "Município": nome,
+                "SOMA PARÂMETROS": str(soma),
+                "PONTUAÇÃO FINAL FQ": formatar_fq(soma, ficha["pontuacao_categoria"]),
+            }
+        )
+    return pd.DataFrame(linhas)
+
+
+def renderizar_tabela(
+    quadro: pd.DataFrame,
+    destaques_por_processo: dict[str, set[str]] | None = None,
+) -> str:
+    """Renderiza grade HTML branca e rolável, sem linhas vazias do Streamlit."""
+    colunas = list(quadro.columns)
+    cabecalho = "".join(
+        f'<th scope="col">{html.escape(str(coluna))}</th>' for coluna in colunas
+    )
+    linhas = []
+    for _, linha in quadro.iterrows():
+        processo = str(linha.get("Nº SEI", ""))
+        colunas_alteradas = (
+            destaques_por_processo.get(processo, set())
+            if destaques_por_processo
+            else set()
+        )
+        celulas = []
+        for coluna in colunas:
+            valor = linha[coluna]
+            if pd.isna(valor):
+                texto = ""
+            elif coluna == "DATA RECEBIDA" and hasattr(valor, "strftime"):
+                texto = valor.strftime("%m/%d/%Y")
+            elif coluna.startswith("Nota") and isinstance(valor, Real):
+                texto = f"{valor:.{CASAS_DECIMAIS_FQ}f}"
+            elif isinstance(valor, Real) and not isinstance(valor, bool):
+                texto = str(int(valor)) if float(valor).is_integer() else str(valor)
+            else:
+                texto = str(valor)
+            classe = ' class="celula-alterada"' if coluna in colunas_alteradas else ""
+            celulas.append(f"<td{classe}>{html.escape(texto)}</td>")
+        linhas.append(f"<tr>{''.join(celulas)}</tr>")
+    return (
+        '<div class="tabela-planilha-rolagem" role="region" '
+        'aria-label="Tabela de dados; use as barras de rolagem para navegar" '
+        'tabindex="0"><table class="tabela-planilha">'
+        f"<thead><tr>{cabecalho}</tr></thead>"
+        f"<tbody>{''.join(linhas)}</tbody></table></div>"
+    )
+
+
+def colunas_resultado_alteradas(alteracoes: dict[str, Any]) -> set[str]:
+    """Relaciona campos alterados da ficha às colunas visíveis no resultado."""
+    colunas: set[str] = set()
+    mapa = mapa_parametros_resultado()
+    campos_diretos = {
+        "unidade": "REMETENTE - UCs",
+        "recebimento": "DATA RECEBIDA",
+        "esfera": "Esfera",
+        "urfbio": "URFBio",
+        "responsavel": "RESPONSÁVEL",
+    }
+    for caminho in alteracoes:
+        if caminho in campos_diretos:
+            colunas.add(campos_diretos[caminho])
+        elif caminho == "pontuacao_categoria":
+            colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
+        elif caminho.startswith("parametros."):
+            # Os identificadores 1.1, 1.2, 5.1 etc. contêm ponto; separamos
+            # somente o prefixo e o nome do campo, preservando o código inteiro.
+            codigo_e_campo = caminho.removeprefix("parametros.").rsplit(".", 1)
+            partes = ["parametros", *codigo_e_campo]
+            if len(partes) == 3 and partes[2] == "validado":
+                # Os pontos validados ficam na ficha e repercutem nas notas FQ.
+                colunas.update(f"Nota{posicao}" for posicao in range(1, 14))
+        elif caminho.startswith("municipios[") and "]." in caminho:
+            posicao_texto, campo = caminho[len("municipios[") :].split("].", 1)
+            if not posicao_texto.isdigit():
+                continue
+            posicao = int(posicao_texto)
+            if not 1 <= posicao <= 13:
+                continue
+            if campo == "nome":
+                colunas.update((f"Município{posicao}", f"Nota{posicao}"))
+            elif campo in MUNICIPAIS:
+                colunas.add(f"Nota{posicao}")
+                # Um mesmo total pode alimentar mais de um fator no relatório.
+                colunas.update(
+                    f"PARÂM {codigo}"
+                    for codigo, origem in mapa.items()
+                    if origem == campo
+                )
+    return colunas
+
+
+def proteger_csv(quadro: pd.DataFrame) -> bytes:
+    """Exporta CSV sem permitir fórmulas em campos de texto no Excel."""
+    quadro = quadro.copy()
+    for coluna in quadro.columns:
+        if coluna == "DATA RECEBIDA":
+            quadro[coluna] = quadro[coluna].map(
+                lambda valor_csv: valor_csv.strftime("%m/%d/%Y")
+            )
+        else:
+            quadro[coluna] = quadro[coluna].map(
+                lambda valor_csv: (
+                    "'" + valor_csv
+                    if isinstance(valor_csv, str)
+                    and valor_csv.lstrip().startswith(("=", "+", "-", "@"))
+                    and valor_csv != "-"
+                    else valor_csv
+                )
+            )
+    return quadro.to_csv(
+        index=False,
+        sep=";",
+        decimal=",",
+        float_format=f"%.{CASAS_DECIMAIS_FQ}f",
+    ).encode("utf-8-sig")
+
+
 def diferencas_ficha(
     ficha_original: dict[str, Any], ficha_atual: dict[str, Any]
 ) -> list[str]:
@@ -418,84 +998,26 @@ def diferencas_ficha(
         ):
             if antigo.get(campo) != dados.get(campo):
                 alterados.append(f"Parâmetro {codigo} · {rotulo}")
-    anteriores = ficha_original.get("municipios", [])
-    atuais = ficha_atual.get("municipios", [])
-    for indice in range(max(len(anteriores), len(atuais))):
-        posicao = indice + 1
-        antigo = anteriores[indice] if indice < len(anteriores) else {}
-        municipio = atuais[indice] if indice < len(atuais) else {}
+    for posicao, municipio in enumerate(ficha_atual["municipios"], 1):
+        antigo = ficha_original["municipios"][posicao - 1]
         if antigo.get("nome") != municipio.get("nome"):
             alterados.append(f"Município {posicao} · Nome")
         for codigo in MUNICIPAIS:
-            antigo_pontos = antigo.get(codigo) or {}
-            novos_pontos = municipio.get(codigo) or {}
-            if not isinstance(antigo_pontos, dict):
-                antigo_pontos = {"validado": antigo_pontos}
-            if not isinstance(novos_pontos, dict):
-                novos_pontos = {"validado": novos_pontos}
-            for campo, rotulo in (
-                ("gestor", "Pontos Gestor"),
-                ("justificativa", "Justificativa"),
-                ("validado", "Pontos Validados"),
-            ):
-                if antigo_pontos.get(campo) != novos_pontos.get(campo):
-                    alterados.append(
-                        f"Município {posicao} · {NOMES_MUNICIPAIS[codigo]} "
-                        f"· {rotulo}"
-                    )
+            if antigo.get(codigo) != municipio.get(codigo):
+                alterados.append(
+                    f"Município {posicao} · Parâmetro {ROTULOS_MUNICIPAIS[codigo]}"
+                )
     return alterados
-
-
-def capturar_campos_municipais(ficha: dict[str, Any], prefixo: str) -> None:
-    """Preserva entradas de blocos fechados ao incluir/excluir uma linha."""
-    for posicao, municipio in enumerate(ficha["municipios"], 1):
-        chave_nome = f"{prefixo}_municipio_{posicao}"
-        if chave_nome in st.session_state:
-            municipio["nome"] = st.session_state[chave_nome]
-        for codigo in MUNICIPAIS:
-            for campo in ("gestor", "justificativa", "validado"):
-                chave = f"{prefixo}_municipio_{posicao}_{codigo}_{campo}"
-                if chave in st.session_state:
-                    municipio[codigo][campo] = st.session_state[chave]
-
-
-def padronizar_municipio_digitado(chave: str) -> None:
-    """Normaliza o nome informado sem perder o valor do widget Streamlit."""
-    st.session_state[chave] = normalizar_nome_municipio(st.session_state[chave])
-
-
-def mudar_municipios(ficha: dict[str, Any], prefixo: str, excluir: int | None) -> None:
-    """Altera a lista preservando pontuações e mantendo ao menos um registro."""
-    capturar_campos_municipais(ficha, prefixo)
-    if excluir is None:
-        ficha["municipios"].append(nova_linha_municipal())
-    else:
-        if len(ficha["municipios"]) <= 1:
-            ficha["municipios"] = [nova_linha_municipal()]
-        else:
-            del ficha["municipios"][excluir]
-    st.session_state.ficha = deepcopy(ficha)
-    st.session_state.geracao += 1
-    st.rerun()
 
 
 modo_configurado = segredo("modo", os.environ.get("ICMS_MODO", ""))
 modo = str(modo_configurado).strip().lower()
 if st.session_state.get("modo_demo_sessao", False):
     modo = "demonstracao"
-elif modo not in ("demonstracao", "banco"):
+elif modo not in ("demonstracao", "sheets"):
     exibir_tela_acesso(autenticacao_configurada=False, permitir_demo=True)
     st.stop()
 autor, pode_editar = identificar(modo)
-# O cabeçalho aparece no alto, antes de todas as seções e controles.
-CABECALHO_APROVADO = Path(__file__).resolve().parent / "assets" / "cabecalho_aprovado.png"
-with st.container(key="cabecalho_visual_aplicacao"):
-    if CABECALHO_APROVADO.is_file():
-        st.image(str(CABECALHO_APROVADO), width="stretch")
-    else:
-        # Falta do recurso visual não deve impedir acesso às fichas.
-        registrador_log.error("Cabeçalho visual ausente: %s", CABECALHO_APROVADO)
-        st.markdown("### ICMS Ecológico · Ficha")
 if modo == "demonstracao":
     st.markdown(
         '<div class="aviso-demo"><strong>Modo demonstração:</strong> use somente '
@@ -503,7 +1025,6 @@ if modo == "demonstracao":
         "não são gravados na base oficial e desaparecem ao encerrar a sessão.</div>",
         unsafe_allow_html=True,
     )
-# As setas acompanham a borda externa do formulário, inclusive em widescreen.
 st.markdown(
     '<div id="inicio"></div><nav class="atalhos-rolagem" '
     'aria-label="Navegação vertical"><a href="#inicio" title="Ir ao início da página" '
@@ -511,80 +1032,19 @@ st.markdown(
     'aria-label="Ir ao final">↓</a></nav>',
     unsafe_allow_html=True,
 )
+st.title("ICMS Ecológico")
+st.caption("Gestão de fichas do Fator de Qualidade")
 try:
     repositorio = conectar(modo)
-# Os adaptadores de persistência podem lançar erros específicos de conexão.
+# Os clientes Google e de autenticação podem lançar classes de erro diferentes.
 except Exception:  # noqa: BLE001
     registrador_log.exception("Falha ao conectar à persistência configurada.")
     st.error(
-        "Não foi possível abrir o banco de dados. Confira a conexão e as permissões."
+        "Não foi possível abrir a base. Confira credenciais, permissões e cabeçalhos."
     )
     st.stop()
 if modo == "demonstracao":
     exibir_backup_demonstracao(repositorio)
-    quantidade_exemplos_antigos = contar_exemplos_legados(repositorio.listar())
-    if quantidade_exemplos_antigos:
-        st.warning(
-            f"Foram identificadas {quantidade_exemplos_antigos} ficha(s) "
-            "do exemplo antigo, cada uma com 13 municípios sintéticos. "
-            "Essas linhas vêm do backup histórico, não do cadastro novo. "
-            "É possível adequar somente esses exemplos ao modelo atual, "
-            "com um município por ficha."
-        )
-        if st.button(
-            "Adequar exemplos antigos (1 município por ficha)",
-            key="adequar_exemplos_sinteticos",
-        ):
-            st.session_state.confirmar_adequacao_exemplos = True
-        if st.session_state.get("confirmar_adequacao_exemplos"):
-            st.info(
-                "Esta ação altera apenas os registros do conjunto sintético "
-                "antigo. Cada ficha manterá um município distinto e terá uma "
-                "nova versão gravada no histórico. Fichas reais ou registros "
-                "municipais adicionados manualmente não serão reduzidos. "
-                "Faça um backup antes de confirmar."
-            )
-            col_confirmar, col_cancelar = st.columns([1, 1])
-            with col_confirmar:
-                if st.button(
-                    "Confirmar adequação dos exemplos",
-                    key="confirmar_adequacao_exemplos",
-                ):
-                    try:
-                        quantidade = adequar_exemplos_legados(
-                            repositorio, "adequacao_demonstracao"
-                        )
-                    except (ValueError, Conflito) as erro:
-                        st.error(str(erro))
-                    else:
-                        abrir(nova_ficha())
-                        st.session_state.confirmar_adequacao_exemplos = False
-                        st.session_state.aviso = (
-                            f"{quantidade} ficha(s) sintética(s) adequada(s). "
-                            "Cada uma possui agora apenas um município. "
-                            "Novos municípios serão incluídos somente ao "
-                            "selecionar Adicionar registro."
-                        )
-                        st.rerun()
-            with col_cancelar:
-                if st.button(
-                    "Cancelar adequação", key="cancelar_adequacao_exemplos"
-                ):
-                    st.session_state.confirmar_adequacao_exemplos = False
-                    st.rerun()
-elif modo == "banco":
-    if repositorio.engine.dialect.name == "sqlite":
-        st.warning(
-            "Armazenamento SQLite local: é possível recuperar após "
-            "reiniciar o navegador enquanto o arquivo existir. "
-            "enquanto o arquivo do banco existir. No Streamlit Community Cloud o disco "
-            "NÃO é persistente: use PostgreSQL externo para operação durável."
-        )
-    else:
-        st.caption(
-            "Banco PostgreSQL configurado. Alterações em edição "
-            "recebem uma cópia automática."
-        )
 if "ficha" not in st.session_state:
     abrir(nova_ficha())
 if "ficha_original" not in st.session_state:
@@ -606,113 +1066,14 @@ modulo = st.radio(
     horizontal=True,
     key="modulo",
     label_visibility="collapsed",
-    on_change=validar_troca_modulo,
 )
 
-if st.session_state.get("confirmar_saida_modulo"):
-    st.warning(
-        "A ficha tem alterações ainda não confirmadas. Sair do formulário "
-        "não atualiza a ficha oficial. No modo banco configurado, as "
-        "alterações já enviadas ao servidor ficam em cópia separada e podem "
-        "ser recuperadas com a mesma conta, se a ficha oficial não mudou. "
-        "Na demonstração, alterações não salvas podem ser perdidas."
-    )
-    with st.container(horizontal=True, gap="small"):
-        if st.button("Continuar editando", key="continuar_edicao"):
-            st.session_state.confirmar_saida_modulo = False
-            st.rerun()
-        if st.button("Ir para Resultados sem gravar", key="sair_com_edicao"):
-            st.session_state.confirmar_saida_modulo = False
-            st.session_state.modulo_pendente = "Resultados"
-            st.rerun()
-
 if modulo == "Ficha":
-    with st.container(key="ficha_abertura_compacta"):
-        st.markdown(
-            '<h1 class="icms-titulo-pagina">Ficha</h1>',
-            unsafe_allow_html=True,
-        )
-        st.caption(
-            "Informe o processo SEI para abrir uma ficha existente ou iniciar uma nova. "
-            "A ficha encontrada abre neste mesmo módulo para edição."
-        )
-    if modo == "banco" and pode_editar:
-        try:
-            recuperaveis = repositorio.listar_edicoes(autor)
-            # Não oferece recuperar o documento que já está aberto no mesmo estado.
-            recuperaveis = [
-                copia for copia in recuperaveis
-                if copia["ficha"] != st.session_state.ficha
-            ]
-            if recuperaveis:
-                with st.expander(
-                    "Edições automáticas disponíveis para recuperação "
-                    f"({len(recuperaveis)})",
-                    expanded=False,
-                ):
-                    st.caption(
-                        "Estas cópias não atualizam a ficha oficial "
-                        "nem aparecem no relatório. "
-                        "Verifique os dados e escolha Salvar/Atualizar após recuperar."
-                    )
-                    for indice, copia in enumerate(recuperaveis):
-                        st.write(
-                            f"SEI: {copia['processo'] or '(não informado)'} · "
-                            f"Cópia: {copia['atualizado_em']}"
-                        )
-                        col_recuperar, col_descartar = st.columns([1, 1])
-                        with col_recuperar:
-                            if st.button("Recuperar edição", key=f"recuperar_{indice}"):
-                                if (
-                                    st.session_state.ficha
-                                    != st.session_state.ficha_original
-                                ):
-                                    st.error(
-                                        "A ficha atual já tem alterações. Salve ou "
-                                        "descarte as alterações desta sessão antes "
-                                        "de recuperar outra edição."
-                                    )
-                                else:
-                                    atual = (
-                                        repositorio.consultar(copia["processo"])
-                                        if copia["processo"] else None
-                                    )
-                                    versao_atual = atual["versao"] if atual else 0
-                                    if versao_atual != copia["versao"] or (
-                                        atual and atual["status"] != copia["status"]
-                                    ):
-                                        st.error(
-                                            "A ficha oficial mudou ou foi excluída "
-                                            "desde esta edição. A recuperação foi "
-                                            "bloqueada para proteger outras alterações."
-                                        )
-                                    else:
-                                        abrir(
-                                            copia["original"],
-                                            copia["versao"],
-                                            copia["status"],
-                                        )
-                                        recuperada = normalizar_municipios(
-                                            copia["ficha"]
-                                        )
-                                        if not recuperada["municipios"]:
-                                            recuperada["municipios"] = [
-                                                nova_linha_municipal()
-                                            ]
-                                        st.session_state.ficha = recuperada
-                                        st.session_state.geracao += 1
-                                        st.session_state.aviso = (
-                                            "Edição automática recuperada. "
-                                            "Revise e confirme a gravação."
-                                        )
-                                        st.rerun()
-                        with col_descartar:
-                            if st.button("Descartar cópia", key=f"descartar_{indice}"):
-                                repositorio.excluir_edicao(autor, copia["chave"])
-                                st.rerun()
-        except Exception:  # noqa: BLE001
-            registrador_log.exception("Falha na lista de edições automáticas.")
-            st.error("Não foi possível consultar as cópias automáticas.")
+    st.subheader("Ficha · inclusão, consulta e edição")
+    st.caption(
+        "Informe o processo SEI para abrir uma ficha existente ou iniciar uma nova. "
+        "A ficha encontrada abre neste mesmo módulo para edição."
+    )
     with st.form("localizar_ficha"):
         busca = st.text_input(
             "Localizar pelo processo SEI",
@@ -736,10 +1097,7 @@ if modulo == "Ficha":
                 ficha_nova = nova_ficha()
                 ficha_nova["processo"] = processo_consultado
                 abrir(ficha_nova)
-                st.session_state.aviso = (
-                    "Processo não localizado. Uma ficha nova foi "
-                    "aberta com o SEI informado."
-                )
+                st.session_state.aviso = "Processo não localizado. Uma ficha nova foi aberta com o SEI informado."
                 st.rerun()
         except ValueError as erro:
             st.error(str(erro))
@@ -759,10 +1117,6 @@ if modulo == "Ficha":
             if st.button(
                 "Descartar alterações e abrir ficha localizada", type="primary"
             ):
-                if modo == "banco" and pode_editar:
-                    repositorio.excluir_edicao(
-                        autor, chave_edicao(st.session_state.ficha)
-                    )
                 registro = consulta_pendente["registro"]
                 if registro:
                     abrir(registro["ficha"], registro["versao"], registro["status"])
@@ -770,10 +1124,7 @@ if modulo == "Ficha":
                     ficha_nova = nova_ficha()
                     ficha_nova["processo"] = consulta_pendente["processo"]
                     abrir(ficha_nova)
-                    st.session_state.aviso = (
-                    "Processo não localizado. Uma ficha nova foi "
-                    "aberta com o SEI informado."
-                )
+                    st.session_state.aviso = "Processo não localizado. Uma ficha nova foi aberta com o SEI informado."
                 st.session_state.pop("consulta_pendente", None)
                 st.rerun()
         with manter_atual:
@@ -793,7 +1144,7 @@ if modulo == "Ficha":
                 options=range(len(rascunhos)),
                 format_func=lambda indice: (
                     f"{rascunhos[indice]['ficha']['processo']} · "
-                    f"{rascunhos[indice]['ficha']['unidade'] or 'Sem unidade'}"
+                    f"{rascunhos[indice]['ficha']['unidade'] or 'Unidade não informada'}"
                 ),
                 key="rascunho_indice",
             )
@@ -825,469 +1176,270 @@ if modulo == "Ficha":
         st.caption("Preencha os dados e escolha Cadastrar ou Salvar rascunho.")
     ficha = deepcopy(st.session_state.ficha)
     prefixo = str(st.session_state.geracao)
-    # Formulário de identificação: uma caixa expansível e campos compactos.
-    # Os identificadores dos widgets permanecem estáveis para preservar
-    # o preenchimento, a comparação com a ficha aberta e a gravação.
-    identificacao_rotulos = {
-        "processo": (
-            "Processo SEI",
-            "Número do processo no Sistema Eletrônico de Informações (SEI).",
-        ),
-        "orgao": ("Órgão gestor", "Órgão responsável pela gestão da U.C."),
-        "unidade": ("Nome da U.C.", "Nome da Unidade de Conservação."),
-        "categoria": (
-            "Categoria da U.C.", "Categoria de manejo da Unidade de Conservação."
-        ),
-        "responsavel": (
-            "Responsável GCMUC", "Nome do responsável pela GCMUC."
-        ),
-        "tecnico": (
-            "Responsável técnico", "Nome do responsável técnico pela U.C."
-        ),
-        "urfbio": (
-            "URFBio", "Unidade Regional de Florestas e Biodiversidade de referência."
-        ),
-        "esfera": (
-            "Esfera administrativa", "Esfera de gestão da Unidade de Conservação."
-        ),
-        "pontuacao_categoria": (
-            "Pontuação da categoria", "Pontuação atribuída à categoria da U.C."
-        ),
-        "analise": (
-            "Data de análise (mm/aaaa)", "Mês e ano da análise da U.C."
-        ),
-        "recebimento": (
-            "Data de recebimento", "Data de recebimento da documentação."
-        ),
-    }
-
-    def campo_identificacao(campo: str) -> None:
-        """Apresenta campo e orientação em linhas curtas, sem alterar regras."""
-        rotulo, orientacao = identificacao_rotulos[campo]
-        chave = f"{prefixo}_{campo}"
-        valor_anterior = st.session_state.ficha_original.get(campo)
-        with st.container(key=f"identificacao_campo_{campo}"):
-            st.markdown(
-                '<div class="icms-identificacao-rotulo">'
-                f'{html.escape(rotulo)}</div>'
-                '<div class="icms-identificacao-ajuda">'
-                f'{html.escape(orientacao)}</div>',
-                unsafe_allow_html=True,
-            )
-            if campo == "recebimento":
-                anterior_data = date.fromisoformat(valor_anterior)
-                with st.container(key=chave_container_campo(chave, anterior_data)):
-                    ficha[campo] = st.date_input(
-                        rotulo,
-                        value=date.fromisoformat(ficha[campo]),
-                        format="DD/MM/YYYY",
-                        key=chave,
-                        disabled=not pode_editar,
-                        label_visibility="collapsed",
-                        width=195,
-                    ).isoformat()
-            elif campo == "esfera":
-                opcoes = ["", "Estadual", "Federal", "Municipal"]
-                with st.container(key=chave_container_campo(chave, valor_anterior)):
-                    ficha[campo] = st.selectbox(
-                        rotulo,
-                        opcoes,
-                        index=opcoes.index(ficha[campo]),
-                        key=chave,
-                        disabled=not pode_editar,
-                        label_visibility="collapsed",
-                    )
-            elif campo == "pontuacao_categoria":
-                with st.container(key=chave_container_campo(chave, valor_anterior)):
-                    ficha[campo] = st.number_input(
-                        rotulo,
-                        min_value=1,
-                        max_value=999,
-                        value=ficha[campo],
-                        step=1,
-                        key=chave,
-                        disabled=not pode_editar,
-                        label_visibility="collapsed",
-                    )
-            else:
-                with st.container(key=chave_container_campo(chave, valor_anterior)):
-                    ficha[campo] = st.text_input(
-                        rotulo,
-                        value=ficha[campo],
-                        key=chave,
-                        disabled=(
-                            not pode_editar
-                            or (campo == "processo" and st.session_state.versao > 0)
-                        ) if campo != "analise" else False,
-                        placeholder="mm/aaaa" if campo == "analise" else "",
-                        label_visibility="collapsed",
-                        width=140 if campo == "analise" else "stretch",
-                    )
-
-    with st.container(key="identificacao_cartao"):
-        with st.expander(
-            "Identificação", expanded=True, icon=":material/folder_open:"
-        ):
-            st.markdown(
-                '<div class="icms-identificacao-descricao">'
-                '',
-                unsafe_allow_html=True,
-            )
-            for linha in (
-                ("processo", "orgao"),
-                ("unidade", "categoria"),
-                ("responsavel", "tecnico"),
-                ("urfbio",),
-                ("esfera", "pontuacao_categoria"),
-                ("analise", "recebimento"),
+    st.markdown("#### Identificação")
+    for campo, rotulo in (
+        ("processo", "Processo SEI"),
+        ("orgao", "Órgão gestor"),
+        ("unidade", "Nome da U.C."),
+        ("categoria", "Categoria da U.C."),
+        ("responsavel", "Responsável GCMUC"),
+        ("tecnico", "Responsável técnico"),
+        ("urfbio", "URFBio"),
+    ):
+        ficha[campo] = texto_em_linha(
+            rotulo,
+            ficha[campo],
+            f"{prefixo}_{campo}",
+            valor_original=st.session_state.ficha_original.get(campo, ""),
+            desabilitado=(
+                not pode_editar or (campo == "processo" and st.session_state.versao > 0)
+            ),
+        )
+    coluna_esfera, coluna_categoria = st.columns(2)
+    with coluna_esfera:
+        rotulo, controle = st.columns([0.45, 0.55], vertical_alignment="center")
+        with rotulo:
+            exibir_rotulo_formulario("Esfera administrativa")
+        with controle:
+            opcoes = ["", "Estadual", "Federal", "Municipal"]
+            chave_esfera = f"{prefixo}_esfera"
+            with st.container(
+                key=chave_container_campo(
+                    chave_esfera,
+                    st.session_state.ficha_original.get("esfera", ""),
+                )
             ):
-                with st.container(key=f"identificacao_linha_{linha[0]}"):
-                    if len(linha) == 1:
-                        campo_identificacao(linha[0])
-                    else:
-                        colunas = st.columns(2, gap="medium")
-                        for coluna, campo in zip(colunas, linha):
-                            with coluna:
-                                campo_identificacao(campo)
-    # Apresentação fiel à referência: cabeçalho compacto e linhas editáveis.
-    with st.container(key="parametros_gerais_cartao"):
-        with st.expander("Parâmetros", expanded=False, icon=":material/tune:"):
-            proporcao_colunas = [3.25, 1.4, 4.35, 1.45]
-            with st.container(key="cabecalho_parametros_gerais"):
-                col_rotulo, col_gestor, col_just, col_validado = st.columns(
-                    proporcao_colunas, gap="small", vertical_alignment="center"
+                ficha["esfera"] = st.selectbox(
+                    "Esfera administrativa",
+                    opcoes,
+                    index=opcoes.index(ficha["esfera"]),
+                    key=chave_esfera,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
                 )
-                for coluna, titulo in (
-                    (col_rotulo, "Parâmetro"),
-                    (col_gestor, "Pontos do gestor"),
-                    (col_just, "Justificativa"),
-                    (col_validado, "Pontos validados"),
-                ):
-                    with coluna:
-                        st.markdown(f"**{titulo}**")
-            for codigo, nome in PARAMETROS:
-                pontos = ficha["parametros"][codigo]
-                pontos_originais = st.session_state.ficha_original["parametros"].get(
-                    codigo, {}
-                )
-                with st.container(key=f"linha_parametro_{codigo.replace('.', '_')}"):
-                    (
-                        coluna_parametro,
-                        coluna_gestor,
-                        coluna_justificativa,
-                        coluna_validado,
-                    ) = st.columns(
-                        proporcao_colunas, gap="small", vertical_alignment="center"
-                    )
-                    with coluna_parametro:
-                        chave_rotulo = f"{prefixo}_{codigo}_rotulo"
-                        rotulo_padrao = f"{codigo} · {nome}"
-                        with st.container(
-                            key=chave_container_campo(
-                                chave_rotulo,
-                                pontos_originais.get("rotulo", rotulo_padrao),
-                            )
-                        ):
-                            # A edição do título existente é preservada; o CSS
-                            # apresenta o controle como texto de uma linha.
-                            pontos["rotulo"] = st.text_input(
-                                f"{codigo} · Parâmetro",
-                                value=pontos.get("rotulo", rotulo_padrao),
-                                key=chave_rotulo,
-                                disabled=not pode_editar,
-                                label_visibility="collapsed",
-                            )
-                    with coluna_gestor:
-                        chave_gestor = f"{prefixo}_{codigo}_gestor"
-                        with st.container(
-                            key=chave_container_campo(
-                                chave_gestor, pontos_originais.get("gestor")
-                            )
-                        ):
-                            pontos["gestor"] = st.number_input(
-                                f"{codigo} · Pontos Gestor",
-                                min_value=0,
-                                max_value=9,
-                                value=pontos["gestor"],
-                                step=1,
-                                key=chave_gestor,
-                                disabled=not pode_editar,
-                                label_visibility="collapsed",
-                            )
-                    with coluna_justificativa:
-                        chave_justificativa = f"{prefixo}_{codigo}_justificativa"
-                        with st.container(
-                            key=chave_container_campo(
-                                chave_justificativa,
-                                pontos_originais.get("justificativa", ""),
-                            )
-                        ):
-                            pontos["justificativa"] = st.text_area(
-                                f"{codigo} · Justificativa/Observação",
-                                value=pontos["justificativa"],
-                                key=chave_justificativa,
-                                height=68,
-                                disabled=not pode_editar,
-                                label_visibility="collapsed",
-                            )
-                    with coluna_validado:
-                        chave_validado = f"{prefixo}_{codigo}_validado"
-                        with st.container(
-                            key=chave_container_campo(
-                                chave_validado, pontos_originais.get("validado")
-                            )
-                        ):
-                            pontos["validado"] = st.number_input(
-                                f"{codigo} · Pontos Validados",
-                                min_value=0,
-                                max_value=9,
-                                value=pontos["validado"],
-                                step=1,
-                                key=chave_validado,
-                                disabled=not pode_editar,
-                                label_visibility="collapsed",
-                            )
-
-    st.markdown(
-        '<h2 class="icms-titulo-municipios">Parâmetros por municípios</h2>',
-        unsafe_allow_html=True,
+    with coluna_categoria:
+        ficha["pontuacao_categoria"] = inteiro_em_linha(
+            "Pontuação da categoria",
+            ficha["pontuacao_categoria"],
+            f"{prefixo}_pontuacao_categoria",
+            1,
+            999,
+            valor_original=st.session_state.ficha_original.get("pontuacao_categoria"),
+            desabilitado=not pode_editar,
+        )
+    ficha["analise"] = texto_em_linha(
+        "Data de análise (mm/aaaa)",
+        ficha["analise"],
+        f"{prefixo}_analise",
+        valor_original=st.session_state.ficha_original.get("analise", ""),
+        placeholder="mm/aaaa",
     )
-    # Uma única lista de municípios é compartilhada pelos quatro painéis.
-    icones_municipais = {
-        "10": ":material/location_on:",
-        "11.1": ":material/layers:",
-        "11.2": ":material/account_balance:",
-        "11.3": ":material/payments:",
-    }
-    # Uma única linha: nome, pontuações, justificativa, anexos e remoção.
-    proporcao_municipal = [2.4, 1.2, 3.5, 1.65, 1.2, 0.95]
-    for codigo in MUNICIPAIS:
-        with st.container(key=f"bloco_municipal_{codigo.replace('.', '_')}"):
-            with st.expander(
-                NOMES_MUNICIPAIS[codigo],
-                expanded=False,
-                icon=icones_municipais[codigo],
+    rotulo_data, controle_data = st.columns([0.24, 0.76], vertical_alignment="center")
+    with rotulo_data:
+        exibir_rotulo_formulario("Data de recebimento")
+    with controle_data:
+        chave_recebimento = f"{prefixo}_recebimento"
+        data_original = date.fromisoformat(
+            st.session_state.ficha_original["recebimento"]
+        )
+        with st.container(key=chave_container_campo(chave_recebimento, data_original)):
+            ficha["recebimento"] = st.date_input(
+                "Data de recebimento",
+                value=date.fromisoformat(ficha["recebimento"]),
+                format="MM/DD/YYYY",
+                key=chave_recebimento,
+                disabled=not pode_editar,
+                label_visibility="collapsed",
+                width=180,
+            ).isoformat()
+    st.markdown("#### Pontuações e justificativas")
+    st.caption(
+        "Nos totais, campos vazios são considerados 0. Para concluir a ficha, "
+        "os campos obrigatórios ainda precisam ser preenchidos. "
+        "Pontuações individuais: 0 a 9."
+    )
+    proporcao_colunas = [2.2, 1.0, 3.3, 1.0]
+    (
+        cabecalho_parametro,
+        cabecalho_gestor,
+        cabecalho_justificativa,
+        cabecalho_validado,
+    ) = st.columns(proporcao_colunas, vertical_alignment="bottom")
+    with cabecalho_parametro:
+        st.markdown("**Parâmetro**")
+    with cabecalho_gestor:
+        st.markdown("**Pontos Gestor**")
+    with cabecalho_justificativa:
+        st.markdown("**Justificativa/Observação**")
+    with cabecalho_validado:
+        st.markdown("**Pontos Validados**")
+
+    for codigo, nome in PARAMETROS:
+        pontos = ficha["parametros"][codigo]
+        pontos_originais = st.session_state.ficha_original["parametros"].get(codigo, {})
+        (
+            coluna_parametro,
+            coluna_gestor,
+            coluna_justificativa,
+            coluna_validado,
+        ) = st.columns(proporcao_colunas, vertical_alignment="top")
+        with coluna_parametro:
+            chave_rotulo = f"{prefixo}_{codigo}_rotulo"
+            rotulo_padrao = f"{codigo} · {nome}"
+            with st.container(
+                key=chave_container_campo(
+                    chave_rotulo,
+                    pontos_originais.get("rotulo", rotulo_padrao),
+                )
             ):
-                with st.container(
-                    key=f"cabecalho_municipal_{codigo.replace('.', '_')}"
-                ):
-                    (
-                        col_nome, col_gestor, col_just, col_validado,
-                        col_anexos, col_acao,
-                    ) = (
-                        st.columns(
-                            proporcao_municipal,
-                            gap="small",
-                            vertical_alignment="center",
-                        )
-                    )
-                    for coluna, rotulo in (
-                        (col_nome, "Município"),
-                        (col_gestor, "Pontos do gestor"),
-                        (col_just, "Justificativa"),
-                        (col_validado, "Pontos validados"),
-                        (col_anexos, "Anexos"),
-                    ):
-                        with coluna:
-                            st.markdown(f"**{rotulo}**")
-                if not ficha["municipios"]:
-                    st.info(
-                        "Nenhum município cadastrado. "
-                        "Adicione um registro no primeiro bloco."
-                    )
-                for posicao, municipio in enumerate(ficha["municipios"], 1):
-                    originais = st.session_state.ficha_original.get(
-                        "municipios", []
-                    )
-                    original = (
-                        originais[posicao - 1] if posicao <= len(originais) else {}
-                    )
-                    original_pontos = original.get(codigo) or {}
-                    if not isinstance(original_pontos, dict):
-                        original_pontos = {"validado": original_pontos}
-                    with st.container(key=f"linha_municipal_{codigo.replace('.', '_')}_{posicao}"):
-                        (
-                            coluna_nome,
-                            coluna_gestor,
-                            coluna_just,
-                            coluna_validado,
-                            coluna_anexos,
-                            coluna_acao,
-                        ) = st.columns(
-                            proporcao_municipal,
-                            gap="small",
-                            vertical_alignment="center",
-                        )
-                        with coluna_nome:
-                            if codigo == "10":
-                                chave_nome = f"{prefixo}_municipio_{posicao}"
-                                with st.container(
-                                    key=chave_container_campo(
-                                        chave_nome, original.get("nome", "")
-                                    )
-                                ):
-                                    municipio["nome"] = st.text_input(
-                                        f"Nome do município {posicao}",
-                                        value=municipio["nome"],
-                                        key=chave_nome,
-                                        placeholder="Nome do município",
-                                        disabled=not pode_editar,
-                                        on_change=padronizar_municipio_digitado,
-                                        args=(chave_nome,),
-                                        label_visibility="collapsed",
-                                    )
-                            else:
-                                st.text_input(
-                                    f"Nome do município {posicao}",
-                                    value=municipio["nome"],
-                                    key=(
-                                        f"{prefixo}_somente_nome_{codigo}_{posicao}"
-                                        f"_{municipio['nome']}"
-                                    ),
-                                    disabled=True,
-                                    label_visibility="collapsed",
-                                )
-                        identificado = municipio["nome"].strip() not in ("", "-")
-                        pontos = municipio[codigo]
-                        for coluna, campo, rotulo in (
-                            (coluna_gestor, "gestor", "Pontos Gestor"),
-                            (coluna_validado, "validado", "Pontos Validados"),
+                pontos["rotulo"] = st.text_input(
+                    f"{codigo} · Parâmetro",
+                    value=pontos.get("rotulo", rotulo_padrao),
+                    key=chave_rotulo,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
+                )
+        with coluna_gestor:
+            chave_gestor = f"{prefixo}_{codigo}_gestor"
+            with st.container(
+                key=chave_container_campo(chave_gestor, pontos_originais.get("gestor"))
+            ):
+                pontos["gestor"] = st.number_input(
+                    f"{codigo} · Pontos Gestor",
+                    min_value=0,
+                    max_value=9,
+                    value=pontos["gestor"],
+                    step=1,
+                    key=chave_gestor,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
+                )
+        with coluna_justificativa:
+            chave_justificativa = f"{prefixo}_{codigo}_justificativa"
+            with st.container(
+                key=chave_container_campo(
+                    chave_justificativa,
+                    pontos_originais.get("justificativa", ""),
+                )
+            ):
+                pontos["justificativa"] = st.text_area(
+                    f"{codigo} · Justificativa/Observação",
+                    value=pontos["justificativa"],
+                    key=chave_justificativa,
+                    height=38,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
+                )
+        with coluna_validado:
+            chave_validado = f"{prefixo}_{codigo}_validado"
+            with st.container(
+                key=chave_container_campo(
+                    chave_validado, pontos_originais.get("validado")
+                )
+            ):
+                pontos["validado"] = st.number_input(
+                    f"{codigo} · Pontos Validados",
+                    min_value=0,
+                    max_value=9,
+                    value=pontos["validado"],
+                    step=1,
+                    key=chave_validado,
+                    disabled=not pode_editar,
+                    label_visibility="collapsed",
+                )
+        st.markdown('<hr class="linha-parametro">', unsafe_allow_html=True)
+    total_gestor = sum(pontos["gestor"] or 0 for pontos in ficha["parametros"].values())
+    total_validado = sum(
+        pontos["validado"] or 0 for pontos in ficha["parametros"].values()
+    )
+    st.markdown("**TOTAL DOS PARÂMETROS**")
+    coluna_total_gestor, coluna_total_validado = st.columns(2)
+    with coluna_total_gestor:
+        st.metric("Total — Pontos Gestor", total_gestor)
+    with coluna_total_validado:
+        st.metric("Total — Pontos Validados", total_validado)
+    st.markdown("#### Parâmetros por municípios")
+    st.caption(
+        "Preencha os nomes no bloco 10. Os outros três blocos utilizam "
+        "os mesmos municípios, na mesma ordem. Cada bloco tem seus próprios "
+        "valores de 0 a 9, inclusive zero. Informe o município antes de preencher "
+        "os valores. Os totais e o resumo são atualizados enquanto você preenche."
+    )
+    for codigo in MUNICIPAIS:
+        rotulo = ROTULOS_MUNICIPAIS[codigo]
+        with st.expander(f"Parâmetro ({rotulo}) por Municípios", expanded=False):
+            cabecalho_posicao, cabecalho_municipio, cabecalho_valor = st.columns(
+                [1.1, 2.2, 1]
+            )
+            with cabecalho_posicao:
+                st.caption("Posição")
+            with cabecalho_municipio:
+                st.caption("Município")
+            with cabecalho_valor:
+                st.caption("Valor")
+            for posicao, municipio in enumerate(ficha["municipios"], 1):
+                municipio_original = st.session_state.ficha_original["municipios"][
+                    posicao - 1
+                ]
+                coluna_posicao, coluna_nome, coluna_valor = st.columns([1.1, 2.2, 1])
+                with coluna_posicao:
+                    st.markdown(f"**Município {posicao}**")
+                with coluna_nome:
+                    if codigo == "10":
+                        chave_nome = f"{prefixo}_municipio_{posicao}"
+                        with st.container(
+                            key=chave_container_campo(
+                                chave_nome, municipio_original["nome"]
+                            )
                         ):
-                            with coluna:
-                                chave = (
-                                    f"{prefixo}_municipio_{posicao}_{codigo}_{campo}"
-                                )
-                                with st.container(
-                                    key=chave_container_campo(
-                                        chave, original_pontos.get(campo)
-                                    )
-                                ):
-                                    pontos[campo] = st.number_input(
-                                        f"{rotulo} de {NOMES_MUNICIPAIS[codigo]} "
-                                        f"para o município {posicao}",
-                                        min_value=0,
-                                        max_value=9,
-                                        value=pontos[campo],
-                                        step=1,
-                                        key=chave,
-                                        disabled=not pode_editar or not identificado,
-                                        label_visibility="collapsed",
-                                    )
-                        with coluna_just:
-                            chave_just = (
-                                f"{prefixo}_municipio_{posicao}_{codigo}"
-                                "_justificativa"
+                            municipio["nome"] = st.text_input(
+                                f"Nome do município {posicao}",
+                                value=municipio["nome"],
+                                placeholder="Digite o nome do município",
+                                key=chave_nome,
+                                disabled=not pode_editar,
+                                label_visibility="collapsed",
                             )
-                            with st.container(
-                                key=chave_container_campo(
-                                    chave_just,
-                                    original_pontos.get("justificativa", ""),
-                                )
-                            ):
-                                pontos["justificativa"] = st.text_area(
-                                    f"Justificativa de {NOMES_MUNICIPAIS[codigo]} "
-                                    f"para o município {posicao}",
-                                    value=pontos["justificativa"],
-                                    key=chave_just,
-                                    height=68,
-                                    disabled=not pode_editar or not identificado,
-                                    label_visibility="collapsed",
-                                )
-                        with coluna_anexos:
-                            # Elemento demonstrativo: sem seleção, upload ou
-                            # armazenamento. Ocupa a mesma linha do município.
-                            with st.container(
-                                key=(
-                                    f"anexos_visual_{codigo.replace('.', '_')}"
-                                    f"_{posicao}"
-                                )
-                            ):
-                                st.button(
-                                    "Anexos",
-                                    icon=":material/attach_file:",
-                                    disabled=True,
-                                    width="stretch",
-                                    help=(
-                                        "Apenas indicação visual. O envio de "
-                                        "documentos não está disponível "
-                                        "nesta demonstração."
-                                    ),
-                                    key=(
-                                        f"{prefixo}_anexos_visual_"
-                                        f"{codigo.replace('.', '_')}_{posicao}"
-                                    ),
-                                )
-                        with coluna_acao:
-                            if codigo == "10" and pode_editar:
-                                if st.button(
-                                    "Remover",
-                                    key=f"{prefixo}_remover_municipio_{posicao}",
-                                    help=f"Remover registro {posicao}",
-                                    disabled=len(ficha["municipios"]) == 1,
-                                ):
-                                    mudar_municipios(ficha, prefixo, posicao - 1)
-                if codigo == "10" and pode_editar:
-                    sem_nome = any(
-                        not m["nome"].strip() or m["nome"].strip() == "-"
-                        for m in ficha["municipios"]
-                    )
-                    with st.container(key="acoes_adicionar_municipio"):
-                        col_botao, col_ajuda = st.columns(
-                            [2.2, 7.8], gap="medium", vertical_alignment="center"
+                    else:
+                        # A identificação vem do primeiro bloco e não se duplica.
+                        st.text_input(
+                            f"Nome do município {posicao}",
+                            value=municipio["nome"],
+                            key=(
+                                f"{prefixo}_nome_{codigo}_{posicao}_{municipio['nome']}"
+                            ),
+                            disabled=True,
+                            label_visibility="collapsed",
                         )
-                        with col_botao:
-                            if st.button(
-                                "Adicionar registro",
-                                key=f"{prefixo}_adicionar_municipio",
-                                disabled=sem_nome,
-                                icon=":material/add_circle:",
-                            ):
-                                mudar_municipios(ficha, prefixo, None)
-                        with col_ajuda:
-                            st.caption(
-                                "ⓘ Os nomes são padronizados automaticamente: "
-                                "minúsculas e sem espaços excedentes."
-                            )
-    # A cópia automática não é a ficha oficial. Somente Salvar/Atualizar
-    # modifica o registro e o relatório do sistema.
+                # A pontuação só pode ser editada após identificar o município.
+                municipio_identificado = municipio["nome"].strip() not in ("", "-")
+                with coluna_valor:
+                    chave_valor = f"{prefixo}_municipio_{posicao}_{codigo}"
+                    with st.container(
+                        key=chave_container_campo(
+                            chave_valor, municipio_original[codigo]
+                        )
+                    ):
+                        municipio[codigo] = st.number_input(
+                            f"Valor do parâmetro ({rotulo}) para o município {posicao}",
+                            min_value=0,
+                            max_value=9,
+                            value=municipio[codigo],
+                            step=1,
+                            key=chave_valor,
+                            disabled=not pode_editar or not municipio_identificado,
+                            label_visibility="collapsed",
+                        )
+            # Soma o bloco; entradas vazias continuam ausentes na ficha.
+            total_bloco = sum(
+                municipio[codigo] or 0 for municipio in ficha["municipios"]
+            )
+            _, _, total_valor = st.columns([1.1, 2.2, 1])
+            with total_valor:
+                st.markdown(f"**TOTAL: {total_bloco}**")
+    # Cada edição é mantida na sessão; a base só é alterada por uma ação explícita.
     st.session_state.ficha = deepcopy(ficha)
     tem_alteracoes = ficha != st.session_state.ficha_original
-    if tem_alteracoes and modo == "banco" and pode_editar:
-        try:
-            assinatura = (ficha, st.session_state.versao)
-            if assinatura != st.session_state.get("ultimo_autosalvamento"):
-                repositorio.salvar_edicao(
-                    autor, ficha, st.session_state.ficha_original,
-                    st.session_state.versao, st.session_state.status_ficha,
-                )
-                chave_atual = chave_edicao(ficha)
-                chave_anterior = st.session_state.get("autosalvo_chave")
-                if chave_anterior and chave_anterior != chave_atual:
-                    repositorio.excluir_edicao(autor, chave_anterior)
-                st.session_state.autosalvo_chave = chave_atual
-                st.session_state.ultimo_autosalvamento = deepcopy(assinatura)
-            st.caption(
-                "Cópia de edição registrada automaticamente no banco. "
-                "A ficha oficial só muda após Salvar/Atualizar."
-            )
-        except Exception:  # noqa: BLE001
-            registrador_log.exception("Falha no salvamento automático da edição.")
-            st.error(
-                "A edição NÃO foi salva automaticamente. "
-                "Não feche a página antes de salvar ou resolver a conexão."
-            )
-    if not tem_alteracoes and modo == "banco" and pode_editar:
-        chave_anterior = st.session_state.get("autosalvo_chave")
-        if chave_anterior:
-            try:
-                repositorio.excluir_edicao(autor, chave_anterior)
-                st.session_state.pop("autosalvo_chave", None)
-                st.session_state.pop("ultimo_autosalvamento", None)
-            except Exception:  # noqa: BLE001
-                registrador_log.exception(
-                    "Falha ao limpar edição automática revertida."
-                )
-                st.warning("Não foi possível limpar a cópia automática antiga.")
     campos_alterados = diferencas_ficha(st.session_state.ficha_original, ficha)
     if tem_alteracoes:
         st.markdown(
@@ -1299,17 +1451,6 @@ if modulo == "Ficha":
         with st.expander("Ver campos alterados"):
             for campo_alterado in campos_alterados:
                 st.markdown(f"- {campo_alterado}")
-    if tem_alteracoes:
-        if st.button(
-            "Descartar alterações desta sessão", key="descartar_edicao_sessao"
-        ):
-            if modo == "banco" and pode_editar:
-                repositorio.excluir_edicao(
-                    autor, str(ficha.get("processo", "")).strip() or "__nova__"
-                )
-            abrir(st.session_state.ficha_original, versao, situacao_atual)
-            st.session_state.aviso = "Alterações não gravadas descartadas."
-            st.rerun()
     rascunho = False
     concluir = False
     atualizar = False
@@ -1320,6 +1461,7 @@ if modulo == "Ficha":
         horizontal_alignment="right",
         gap="small",
     ):
+        revisar = st.button("Revisar preenchimento")
         if versao == 0:
             rascunho = st.button("Salvar rascunho", disabled=not pode_editar)
             concluir = st.button("Cadastrar", disabled=not pode_editar)
@@ -1343,6 +1485,30 @@ if modulo == "Ficha":
         )
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
         st.info("O resumo será calculado após informar a pontuação da categoria.")
+    if revisar:
+        # A revisão mostra validações sem gravar o registro na base.
+        st.session_state.exibir_revisao = True
+        st.rerun()
+    if revisar or concluir or st.session_state.pop("exibir_revisao", False):
+        st.markdown("#### Revisão do preenchimento")
+        try:
+            calculo = calcular(ficha)
+            st.metric("Total validado", calculo["total_validado"])
+            st.markdown(
+                renderizar_tabela(
+                    pd.DataFrame(calculo["municipios"])[["Município", "Soma", "FQ"]]
+                ),
+                unsafe_allow_html=True,
+            )
+        except ValueError as erro:
+            pendencias = [linha for linha in str(erro).splitlines() if linha]
+            st.error("Há campos obrigatórios pendentes ou dados inválidos:")
+            for pendencia in pendencias:
+                st.markdown(f"- {pendencia}")
+        except (KeyError, TypeError, ZeroDivisionError):
+            st.error(
+                "Não foi possível gerar a revisão. Confira os dados e tente novamente."
+            )
     if rascunho or concluir:
         try:
             situacao_destino = "Concluída" if concluir else "Rascunho"
@@ -1368,17 +1534,6 @@ if modulo == "Ficha":
                 mensagem_salvamento = (
                     f"{salvo['status']} salva e verificada. Versão {salvo['versao']}."
                 )
-            if modo == "banco":
-                try:
-                    repositorio.excluir_edicao(
-                        autor, str(salvo["ficha"].get("processo", "")).strip()
-                    )
-                except Exception:  # noqa: BLE001
-                    # A ficha oficial já foi confirmada: falha secundária na
-                    # limpeza da cópia não pode converter sucesso em erro.
-                    registrador_log.exception(
-                        "Gravação confirmada; não foi possível limpar cópia automática."
-                    )
             st.session_state.ficha = deepcopy(salvo["ficha"])
             st.session_state.ficha_original = deepcopy(salvo["ficha"])
             st.session_state.versao = salvo["versao"]
@@ -1393,13 +1548,11 @@ if modulo == "Ficha":
         except Exception:  # noqa: BLE001
             registrador_log.exception("Falha ao salvar ou confirmar uma ficha.")
             st.error(
-                "A gravação não pôde ser confirmada. "
-                "Consulte o processo antes de reenviar."
+                "A gravação não pôde ser confirmada. Consulte o processo antes de reenviar."
             )
     if versao > 0:
         if st.button(
             "Excluir ficha",
-            key="excluir_ficha",
             disabled=not pode_editar or tem_alteracoes,
         ):
             st.session_state.confirmar_exclusao = True
@@ -1410,20 +1563,13 @@ if modulo == "Ficha":
         if st.session_state.get("confirmar_exclusao"):
             st.warning(
                 f"Confirme a exclusão da ficha do processo {ficha['processo']}. "
-                "A operação remove a ficha da consulta "
-                "e registra o evento no histórico."
+                "A operação remove a ficha da consulta e registra o evento no histórico."
             )
-            # Controles pequenos, adjacentes e alinhados na mesma linha.
-            with st.container(
-                horizontal=True,
-                horizontal_alignment="left",
-                gap="small",
-                key="acoes_confirmacao_exclusao",
-            ):
+            confirmar, cancelar = st.columns(2)
+            with confirmar:
                 if st.button(
                     "Confirmar exclusão",
                     type="primary",
-                    key="acao_confirmar_exclusao",
                     disabled=not pode_editar or tem_alteracoes,
                 ):
                     try:
@@ -1432,13 +1578,11 @@ if modulo == "Ficha":
                             st.session_state.versao,
                             autor,
                         )
+                        st.session_state.confirmar_exclusao = False
                         abrir(nova_ficha())
-                        # Exibe imediatamente a lista atualizada de concluídas;
-                        # o relatório é refeito a partir da base, sem cache.
-                        st.session_state.modulo_pendente = "Resultados"
+                        st.session_state.modulo_pendente = "Ficha"
                         st.session_state.aviso = (
-                            "Ficha excluída. Ela não aparece mais nos Resultados. "
-                            "A exclusão foi registrada no histórico."
+                            "Ficha excluída. O evento foi registrado no histórico."
                         )
                         st.rerun()
                     except (Conflito, ValueError) as erro:
@@ -1447,225 +1591,122 @@ if modulo == "Ficha":
                     except Exception:  # noqa: BLE001
                         registrador_log.exception("Falha ao excluir uma ficha.")
                         st.error(
-                            "A exclusão não foi confirmada. "
-                            "Consulte novamente antes de repetir."
+                            "A exclusão não foi confirmada. Consulte novamente antes de repetir."
                         )
-                if st.button("Cancelar exclusão", key="cancelar_exclusao"):
+            with cancelar:
+                if st.button("Cancelar exclusão"):
                     st.session_state.confirmar_exclusao = False
                     st.rerun()
 else:
     st.subheader("Resultados consolidados")
     st.caption(
-        "Tabela geral contínua, com identificação e parâmetros gerais "
-        "apresentados uma única vez por processo SEI. Cada município ocupa "
-        "uma linha, com quatro parâmetros próprios, soma e FQ."
+        f"Somente fichas concluídas. Notas exibidas com "
+        f"{CASAS_DECIMAIS_FQ} casas decimais."
     )
-    filtro = st.text_input(
-        "Pesquisar processo SEI, unidade, responsável ou município",
-        key="filtrar_resultados_consolidados",
+    st.caption(
+        "No relatório, o total do bloco 10 alimenta o fator 10; o total do bloco 11 "
+        "alimenta os fatores 11.1, 11.2 e 11.3, conforme definido para E44 e E60."
     )
+    filtro = st.text_input("Filtrar por processo ou unidade")
     try:
         registros = repositorio.listar()
         concluidas = [
             registro for registro in registros if registro["status"] == "Concluída"
         ]
-        resumo_original = resumo_fichas(concluidas)
-        analitico_original = resultado_consolidado(concluidas)
-        quadro_resumo, quadro_analitico = filtrar_resultados_por_processo(
-            resumo_original, analitico_original, filtro
-        )
-        if resumo_original.empty:
+        processo_mais_recente = None
+        if concluidas:
+            datas_gravacao = [
+                pd.to_datetime(registro.get("atualizado_em"), utc=True, errors="coerce")
+                for registro in concluidas
+            ]
+            datas_validas = [
+                (indice, data_gravacao)
+                for indice, data_gravacao in enumerate(datas_gravacao)
+                if not pd.isna(data_gravacao)
+            ]
+            indice_mais_recente = (
+                max(datas_validas, key=lambda registro_data: registro_data[1])[0]
+                if datas_validas
+                else None
+            )
+            if indice_mais_recente is not None:
+                processo_mais_recente = concluidas[indice_mais_recente]["ficha"][
+                    "processo"
+                ]
+        quadro = resultado_consolidado(concluidas)
+        if quadro.empty:
             st.info(
-                "Não há fichas concluídas para exibir. "
-                "Os rascunhos ficam no módulo Ficha."
+                "Não há fichas concluídas para exibir. Os rascunhos ficam no módulo Ficha."
             )
-        elif quadro_resumo.empty:
-            st.info("Nenhuma ficha corresponde à pesquisa informada.")
         else:
-            # A ordem de SEI é estável e o cadastro mantém a ordem municipal.
-            quadro_analitico = quadro_analitico.sort_values(
-                by="Nº SEI", kind="stable"
-            ).reset_index(drop=True)
-            quadro_geral = apresentar_cabecalhos_municipais(
-                consolidado_geral_visual(quadro_analitico)
-            )
-            destaques = {
-                registro["ficha"]["processo"]: {
-                    NOMES_MUNICIPAIS.get(coluna.removeprefix("PARÂM "), coluna)
-                    for coluna in colunas_resultado_alteradas(
-                        registro.get("alteracoes_ultima_versao", {}),
-                        segredo("totais_resultado", {}),
-                    )
-                }
+            if filtro:
+                selecao = quadro["Nº SEI"].str.contains(filtro, regex=False, case=False)
+                selecao |= quadro["REMETENTE - UCs"].str.contains(
+                    filtro, regex=False, case=False
+                )
+                quadro = quadro[selecao]
+            quadro_tela = quadro.copy()
+            if processo_mais_recente:
+                quadro_tela.insert(
+                    1,
+                    "Indicador",
+                    quadro_tela["Nº SEI"].map(
+                        lambda processo: (
+                            "Último cadastro"
+                            if processo == processo_mais_recente
+                            else ""
+                        )
+                    ),
+                )
+            destaques_por_processo = {
+                registro["ficha"]["processo"]: colunas_resultado_alteradas(
+                    registro.get("alteracoes_ultima_versao", {})
+                )
                 for registro in concluidas
             }
-            aba_geral, aba_consulta = st.tabs(
-                ["Consolidado geral", "Consulta por processo"]
+            tabela_quadro = renderizar_tabela(quadro_tela, destaques_por_processo)
+            with st.container(key="resultados_grade"):
+                st.markdown(tabela_quadro, unsafe_allow_html=True)
+            st.caption(
+                "'Último cadastro' marca a ficha concluída gravada mais recentemente; "
+                "rascunhos não participam deste indicador. Use a barra da grade para "
+                "percorrer as colunas e o controle de tela cheia para ampliar a consulta."
             )
-            with aba_geral:
-                st.markdown(
-                    f'<div class="resumo-resultados">'
-                    f'{len(quadro_resumo)} ficha(s) concluída(s) · '
-                    f'{len(quadro_analitico)} resultado(s) municipal(is)</div>',
-                    unsafe_allow_html=True,
-                )
+            if any(destaques_por_processo.values()):
                 st.caption(
-                    "Na primeira linha de cada SEI aparecem os dados da ficha. "
-                    "Nas linhas seguintes aparecem somente os dados de "
-                    "cada município adicional. Percorra a tabela horizontalmente "
-                    "para consultar todas as colunas."
+                    "Células em verde claro indicam dados alterados na última "
+                    "atualização salva da ficha. Os destaques permanecem até "
+                    "a próxima atualização salva da própria ficha."
                 )
-                with st.container(key="resultados_grade"):
-                    st.markdown(
-                        renderizar_tabela(
-                            quadro_geral,
-                            destaques,
-                            agrupar_processos=True,
-                        ),
-                        unsafe_allow_html=True,
-                    )
-                col_visual, col_analitico = st.columns([1, 1], gap="small")
-                with col_visual:
-                    st.download_button(
-                        "Baixar CSV — consolidado geral",
-                        proteger_csv(quadro_geral),
-                        "icms_consolidado_geral.csv",
-                        "text/csv",
-                        use_container_width=True,
-                    )
-                with col_analitico:
-                    st.download_button(
-                        "Baixar CSV — análise completa",
-                        proteger_csv(apresentar_cabecalhos_municipais(quadro_analitico)),
-                        "icms_resultados_analiticos.csv",
-                        "text/csv",
-                        use_container_width=True,
-                    )
-                st.caption(
-                    "O CSV consolidado reproduz a apresentação visual sem "
-                    "repetir a identificação. O CSV para análise mantém o SEI "
-                    "em todas as linhas para permitir filtros e cruzamentos."
-                )
-                if any(destaques.values()):
-                    st.caption(
-                        "Células destacadas indicam informações modificadas "
-                        "na última versão salva da respectiva ficha."
-                    )
-            with aba_consulta:
-                st.caption(
-                    "Selecione um processo para consultar sua identificação, "
-                    "as pontuações gerais e os municípios vinculados."
-                )
-                processos = quadro_resumo["Nº SEI"].tolist()
-                processo_selecionado = st.selectbox(
-                    "Processo SEI",
-                    processos,
-                    key="processo_consulta_resultados",
-                )
-                registro = next(
-                    registro for registro in concluidas
-                    if registro["ficha"]["processo"] == processo_selecionado
-                )
-                linha_resumo = quadro_resumo.loc[
-                    quadro_resumo["Nº SEI"] == processo_selecionado
-                ].iloc[0]
-                ficha = registro["ficha"]
-                parametros_gerais = pd.DataFrame(
-                    [
-                        {
-                            "Parâmetro": f"{codigo} · {nome}",
-                            "Pontos validados": ficha["parametros"][codigo]["validado"],
-                        }
-                        for codigo, nome in PARAMETROS
-                    ]
-                )
-                identificacao = pd.DataFrame(
-                    [
-                        {"Campo": "Nº SEI", "Valor": linha_resumo["Nº SEI"]},
-                        {
-                            "Campo": "Data recebida",
-                            "Valor": linha_resumo["DATA RECEBIDA"].strftime(
-                                "%d/%m/%Y"
-                            ),
-                        },
-                        {
-                            "Campo": "Remetente - UCs",
-                            "Valor": linha_resumo["REMETENTE - UCs"],
-                        },
-                        {"Campo": "Esfera", "Valor": linha_resumo["Esfera"]},
-                        {"Campo": "URFBio", "Valor": linha_resumo["URFBio"]},
-                        {
-                            "Campo": "Responsável",
-                            "Valor": linha_resumo["RESPONSÁVEL"],
-                        },
-                        {
-                            "Campo": "Municípios cadastrados",
-                            "Valor": linha_resumo["Municípios cadastrados"],
-                        },
-                    ]
-                )
-                col_id, col_parametros = st.columns([1.1, 1.4], gap="large")
-                with col_id:
-                    st.markdown("##### Identificação")
-                    st.markdown(
-                        renderizar_tabela(identificacao),
-                        unsafe_allow_html=True,
-                    )
-                with col_parametros:
-                    st.markdown("##### Parâmetros gerais")
-                    st.markdown(
-                        renderizar_tabela(parametros_gerais),
-                        unsafe_allow_html=True,
-                    )
-                municipios_processo = apresentar_cabecalhos_municipais(
-                    quadro_analitico.loc[
-                        quadro_analitico["Nº SEI"] == processo_selecionado,
-                        [
-                            "Município", "PARÂM 10", "PARÂM 11.1",
-                            "PARÂM 11.2", "PARÂM 11.3",
-                            "SOMA PARÂMETROS", "FQ",
-                        ],
-                    ]
-                )
-                st.markdown("##### Municípios vinculados")
-                st.markdown(
-                    renderizar_tabela(municipios_processo),
-                    unsafe_allow_html=True,
-                )
+            st.download_button(
+                "Baixar CSV",
+                proteger_csv(quadro),
+                "resultado_fq.csv",
+                "text/csv",
+            )
+    # A consulta agrega dados locais e remotos; erros ficam no log do servidor.
     except Exception:  # noqa: BLE001
-        registrador_log.exception("Falha ao montar o resultado consolidado.")
+        registrador_log.exception("Falha ao montar a tabela consolidada.")
         st.error("Não foi possível montar o resultado. Confira as fichas e a conexão.")
 
 st.markdown(
     """
-    <footer class="rodape-institucional" aria-label="Rodapé da aplicação">
+    <footer class="rodape-institucional">
       <div class="rodape-principal">
         <div class="rodape-marca">
-          <div class="rodape-logo-placeholder"
-               role="img" aria-label="Espaço reservado para logo institucional">
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
-                 viewBox="0 0 64 64" fill="none">
-              <path d="M10 53h44M16 53V23l16-12 16 12v30"
-                    stroke="currentColor" stroke-width="3"
-                    stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M23 31h6v6h-6zM35 31h6v6h-6zM27 53V43h10v10"
-                    stroke="currentColor" stroke-width="2.5"
-                    stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span>Logo institucional</span>
-          </div>
-          <div class="rodape-identificacao">
-            <strong>Nome institucional</strong>
-            <span>Unidade ou órgão responsável</span>
-          </div>
+          <strong>IEF</strong>
+          <span>Instituto Estadual de Florestas<br>Governo de Minas Gerais</span>
         </div>
-        <div class="rodape-informacoes">
-          <span>Informações institucionais e responsabilidades</span>
+        <div class="rodape-links">
+          <a href="https://semad.mg.gov.br/politica-de-privacidade-do-sisema"
+             target="_blank" rel="noopener noreferrer">
+            Aspectos legais e responsabilidades · Política de Privacidade do Sisema
+          </a>
         </div>
       </div>
       <div class="rodape-inferior">
-        <span>Endereço institucional a definir</span>
-        <span>ICMS Ecológico · Aplicação de demonstração</span>
+        <span>Rodovia João Paulo II, 4143, Bairro Serra Verde · CEP 31630-900</span>
+        <span>ICMS Ecológico · Aplicação de apoio</span>
       </div>
     </footer>
     <div id="fim"></div>
@@ -1673,9 +1714,3 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
-# Aviso nativo de saída. Não substitui o salvamento transacional no banco.
-aviso_saida_navegador(
-    st.session_state.ficha != st.session_state.ficha_original,
-    int(st.session_state.get("geracao", 0)),
-)
