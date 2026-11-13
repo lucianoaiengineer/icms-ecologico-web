@@ -627,11 +627,15 @@ if st.session_state.get("confirmar_saida_modulo"):
             st.rerun()
 
 if modulo == "Ficha":
-    st.markdown('<h1 class="icms-titulo-pagina">Ficha</h1>', unsafe_allow_html=True)
-    st.caption(
-        "Informe o processo SEI para abrir uma ficha existente ou iniciar uma nova. "
-        "A ficha encontrada abre neste mesmo módulo para edição."
-    )
+    with st.container(key="ficha_abertura_compacta"):
+        st.markdown(
+            '<h1 class="icms-titulo-pagina">Ficha</h1>',
+            unsafe_allow_html=True,
+        )
+        st.caption(
+            "Informe o processo SEI para abrir uma ficha existente ou iniciar uma nova. "
+            "A ficha encontrada abre neste mesmo módulo para edição."
+        )
     if modo == "banco" and pode_editar:
         try:
             recuperaveis = repositorio.listar_edicoes(autor)
@@ -876,11 +880,11 @@ if modulo == "Ficha":
                     ficha[campo] = st.date_input(
                         rotulo,
                         value=date.fromisoformat(ficha[campo]),
-                        format="MM/DD/YYYY",
+                        format="DD/MM/YYYY",
                         key=chave,
                         disabled=not pode_editar,
                         label_visibility="collapsed",
-                        width="stretch",
+                        width=195,
                     ).isoformat()
             elif campo == "esfera":
                 opcoes = ["", "Estadual", "Federal", "Municipal"]
@@ -917,11 +921,12 @@ if modulo == "Ficha":
                         ) if campo != "analise" else False,
                         placeholder="mm/aaaa" if campo == "analise" else "",
                         label_visibility="collapsed",
+                        width=140 if campo == "analise" else "stretch",
                     )
 
     with st.container(key="identificacao_cartao"):
         with st.expander(
-            "Identificação", expanded=False, icon=":material/folder_open:"
+            "Identificação", expanded=True, icon=":material/folder_open:"
         ):
             st.markdown(
                 '<div class="icms-identificacao-descricao">'
